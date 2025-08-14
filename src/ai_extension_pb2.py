@@ -24,7 +24,7 @@ _sym_db = _symbol_database.Default()
 
 
 
-DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(b'\n\x12\x61i_extension.proto\x12\x0b\x61iextension\"B\n\x0cQueryExample\x12\x1f\n\x17natural_language_prompt\x18\x01 \x01(\t\x12\x11\n\tsql_query\x18\x02 \x01(\t\"\xcc\x01\n\x12GenerateSQLRequest\x12\x1e\n\x16natural_language_input\x18\x01 \x01(\t\x12\x30\n\rdatabase_type\x18\x02 \x01(\x0e\x32\x19.aiextension.DatabaseType\x12\x0f\n\x07schemas\x18\x03 \x03(\t\x12\x17\n\nsession_id\x18\x04 \x01(\tH\x00\x88\x01\x01\x12+\n\x08\x65xamples\x18\x05 \x03(\x0b\x32\x19.aiextension.QueryExampleB\r\n\x0b_session_id\"}\n\x13GenerateSQLResponse\x12/\n\x07success\x18\x01 \x01(\x0b\x32\x1c.aiextension.SuccessResponseH\x00\x12+\n\x05\x65rror\x18\x02 \x01(\x0b\x32\x1a.aiextension.ErrorResponseH\x00\x42\x08\n\x06result\"\x82\x01\n\x0fSuccessResponse\x12\x11\n\tsql_query\x18\x01 \x01(\t\x12\x18\n\x0b\x65xplanation\x18\x02 \x01(\tH\x00\x88\x01\x01\x12\x1d\n\x10\x63onfidence_score\x18\x03 \x01(\x02H\x01\x88\x01\x01\x42\x0e\n\x0c_explanationB\x13\n\x11_confidence_score\"F\n\rErrorResponse\x12$\n\x04\x63ode\x18\x01 \x01(\x0e\x32\x16.aiextension.ErrorCode\x12\x0f\n\x07message\x18\x02 \x01(\t*T\n\x0c\x44\x61tabaseType\x12\x1d\n\x19\x44\x41TABASE_TYPE_UNSPECIFIED\x10\x00\x12\t\n\x05MYSQL\x10\x01\x12\x0e\n\nPOSTGRESQL\x10\x02\x12\n\n\x06SQLITE\x10\x03*\x83\x01\n\tErrorCode\x12\x1a\n\x16\x45RROR_CODE_UNSPECIFIED\x10\x00\x12\x14\n\x10INVALID_ARGUMENT\x10\x01\x12\x16\n\x12TRANSLATION_FAILED\x10\x02\x12\x18\n\x14UNSUPPORTED_DATABASE\x10\x03\x12\x12\n\x0eINTERNAL_ERROR\x10\x04\x32r\n\x0b\x41IExtension\x12\x63\n\x1eGenerateSQLFromNaturalLanguage\x12\x1f.aiextension.GenerateSQLRequest\x1a .aiextension.GenerateSQLResponseB-Z+github.com/LinuxSuRen/atest-ext-ai/pkg/grpcb\x06proto3')
+DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(b'\n\x12\x61i_extension.proto\x12\x0b\x61iextension\"\xd2\x02\n\x16GenerateContentRequest\x12\x0e\n\x06prompt\x18\x01 \x01(\t\x12\x13\n\x0b\x63ontentType\x18\x02 \x01(\t\x12\x41\n\x07\x63ontext\x18\x03 \x03(\x0b\x32\x30.aiextension.GenerateContentRequest.ContextEntry\x12\x16\n\tsessionId\x18\x04 \x01(\tH\x00\x88\x01\x01\x12G\n\nparameters\x18\x05 \x03(\x0b\x32\x33.aiextension.GenerateContentRequest.ParametersEntry\x1a.\n\x0c\x43ontextEntry\x12\x0b\n\x03key\x18\x01 \x01(\t\x12\r\n\x05value\x18\x02 \x01(\t:\x02\x38\x01\x1a\x31\n\x0fParametersEntry\x12\x0b\n\x03key\x18\x01 \x01(\t\x12\r\n\x05value\x18\x02 \x01(\t:\x02\x38\x01\x42\x0c\n\n_sessionId\"\x88\x01\n\x17GenerateContentResponse\x12\x36\n\x07success\x18\x01 \x01(\x0b\x32#.aiextension.ContentSuccessResponseH\x00\x12+\n\x05\x65rror\x18\x02 \x01(\x0b\x32\x1a.aiextension.ErrorResponseH\x00\x42\x08\n\x06result\"\xfb\x01\n\x16\x43ontentSuccessResponse\x12\x0f\n\x07\x63ontent\x18\x01 \x01(\t\x12\x18\n\x0b\x65xplanation\x18\x02 \x01(\tH\x00\x88\x01\x01\x12\x1c\n\x0f\x63onfidenceScore\x18\x03 \x01(\x01H\x01\x88\x01\x01\x12\x43\n\x08metadata\x18\x04 \x03(\x0b\x32\x31.aiextension.ContentSuccessResponse.MetadataEntry\x1a/\n\rMetadataEntry\x12\x0b\n\x03key\x18\x01 \x01(\t\x12\r\n\x05value\x18\x02 \x01(\t:\x02\x38\x01\x42\x0e\n\x0c_explanationB\x12\n\x10_confidenceScore\"F\n\rErrorResponse\x12$\n\x04\x63ode\x18\x01 \x01(\x0e\x32\x16.aiextension.ErrorCode\x12\x0f\n\x07message\x18\x02 \x01(\t*\x83\x01\n\tErrorCode\x12\x1a\n\x16\x45RROR_CODE_UNSPECIFIED\x10\x00\x12\x14\n\x10INVALID_ARGUMENT\x10\x01\x12\x16\n\x12TRANSLATION_FAILED\x10\x02\x12\x18\n\x14UNSUPPORTED_DATABASE\x10\x03\x12\x12\n\x0eINTERNAL_ERROR\x10\x04\x32k\n\x0b\x41IExtension\x12\\\n\x0fGenerateContent\x12#.aiextension.GenerateContentRequest\x1a$.aiextension.GenerateContentResponseB-Z+github.com/LinuxSuRen/atest-ext-ai/pkg/grpcb\x06proto3')
 
 _globals = globals()
 _builder.BuildMessageAndEnumDescriptors(DESCRIPTOR, _globals)
@@ -32,20 +32,28 @@ _builder.BuildTopDescriptorsAndMessages(DESCRIPTOR, 'ai_extension_pb2', _globals
 if not _descriptor._USE_C_DESCRIPTORS:
   _globals['DESCRIPTOR']._loaded_options = None
   _globals['DESCRIPTOR']._serialized_options = b'Z+github.com/LinuxSuRen/atest-ext-ai/pkg/grpc'
-  _globals['_DATABASETYPE']._serialized_start=642
-  _globals['_DATABASETYPE']._serialized_end=726
-  _globals['_ERRORCODE']._serialized_start=729
-  _globals['_ERRORCODE']._serialized_end=860
-  _globals['_QUERYEXAMPLE']._serialized_start=35
-  _globals['_QUERYEXAMPLE']._serialized_end=101
-  _globals['_GENERATESQLREQUEST']._serialized_start=104
-  _globals['_GENERATESQLREQUEST']._serialized_end=308
-  _globals['_GENERATESQLRESPONSE']._serialized_start=310
-  _globals['_GENERATESQLRESPONSE']._serialized_end=435
-  _globals['_SUCCESSRESPONSE']._serialized_start=438
-  _globals['_SUCCESSRESPONSE']._serialized_end=568
-  _globals['_ERRORRESPONSE']._serialized_start=570
-  _globals['_ERRORRESPONSE']._serialized_end=640
-  _globals['_AIEXTENSION']._serialized_start=862
-  _globals['_AIEXTENSION']._serialized_end=976
+  _globals['_GENERATECONTENTREQUEST_CONTEXTENTRY']._loaded_options = None
+  _globals['_GENERATECONTENTREQUEST_CONTEXTENTRY']._serialized_options = b'8\001'
+  _globals['_GENERATECONTENTREQUEST_PARAMETERSENTRY']._loaded_options = None
+  _globals['_GENERATECONTENTREQUEST_PARAMETERSENTRY']._serialized_options = b'8\001'
+  _globals['_CONTENTSUCCESSRESPONSE_METADATAENTRY']._loaded_options = None
+  _globals['_CONTENTSUCCESSRESPONSE_METADATAENTRY']._serialized_options = b'8\001'
+  _globals['_ERRORCODE']._serialized_start=842
+  _globals['_ERRORCODE']._serialized_end=973
+  _globals['_GENERATECONTENTREQUEST']._serialized_start=36
+  _globals['_GENERATECONTENTREQUEST']._serialized_end=374
+  _globals['_GENERATECONTENTREQUEST_CONTEXTENTRY']._serialized_start=263
+  _globals['_GENERATECONTENTREQUEST_CONTEXTENTRY']._serialized_end=309
+  _globals['_GENERATECONTENTREQUEST_PARAMETERSENTRY']._serialized_start=311
+  _globals['_GENERATECONTENTREQUEST_PARAMETERSENTRY']._serialized_end=360
+  _globals['_GENERATECONTENTRESPONSE']._serialized_start=377
+  _globals['_GENERATECONTENTRESPONSE']._serialized_end=513
+  _globals['_CONTENTSUCCESSRESPONSE']._serialized_start=516
+  _globals['_CONTENTSUCCESSRESPONSE']._serialized_end=767
+  _globals['_CONTENTSUCCESSRESPONSE_METADATAENTRY']._serialized_start=684
+  _globals['_CONTENTSUCCESSRESPONSE_METADATAENTRY']._serialized_end=731
+  _globals['_ERRORRESPONSE']._serialized_start=769
+  _globals['_ERRORRESPONSE']._serialized_end=839
+  _globals['_AIEXTENSION']._serialized_start=975
+  _globals['_AIEXTENSION']._serialized_end=1082
 # @@protoc_insertion_point(module_scope)

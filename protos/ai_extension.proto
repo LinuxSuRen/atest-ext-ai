@@ -6,65 +6,49 @@ option go_package = "github.com/LinuxSuRen/atest-ext-ai/pkg/grpc";
 
 // AIExtension service provides AI-powered capabilities for atest.
 service AIExtension {
-  // Translates a natural language query into an SQL query, providing
-  // context and explanations for better accuracy and user trust.
-  rpc GenerateSQLFromNaturalLanguage (GenerateSQLRequest) returns (GenerateSQLResponse);
+  // Generates content based on natural language prompts with context.
+  // This is a general-purpose AI interface that can handle SQL generation,
+  // test case writing, mock service creation, and other AI-powered tasks.
+  rpc GenerateContent(GenerateContentRequest) returns (GenerateContentResponse);
 }
 
-// Enum for supported database dialects to ensure type safety.
-enum DatabaseType {
-  // DATABASE_TYPE_UNSPECIFIED indicates a missing or unknown database type.
-  DATABASE_TYPE_UNSPECIFIED = 0;
-  MYSQL = 1;
-  POSTGRESQL = 2;
-  SQLITE = 3;
+
+
+// Request message for generating content based on natural language prompts.
+message GenerateContentRequest {
+  // The user's prompt in natural language.
+  string prompt = 1;
+  // The type of content to generate (e.g., "sql", "testcase", "mock").
+  string contentType = 2;
+  // Context information to help with generation.
+  map<string, string> context = 3;
+  // Optional: A session identifier to maintain context across multiple requests.
+  optional string sessionId = 4;
+  // Optional: Additional parameters specific to the content type.
+  map<string, string> parameters = 5;
 }
 
-// Represents an example pair of natural language to SQL for few-shot prompting.
-message QueryExample {
-  // A natural language query example.
-  string natural_language_prompt = 1;
-  // The corresponding correct SQL query for the prompt.
-  string sql_query = 2;
-}
-
-// Request message for generating an SQL query from natural language.
-message GenerateSQLRequest {
-  // The user's query in natural language. (e.g., "show me all users from California")
-  string natural_language_input = 1;
-  // Target database dialect for SQL generation.
-  DatabaseType database_type = 2;
-  // Optional: A list of DDL statements (e.g., CREATE TABLE …) for relevant tables.
-  // Providing schemas helps the AI generate more accurate queries.
-  repeated string schemas = 3;
-  // Optional: A session identifier to maintain context across multiple requests,
-  // enabling conversational query refinement.
-  optional string session_id = 4;
-  // Optional: A list of examples to guide the AI, improving accuracy for
-  // specific or complex domains.
-  repeated QueryExample examples = 5;
-}
-
-// Response message containing the result of the SQL generation.
-message GenerateSQLResponse {
+// Response message containing the result of content generation.
+message GenerateContentResponse {
   // The response can be one of the following types.
   oneof result {
-    // Contains the successful SQL generation details.
-    SuccessResponse success = 1;
+    // Contains the successful content generation details.
+    ContentSuccessResponse success = 1;
     // Contains details about why the generation failed.
     ErrorResponse error = 2;
   }
 }
 
-// Represents a successful SQL generation.
-message SuccessResponse {
-  // The generated SQL query.
-  string sql_query = 1;
-  // An explanation of how the AI interpreted the request and generated the SQL.
-  // This builds user trust and aids in debugging.
+// Represents a successful content generation.
+message ContentSuccessResponse {
+  // The generated content.
+  string content = 1;
+  // Human-readable explanation of the generation process.
   optional string explanation = 2;
-  // A score between 0.0 and 1.0 indicating the AI's confidence in the generated query.
-  optional float confidence_score = 3;
+  // Confidence score (0.0 to 1.0) indicating the AI's confidence in the result.
+  optional double confidenceScore = 3;
+  // Additional metadata about the generation.
+  map<string, string> metadata = 4;
 }
 
 // Enum for structured error codes.

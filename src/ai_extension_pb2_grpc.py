@@ -35,10 +35,10 @@ class AIExtensionStub(object):
         Args:
             channel: A grpc.Channel.
         """
-        self.GenerateSQLFromNaturalLanguage = channel.unary_unary(
-                '/aiextension.AIExtension/GenerateSQLFromNaturalLanguage',
-                request_serializer=ai__extension__pb2.GenerateSQLRequest.SerializeToString,
-                response_deserializer=ai__extension__pb2.GenerateSQLResponse.FromString,
+        self.GenerateContent = channel.unary_unary(
+                '/aiextension.AIExtension/GenerateContent',
+                request_serializer=ai__extension__pb2.GenerateContentRequest.SerializeToString,
+                response_deserializer=ai__extension__pb2.GenerateContentResponse.FromString,
                 _registered_method=True)
 
 
@@ -46,9 +46,10 @@ class AIExtensionServicer(object):
     """AIExtension service provides AI-powered capabilities for atest.
     """
 
-    def GenerateSQLFromNaturalLanguage(self, request, context):
-        """Translates a natural language query into an SQL query, providing
-        context and explanations for better accuracy and user trust.
+    def GenerateContent(self, request, context):
+        """Generates content based on natural language prompts with context.
+        This is a general-purpose AI interface that can handle SQL generation,
+        test case writing, mock service creation, and other AI-powered tasks.
         """
         context.set_code(grpc.StatusCode.UNIMPLEMENTED)
         context.set_details('Method not implemented!')
@@ -57,10 +58,10 @@ class AIExtensionServicer(object):
 
 def add_AIExtensionServicer_to_server(servicer, server):
     rpc_method_handlers = {
-            'GenerateSQLFromNaturalLanguage': grpc.unary_unary_rpc_method_handler(
-                    servicer.GenerateSQLFromNaturalLanguage,
-                    request_deserializer=ai__extension__pb2.GenerateSQLRequest.FromString,
-                    response_serializer=ai__extension__pb2.GenerateSQLResponse.SerializeToString,
+            'GenerateContent': grpc.unary_unary_rpc_method_handler(
+                    servicer.GenerateContent,
+                    request_deserializer=ai__extension__pb2.GenerateContentRequest.FromString,
+                    response_serializer=ai__extension__pb2.GenerateContentResponse.SerializeToString,
             ),
     }
     generic_handler = grpc.method_handlers_generic_handler(
@@ -75,7 +76,7 @@ class AIExtension(object):
     """
 
     @staticmethod
-    def GenerateSQLFromNaturalLanguage(request,
+    def GenerateContent(request,
             target,
             options=(),
             channel_credentials=None,
@@ -88,9 +89,9 @@ class AIExtension(object):
         return grpc.experimental.unary_unary(
             request,
             target,
-            '/aiextension.AIExtension/GenerateSQLFromNaturalLanguage',
-            ai__extension__pb2.GenerateSQLRequest.SerializeToString,
-            ai__extension__pb2.GenerateSQLResponse.FromString,
+            '/aiextension.AIExtension/GenerateContent',
+            ai__extension__pb2.GenerateContentRequest.SerializeToString,
+            ai__extension__pb2.GenerateContentResponse.FromString,
             options,
             channel_credentials,
             insecure,

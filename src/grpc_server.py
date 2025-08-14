@@ -8,11 +8,10 @@ from concurrent import futures
 from typing import Dict, Any
 
 from ai_extension_pb2 import (
-    GenerateSQLRequest,
-    GenerateSQLResponse,
-    SuccessResponse,
+    GenerateContentRequest,
+    GenerateContentResponse,
+    ContentSuccessResponse,
     ErrorResponse,
-    DatabaseType,
     ErrorCode
 )
 from ai_extension_pb2_grpc import (
@@ -51,47 +50,68 @@ class AIExtensionService(AIExtensionServicer):
         else:
             raise ValueError(f"Unsupported LLM provider: {provider}")
     
-    def GenerateSQLFromNaturalLanguage(self, request: GenerateSQLRequest, context) -> GenerateSQLResponse:
-        """Generate SQL query from natural language input
+    def GenerateContent(self, request: GenerateContentRequest, context) -> GenerateContentResponse:
+        """Generate content based on natural language prompts with context
         
         Args:
-            request: The GenerateSQLRequest containing natural language input
+            request: The GenerateContentRequest containing prompt and content type
             context: gRPC context
             
         Returns:
-            GenerateSQLResponse with either success or error result
+            GenerateContentResponse with either success or error result
         """
         try:
-            logging.info(f"Received request: {request.natural_language_input}")
+            logging.info(f"Received request - Content Type: {request.contentType}, Prompt: {request.prompt}")
             
             # Validate input
-            if not request.natural_language_input.strip():
-                return GenerateSQLResponse(
+            if not request.prompt.strip():
+                return GenerateContentResponse(
                     error=ErrorResponse(
                         code=ErrorCode.INVALID_ARGUMENT,
-                        message="Natural language input cannot be empty"
+                        message="Prompt cannot be empty"
                     )
                 )
             
-            # Get database type string
-            db_type = self._get_database_type_string(request.database_type)
-            if not db_type:
-                return GenerateSQLResponse(
+            if not request.contentType.strip():
+                return GenerateContentResponse(
                     error=ErrorResponse(
-                        code=ErrorCode.UNSUPPORTED_DATABASE,
-                        message=f"Unsupported database type: {request.database_type}"
+                        code=ErrorCode.INVALID_ARGUMENT,
+                        message="Content type cannot be empty"
                     )
                 )
             
-            # Build prompt
+            # Handle different content types
+            if request.contentType.lower() == "sql":
+                return self._generate_sql_content(request)
+            elif request.contentType.lower() == "testcase":
+                return self._generate_testcase_content(request)
+            elif request.contentType.lower() == "mock":
+                return self._generate_mock_content(request)
+            else:
+                return self._generate_generic_content(request)
+                
+        except Exception as e:
+            logging.error(f"Error generating content: {str(e)}")
+            return GenerateContentResponse(
+                error=ErrorResponse(
+                    code=ErrorCode.INTERNAL_ERROR,
+                    message=f"Internal error: {str(e)}"
+                )
+            )
+    
+    def _generate_sql_content(self, request: GenerateContentRequest) -> GenerateContentResponse:
+        """Generate SQL content from natural language"""
+        try:
+            # Extract SQL-specific parameters
+            db_type = request.parameters.get('database_type', 'mysql')
+            schemas = request.context.get('schemas', '').split(',') if request.context.get('schemas') else None
+            
+            # Build SQL generation prompt
             prompt = self.prompt_builder.build_sql_generation_prompt(
-                natural_language_input=request.natural_language_input,
+                natural_language_input=request.prompt,
                 database_type=db_type,
-                schemas=list(request.schemas) if request.schemas else None,
-                examples=[
-                    {"natural_language": ex.natural_language_prompt, "sql": ex.sql_query}
-                    for ex in request.examples
-                ] if request.examples else None
+                schemas=schemas,
+                examples=None  # Could be extracted from parameters if needed
             )
             
             # Generate SQL using LLM
@@ -103,7 +123,7 @@ class AIExtensionService(AIExtensionServicer):
             response = self.llm_connector.generate_content(messages)
             
             if not response or 'content' not in response:
-                return GenerateSQLResponse(
+                return GenerateContentResponse(
                     error=ErrorResponse(
                         code=ErrorCode.TRANSLATION_FAILED,
                         message="Failed to generate SQL from LLM"
@@ -116,40 +136,168 @@ class AIExtensionService(AIExtensionServicer):
             sql_query = self.dialect_manager.adapt_sql_for_dialect(sql_query, db_type)
             
             # Create success response
-            success_response = SuccessResponse(
-                sql_query=sql_query,
+            success_response = ContentSuccessResponse(
+                content=sql_query,
                 explanation=f"Generated {db_type} SQL query from natural language input",
-                confidence_score=response.get('confidence', 0.8)
+                confidenceScore=response.get('confidence', 0.8),
+                metadata={
+                    "content_type": "sql",
+                    "database_type": db_type
+                }
             )
             
             logging.info(f"Generated SQL: {sql_query}")
             
-            return GenerateSQLResponse(success=success_response)
+            return GenerateContentResponse(success=success_response)
             
         except Exception as e:
-            logging.error(f"Error generating SQL: {str(e)}")
-            return GenerateSQLResponse(
+            logging.error(f"Error generating SQL content: {str(e)}")
+            return GenerateContentResponse(
                 error=ErrorResponse(
                     code=ErrorCode.INTERNAL_ERROR,
                     message=f"Internal error: {str(e)}"
                 )
             )
     
-    def _get_database_type_string(self, db_type: int) -> str:
-        """Convert DatabaseType enum to string
-        
-        Args:
-            db_type: DatabaseType enum value
+    def _generate_testcase_content(self, request: GenerateContentRequest) -> GenerateContentResponse:
+        """Generate test case content"""
+        try:
+            # Build test case generation prompt
+            prompt = f"Generate test cases for: {request.prompt}"
             
-        Returns:
-            Database type string or None if unsupported
-        """
-        type_mapping = {
-            DatabaseType.MYSQL: "mysql",
-            DatabaseType.POSTGRESQL: "postgresql",
-            DatabaseType.SQLITE: "sqlite"
-        }
-        return type_mapping.get(db_type)
+            # Add context if available
+            if request.context:
+                context_info = ", ".join([f"{k}: {v}" for k, v in request.context.items()])
+                prompt += f"\nContext: {context_info}"
+            
+            messages = [
+                {"role": "system", "content": "You are an AI assistant that generates comprehensive test cases."},
+                {"role": "user", "content": prompt}
+            ]
+            
+            response = self.llm_connector.generate_content(messages)
+            
+            if not response or 'content' not in response:
+                return GenerateContentResponse(
+                    error=ErrorResponse(
+                        code=ErrorCode.TRANSLATION_FAILED,
+                        message="Failed to generate test cases from LLM"
+                    )
+                )
+            
+            success_response = ContentSuccessResponse(
+                content=response['content'].strip(),
+                explanation="Generated test cases based on the provided requirements",
+                confidenceScore=response.get('confidence', 0.8),
+                metadata={
+                    "content_type": "testcase"
+                }
+            )
+            
+            return GenerateContentResponse(success=success_response)
+            
+        except Exception as e:
+            logging.error(f"Error generating test case content: {str(e)}")
+            return GenerateContentResponse(
+                error=ErrorResponse(
+                    code=ErrorCode.INTERNAL_ERROR,
+                    message=f"Internal error: {str(e)}"
+                )
+            )
+    
+    def _generate_mock_content(self, request: GenerateContentRequest) -> GenerateContentResponse:
+        """Generate mock service content"""
+        try:
+            # Build mock service generation prompt
+            prompt = f"Generate mock service for: {request.prompt}"
+            
+            # Add context if available
+            if request.context:
+                context_info = ", ".join([f"{k}: {v}" for k, v in request.context.items()])
+                prompt += f"\nContext: {context_info}"
+            
+            messages = [
+                {"role": "system", "content": "You are an AI assistant that generates mock services and API responses."},
+                {"role": "user", "content": prompt}
+            ]
+            
+            response = self.llm_connector.generate_content(messages)
+            
+            if not response or 'content' not in response:
+                return GenerateContentResponse(
+                    error=ErrorResponse(
+                        code=ErrorCode.TRANSLATION_FAILED,
+                        message="Failed to generate mock service from LLM"
+                    )
+                )
+            
+            success_response = ContentSuccessResponse(
+                content=response['content'].strip(),
+                explanation="Generated mock service based on the provided requirements",
+                confidenceScore=response.get('confidence', 0.8),
+                metadata={
+                    "content_type": "mock"
+                }
+            )
+            
+            return GenerateContentResponse(success=success_response)
+            
+        except Exception as e:
+            logging.error(f"Error generating mock content: {str(e)}")
+            return GenerateContentResponse(
+                error=ErrorResponse(
+                    code=ErrorCode.INTERNAL_ERROR,
+                    message=f"Internal error: {str(e)}"
+                )
+            )
+    
+    def _generate_generic_content(self, request: GenerateContentRequest) -> GenerateContentResponse:
+        """Generate generic content for unknown content types"""
+        try:
+            # Build generic generation prompt
+            prompt = f"Generate {request.contentType} content for: {request.prompt}"
+            
+            # Add context if available
+            if request.context:
+                context_info = ", ".join([f"{k}: {v}" for k, v in request.context.items()])
+                prompt += f"\nContext: {context_info}"
+            
+            messages = [
+                {"role": "system", "content": f"You are an AI assistant that generates {request.contentType} content."},
+                {"role": "user", "content": prompt}
+            ]
+            
+            response = self.llm_connector.generate_content(messages)
+            
+            if not response or 'content' not in response:
+                return GenerateContentResponse(
+                    error=ErrorResponse(
+                        code=ErrorCode.TRANSLATION_FAILED,
+                        message=f"Failed to generate {request.contentType} content from LLM"
+                    )
+                )
+            
+            success_response = ContentSuccessResponse(
+                content=response['content'].strip(),
+                explanation=f"Generated {request.contentType} content based on the provided requirements",
+                confidenceScore=response.get('confidence', 0.8),
+                metadata={
+                    "content_type": request.contentType
+                }
+            )
+            
+            return GenerateContentResponse(success=success_response)
+            
+        except Exception as e:
+            logging.error(f"Error generating generic content: {str(e)}")
+            return GenerateContentResponse(
+                error=ErrorResponse(
+                    code=ErrorCode.INTERNAL_ERROR,
+                    message=f"Internal error: {str(e)}"
+                )
+            )
+    
+
 
 
 def serve():
