@@ -5,33 +5,23 @@ import (
 	"encoding/json"
 	"flag"
 	"fmt"
+	"github.com/linuxsuren/atest-ext-ai/pkg/huggingface"
 	"log"
-	"os"
 	"slices"
 
 	testing "github.com/linuxsuren/api-testing/pkg/testing"
 	"github.com/tmc/langchaingo/llms"
-	"github.com/tmc/langchaingo/llms/ollama"
 )
 
 var flagVerbose = flag.Bool("v", false, "verbose mode")
+var provider = flag.String("provider", "huggingface", "the provider of the LLM")
 
 func main() {
 	flag.Parse()
-	// allow specifying your own model via OLLAMA_TEST_MODEL
-	// (same as the Ollama unit tests).
-	model := "llama3.2:1b"
-	if v := os.Getenv("OLLAMA_TEST_MODEL"); v != "" {
-		model = v
-	}
 
-	llm, err := ollama.New(
-		ollama.WithModel(model),
-		ollama.WithServerURL("http://192.168.123.58:11434"),
-		ollama.WithFormat("json"),
-	)
+	llm, err := huggingface.New("token")
 	if err != nil {
-		log.Fatal(err)
+		log.Fatalf("Failed to create LLM: %v", err)
 	}
 
 	var msgs []llms.MessageContent
@@ -45,7 +35,7 @@ func main() {
 	for retries := 3; retries > 0; retries = retries - 1 {
 		resp, err := llm.GenerateContent(ctx, msgs)
 		if err != nil {
-			log.Fatal(err)
+			log.Printf("Failed to generate content: %v", err)
 		}
 
 		choice1 := resp.Choices[0]
@@ -124,13 +114,13 @@ func dispatchCall(c *Call) (llms.MessageContent, bool) {
 	case "getAllTables":
 		fmt.Println("try to getAllTables")
 		store := testing.Store{
-			URL:      "192.168.10.107:33060",
+			URL:      "192.168.123.58:33060",
 			Username: "root",
 			Password: "AIUMSDB@123456",
 			Kind: testing.StoreKind{
 				Name: "atest-store-orm",
 				// URL:  `unix:///root/.config/atest/atest-store-orm.sock`,
-				URL:     `127.0.0.1:7071`,
+				URL:     `localhost:5896`,
 				Enabled: true,
 			},
 			Properties: map[string]string{
