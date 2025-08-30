@@ -4,7 +4,7 @@ import (
 	"sync"
 	"time"
 
-	"atest-ext-ai-core/internal/logger"
+	"github.com/Linuxsuren/atest-ext-ai/internal/logger"
 )
 
 // CacheItem represents a cached item with expiration

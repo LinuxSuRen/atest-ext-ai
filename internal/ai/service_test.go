@@ -5,8 +5,8 @@ import (
 	"strings"
 	"testing"
 
-	"atest-ext-ai-core/internal/config"
-	"atest-ext-ai-core/pkg/models"
+	"github.com/Linuxsuren/atest-ext-ai/internal/config"
+	"github.com/Linuxsuren/atest-ext-ai/pkg/models"
 )
 
 func TestNewService(t *testing.T) {

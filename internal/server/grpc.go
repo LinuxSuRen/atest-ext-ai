@@ -10,11 +10,11 @@ import (
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/reflection"
 
-	"atest-ext-ai-core/internal/ai"
-	"atest-ext-ai-core/internal/config"
-	"atest-ext-ai-core/internal/errors"
-	"atest-ext-ai-core/internal/logger"
-	"atest-ext-ai-core/pkg/models"
+	"github.com/Linuxsuren/atest-ext-ai/internal/ai"
+	"github.com/Linuxsuren/atest-ext-ai/internal/config"
+	"github.com/Linuxsuren/atest-ext-ai/internal/errors"
+	"github.com/Linuxsuren/atest-ext-ai/internal/logger"
+	"github.com/Linuxsuren/atest-ext-ai/pkg/models"
 	pb "github.com/linuxsuren/api-testing/pkg/server"
 )
 
@@ -24,6 +24,11 @@ type AIPluginServer struct {
 	config    *config.Config
 	aiService ai.AIService
 	startTime time.Time
+}
+
+// UIExtensionServer implements the UIExtension interface
+type UIExtensionServer struct {
+	pb.UnimplementedUIExtensionServer
 }
 
 // NewAIPluginServer creates a new AI plugin server instance
@@ -214,8 +219,8 @@ func StartGRPCServer(cfg *config.Config, aiService ai.AIService) error {
 	RegisterAIPluginServer(s, aiPluginServer)
 
 	// Create and register UI extension server
-	uiExtensionServer := NewUIExtensionServer()
-	RegisterUIExtensionServer(s, uiExtensionServer)
+	uiExtensionServer := &UIExtensionServer{}
+	pb.RegisterUIExtensionServer(s, uiExtensionServer)
 
 	// Enable reflection for debugging
 	reflection.Register(s)

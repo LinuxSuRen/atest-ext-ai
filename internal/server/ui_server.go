@@ -8,7 +8,7 @@ import (
 	"embed"
 	"io/fs"
 
-	"atest-ext-ai-core/internal/logger"
+	"github.com/Linuxsuren/atest-ext-ai/internal/logger"
 	pb "github.com/linuxsuren/api-testing/pkg/server"
 	"google.golang.org/grpc"
 )
@@ -85,7 +85,7 @@ func (s *UIExtensionServer) GetMenus(ctx context.Context, req *pb.Empty) (*pb.Me
 		Data: []*pb.Menu{
 			{
 				Name:    "AI Assistant",
-				Index:   "/ai-plugin",
+				Index:   "ai-assistant",
 				Icon:    "robot",
 				Version: 1,
 			},

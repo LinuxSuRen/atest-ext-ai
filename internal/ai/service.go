@@ -6,10 +6,10 @@ import (
 	"log"
 	"time"
 
-	"atest-ext-ai-core/internal/config"
-	"atest-ext-ai-core/internal/errors"
-	"atest-ext-ai-core/internal/logger"
-	"atest-ext-ai-core/pkg/models"
+	"github.com/Linuxsuren/atest-ext-ai/internal/config"
+	"github.com/Linuxsuren/atest-ext-ai/internal/errors"
+	"github.com/Linuxsuren/atest-ext-ai/internal/logger"
+	"github.com/Linuxsuren/atest-ext-ai/pkg/models"
 )
 
 // AIService represents the AI service interface

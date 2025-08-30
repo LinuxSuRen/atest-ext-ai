@@ -117,7 +117,7 @@ func getStackTrace() string {
 			break
 		}
 		// Only include relevant files (skip runtime internals)
-		if strings.Contains(file, "atest-ext-ai-core") {
+		if strings.Contains(file, "github.com/Linuxsuren/atest-ext-ai") {
 			buf.WriteString(fmt.Sprintf("%s:%d\n", file, line))
 		}
 	}

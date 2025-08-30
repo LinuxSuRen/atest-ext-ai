@@ -8,8 +8,8 @@ import (
 	"strings"
 	"time"
 
-	"atest-ext-ai-core/internal/config"
-	"atest-ext-ai-core/internal/errors"
+	"github.com/Linuxsuren/atest-ext-ai/internal/config"
+	"github.com/Linuxsuren/atest-ext-ai/internal/errors"
 )
 
 // LogLevel represents the logging level

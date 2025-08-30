@@ -4,8 +4,8 @@ import (
 	"context"
 	"testing"
 
-	"atest-ext-ai-core/internal/ai"
-	"atest-ext-ai-core/internal/config"
+	"github.com/Linuxsuren/atest-ext-ai/internal/ai"
+	"github.com/Linuxsuren/atest-ext-ai/internal/config"
 	pb "github.com/linuxsuren/api-testing/pkg/server"
 )
 

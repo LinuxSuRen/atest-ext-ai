@@ -6,9 +6,9 @@ import (
 	"testing"
 	"time"
 
-	"atest-ext-ai-core/internal/ai"
-	"atest-ext-ai-core/internal/config"
-	"atest-ext-ai-core/internal/server"
+	"github.com/Linuxsuren/atest-ext-ai/internal/ai"
+	"github.com/Linuxsuren/atest-ext-ai/internal/config"
+	"github.com/Linuxsuren/atest-ext-ai/internal/server"
 	pb "github.com/linuxsuren/api-testing/pkg/server"
 )
 

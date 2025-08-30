@@ -1,4 +1,4 @@
-module atest-ext-ai-core
+module github.com/Linuxsuren/atest-ext-ai
 
 go 1.23.0
 
