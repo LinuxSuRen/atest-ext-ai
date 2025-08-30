@@ -1,5 +1,18 @@
 <script setup lang="ts">
 import { RouterView } from 'vue-router'
+import { useSync } from './utils/sync'
+import { onMounted } from 'vue'
+
+// 使用同步功能
+// const { language, theme } = useSync()
+const { darkMode } = useSync()
+
+// 初始化时应用主题
+onMounted(() => {
+  // 确保主题正确应用
+  document.documentElement.className = darkMode.value ? 'dark' : 'light'
+  document.documentElement.setAttribute('data-theme', darkMode.value ? 'dark' : 'light')
+})
 </script>
 
 <template>

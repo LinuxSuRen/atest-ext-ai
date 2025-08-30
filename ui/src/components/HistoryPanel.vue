@@ -300,7 +300,7 @@ import {
   MoreFilled 
 } from '@element-plus/icons-vue'
 import { useAIStore, type QueryHistory } from '@/stores/ai'
-import { useSettingsStore } from '@/stores/settings'
+// import { useSettingsStore } from '../stores/settings'
 
 // Emits
 const emit = defineEmits<{
@@ -310,7 +310,7 @@ const emit = defineEmits<{
 
 // Store
 const aiStore = useAIStore()
-const settingsStore = useSettingsStore()
+// const settingsStore = useSettingsStore()
 
 // 响应式数据
 const searchKeyword = ref('')
@@ -401,7 +401,7 @@ const copySQL = async (sql: string) => {
   try {
     await navigator.clipboard.writeText(sql)
     ElMessage.success('SQL已复制到剪贴板')
-  } catch (error) {
+  } catch {
     ElMessage.error('复制失败')
   }
 }
@@ -467,7 +467,7 @@ const formatTime = (timestamp: Date) => {
   return new Date(timestamp).toLocaleString('zh-CN')
 }
 
-const convertToCSV = (data: any[]) => {
+const convertToCSV = (data: Record<string, unknown>[]) => {
   if (data.length === 0) return ''
   
   const headers = Object.keys(data[0])

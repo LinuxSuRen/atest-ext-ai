@@ -217,7 +217,7 @@ const originalSQL = ref(props.initialSQL)
 const isExecuting = ref(false)
 const isFullscreen = ref(false)
 const syntaxError = ref('')
-const executionResult = ref<any>(null)
+const executionResult = ref<{ success: boolean; data?: Record<string, unknown>[]; error?: string } | null>(null)
 const executionTime = ref(0)
 const affectedRows = ref(0)
 const sqlHistory = ref<Array<{ sql: string; timestamp: Date }>>([]);
@@ -235,7 +235,7 @@ const tableColumns = computed(() => {
   if (!executionResult.value?.data || executionResult.value.data.length === 0) {
     return []
   }
-  return Object.keys(executionResult.value.data[0])
+  return Object.keys(executionResult.value.data[0] as Record<string, unknown>)
 })
 
 // 方法
@@ -283,7 +283,7 @@ const copySQL = async () => {
   try {
     await navigator.clipboard.writeText(sqlContent.value)
     ElMessage.success('SQL已复制到剪贴板')
-  } catch (error) {
+  } catch {
     ElMessage.error('复制失败')
   }
 }
@@ -325,10 +325,10 @@ const executeSQL = async () => {
     }
     
     ElMessage.success('SQL执行成功')
-  } catch (error: any) {
+  } catch (error) {
     executionResult.value = {
       success: false,
-      error: error.message || '执行失败'
+      error: error instanceof Error ? error.message : '执行失败'
     }
     ElMessage.error('SQL执行失败')
   } finally {
@@ -393,8 +393,8 @@ onMounted(() => {
     if (stored) {
       sqlHistory.value = JSON.parse(stored)
     }
-  } catch (error) {
-    console.error('Failed to load SQL history:', error)
+  } catch {
+    console.error('Failed to load SQL history')
   }
 })
 </script>

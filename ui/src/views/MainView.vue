@@ -212,7 +212,14 @@ const showShortcuts = ref(false)
 const isConnected = ref(false)
 const isDarkMode = ref(false)
 const currentSQL = ref('')
-const queryResult = ref<any>(null)
+const queryResult = ref<{
+  success: boolean
+  data?: Record<string, unknown>[]
+  error?: string
+  details?: string
+  executionTime?: number
+  affectedRows?: number
+} | null>(null)
 const isExecuting = ref(false)
 const executionError = ref<string | null>(null)
 const lastQueryTime = ref<Date | null>(null)
@@ -234,8 +241,8 @@ const handleQuerySubmitted = (query: string) => {
   lastQueryTime.value = new Date()
 }
 
-const handleSQLGenerated = (sql: string) => {
-  currentSQL.value = sql
+const handleSQLGenerated = (data: { sql: string; explanation?: string }) => {
+  currentSQL.value = typeof data === 'string' ? data : data.sql
   rightActiveTab.value = 'editor'
   ElMessage.success('SQL已生成，请在编辑器中查看')
 }
@@ -250,7 +257,14 @@ const handleSelectHistoryItem = (item: QueryHistory) => {
   console.log('History item selected:', item)
 }
 
-const handleSQLExecuted = (result: any) => {
+const handleSQLExecuted = (result: {
+  success: boolean
+  data?: Record<string, unknown>[]
+  error?: string
+  details?: string
+  executionTime?: number
+  affectedRows?: number
+}) => {
   queryResult.value = result
   rightActiveTab.value = 'results'
   isExecuting.value = false

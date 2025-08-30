@@ -371,7 +371,7 @@
 <script setup lang="ts">
 import { ref, computed, reactive, onMounted } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
-import { useSettingsStore } from '@/stores/settings'
+import { useSettingsStore, type AppSettings } from '@/stores/settings'
 import { useAIStore } from '@/stores/ai'
 
 // Store
@@ -469,7 +469,7 @@ const saveSettings = () => {
   // 保存所有设置
   Object.entries(localSettings).forEach(([key, value]) => {
     if (key in settingsStore) {
-      settingsStore.updateSetting(key as any, value)
+      settingsStore.updateSetting(key as keyof AppSettings, value as AppSettings[keyof AppSettings])
     }
   })
   
@@ -537,7 +537,7 @@ const importSettings = () => {
   importDialogVisible.value = true
 }
 
-const handleFileChange = (file: any) => {
+const handleFileChange = (file: { raw: File }) => {
   importFile.value = file.raw
 }
 
@@ -556,7 +556,7 @@ const confirmImport = async () => {
     // 导入设置
     Object.entries(settings).forEach(([key, value]) => {
       if (key in settingsStore && key !== 'exportTime' && key !== 'version') {
-        settingsStore.updateSetting(key as any, value)
+        settingsStore.updateSetting(key as keyof AppSettings, value as AppSettings[keyof AppSettings])
       }
     })
     

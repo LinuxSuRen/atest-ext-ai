@@ -1,7 +1,9 @@
 import { defineStore } from 'pinia'
 import { ref, computed, readonly } from 'vue'
-import { apiService, type ConvertToSQLRequest, type ConvertToSQLResponse } from '@/services/api'
+import { apiService } from '@/services/api'
+// import type { ConvertToSQLRequest, ConvertToSQLResponse } from '@/types/api'
 import { useSettingsStore } from './settings'
+import { fallbackManager, type FallbackSuggestion } from '@/utils/fallback'
 
 export interface QueryHistory {
   id: string
@@ -20,8 +22,10 @@ export const useAIStore = defineStore('ai', () => {
   const currentExplanation = ref('')
   const queryHistory = ref<QueryHistory[]>([])
   const error = ref<string | null>(null)
-  const modelInfo = ref<any>(null)
+  const modelInfo = ref<Record<string, unknown> | null>(null)
   const isConnected = ref(false)
+  const fallbackSuggestion = ref<FallbackSuggestion | null>(null)
+  const isInFallbackMode = ref(false)
 
   // 计算属性
   const hasHistory = computed(() => queryHistory.value.length > 0)
@@ -36,6 +40,7 @@ export const useAIStore = defineStore('ai', () => {
 
     isLoading.value = true
     error.value = null
+    fallbackSuggestion.value = null
     currentQuery.value = query
 
     try {
@@ -49,6 +54,11 @@ export const useAIStore = defineStore('ai', () => {
 
       currentSQL.value = response.sql
       currentExplanation.value = response.explanation || ''
+      
+      // 成功后重置fallback状态
+      fallbackManager.reset()
+      isInFallbackMode.value = false
+      isConnected.value = true
       
       // 添加到历史记录
       const historyItem: QueryHistory = {
@@ -74,8 +84,21 @@ export const useAIStore = defineStore('ai', () => {
         saveToLocalStorage()
       }
     } catch (err) {
-      error.value = err instanceof Error ? err.message : '转换失败'
       console.error('SQL conversion error:', err)
+      isConnected.value = false
+      
+      // 使用fallback机制处理错误
+      const fallbackResult = await fallbackManager.handleError(err as Error)
+      
+      if (fallbackResult.shouldRetry) {
+        // 自动重试
+        return convertToSQL(query)
+      } else {
+        // 进入降级模式
+        isInFallbackMode.value = true
+        fallbackSuggestion.value = fallbackResult.suggestion || null
+        error.value = fallbackResult.suggestion?.title || (err instanceof Error ? err.message : '转换失败')
+      }
     } finally {
       isLoading.value = false
     }
@@ -94,9 +117,9 @@ export const useAIStore = defineStore('ai', () => {
       const saved = localStorage.getItem('ai-query-history')
       if (saved) {
         const parsed = JSON.parse(saved)
-        queryHistory.value = parsed.map((item: any) => ({
+        queryHistory.value = parsed.map((item: Record<string, unknown>) => ({
           ...item,
-          timestamp: new Date(item.timestamp)
+          timestamp: new Date(item.timestamp as string | number | Date)
         }))
       }
     } catch (err) {
@@ -145,6 +168,21 @@ export const useAIStore = defineStore('ai', () => {
     currentExplanation.value = ''
   }
 
+  const retryConnection = async () => {
+    fallbackManager.reset()
+    isInFallbackMode.value = false
+    fallbackSuggestion.value = null
+    error.value = null
+  }
+
+  const getSQLTemplates = () => {
+    return fallbackManager.generateSQLTemplates()
+  }
+
+  const getFallbackStatus = () => {
+    return fallbackManager.getStatus()
+  }
+
   // 初始化时加载历史记录
   loadFromLocalStorage()
 
@@ -158,6 +196,8 @@ export const useAIStore = defineStore('ai', () => {
     error: readonly(error),
     modelInfo: readonly(modelInfo),
     isConnected: readonly(isConnected),
+    fallbackSuggestion: readonly(fallbackSuggestion),
+    isInFallbackMode: readonly(isInFallbackMode),
     
     // Computed
     hasHistory,
@@ -171,6 +211,9 @@ export const useAIStore = defineStore('ai', () => {
     loadModelInfo,
     clearError,
     clearCurrentResult,
+    retryConnection,
+    getSQLTemplates,
+    getFallbackStatus,
     saveToLocalStorage,
     loadFromLocalStorage
   }

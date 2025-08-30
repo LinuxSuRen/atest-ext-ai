@@ -250,7 +250,14 @@ import {
 
 // Props
 interface Props {
-  resultData?: any
+  resultData?: {
+    success: boolean
+    data?: Record<string, unknown>[]
+    error?: string
+    details?: string
+    executionTime?: number
+    affectedRows?: number
+  } | null
   loading?: boolean
   canRefresh?: boolean
 }
@@ -264,7 +271,7 @@ const props = withDefaults(defineProps<Props>(), {
 const emit = defineEmits<{
   refresh: []
   clear: []
-  export: [data: any[], type: 'all' | 'selected']
+  export: [data: Record<string, unknown>[], type: 'all' | 'selected']
 }>()
 
 // 响应式数据
@@ -272,7 +279,7 @@ const searchKeyword = ref('')
 const isTableCompact = ref(false)
 const currentPage = ref(1)
 const pageSize = ref(20)
-const selectedRows = ref<any[]>([])
+const selectedRows = ref<Record<string, unknown>[]>([])
 const jsonDialogVisible = ref(false)
 const jsonContent = ref('')
 const tableMaxHeight = ref(500)
@@ -300,7 +307,7 @@ const tableColumns = computed(() => {
     } else if (typeof value === 'number') {
       type = 'number'
       width = 100
-    } else if (value instanceof Date || /^\d{4}-\d{2}-\d{2}/.test(value)) {
+    } else if (value instanceof Date || (typeof value === 'string' && /^\d{4}-\d{2}-\d{2}/.test(value))) {
       type = 'date'
       width = 150
     } else if (typeof value === 'object') {
@@ -328,7 +335,7 @@ const filteredData = computed(() => {
   // 搜索过滤
   if (searchKeyword.value) {
     const keyword = searchKeyword.value.toLowerCase()
-    data = data.filter((row: any) => {
+    data = data.filter((row: Record<string, unknown>) => {
       return Object.values(row).some(value => 
         String(value).toLowerCase().includes(keyword)
       )
@@ -365,7 +372,7 @@ const toggleTableSize = () => {
   tableMaxHeight.value = isTableCompact.value ? 400 : 500
 }
 
-const handleSelectionChange = (selection: any[]) => {
+const handleSelectionChange = (selection: Record<string, unknown>[]) => {
   selectedRows.value = selection
 }
 
@@ -373,7 +380,7 @@ const clearSelection = () => {
   selectedRows.value = []
 }
 
-const showJSON = (data: any) => {
+const showJSON = (data: unknown) => {
   jsonContent.value = JSON.stringify(data, null, 2)
   jsonDialogVisible.value = true
 }
@@ -383,21 +390,21 @@ const copyJSON = async () => {
     await navigator.clipboard.writeText(jsonContent.value)
     ElMessage.success('JSON已复制到剪贴板')
     jsonDialogVisible.value = false
-  } catch (error) {
-    ElMessage.error('复制失败')
+  } catch {
+    ElMessage.error('导出失败')
   }
 }
 
-const formatDate = (value: any) => {
+const formatDate = (value: unknown) => {
   if (!value) return '-'
   try {
-    return new Date(value).toLocaleString('zh-CN')
+    return new Date(value as string | number | Date).toLocaleString('zh-CN')
   } catch {
     return String(value)
   }
 }
 
-const formatNumber = (value: any) => {
+const formatNumber = (value: unknown) => {
   if (typeof value !== 'number') return value
   return value.toLocaleString()
 }
