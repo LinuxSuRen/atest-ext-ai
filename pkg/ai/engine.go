@@ -27,7 +27,7 @@ import (
 // Engine defines the interface for AI SQL generation
 type Engine interface {
 	GenerateSQL(ctx context.Context, req *GenerateSQLRequest) (*GenerateSQLResponse, error)
-	GetCapabilities() *Capabilities
+	GetCapabilities() *SQLCapabilities
 	IsHealthy() bool
 	Close()
 }
@@ -50,14 +50,14 @@ type GenerateSQLResponse struct {
 	DebugInfo       []string      `json:"debug_info,omitempty"`
 }
 
-// Capabilities represents AI engine capabilities
-type Capabilities struct {
-	SupportedDatabases []string  `json:"supported_databases"`
-	Features           []Feature `json:"features"`
+// SQLCapabilities represents AI engine capabilities for SQL generation
+type SQLCapabilities struct {
+	SupportedDatabases []string     `json:"supported_databases"`
+	Features           []SQLFeature `json:"features"`
 }
 
-// Feature represents a specific AI feature
-type Feature struct {
+// SQLFeature represents a specific AI SQL feature
+type SQLFeature struct {
 	Name        string            `json:"name"`
 	Enabled     bool              `json:"enabled"`
 	Description string            `json:"description"`
@@ -116,10 +116,10 @@ func (e *basicEngine) GenerateSQL(ctx context.Context, req *GenerateSQLRequest) 
 }
 
 // GetCapabilities implements Engine.GetCapabilities
-func (e *basicEngine) GetCapabilities() *Capabilities {
-	return &Capabilities{
+func (e *basicEngine) GetCapabilities() *SQLCapabilities {
+	return &SQLCapabilities{
 		SupportedDatabases: []string{"mysql", "postgresql", "sqlite"},
-		Features: []Feature{
+		Features: []SQLFeature{
 			{
 				Name:        "SQL Generation",
 				Enabled:     true,

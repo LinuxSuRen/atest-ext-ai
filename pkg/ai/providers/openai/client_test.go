@@ -1,0 +1,208 @@
+/*
+Copyright 2023-2025 API Testing Authors.
+
+Licensed under the Apache License, Version 2.0 (the "License");
+you may not use this file except in compliance with the License.
+You may obtain a copy of the License at
+
+	http://www.apache.org/licenses/LICENSE-2.0
+
+Unless required by applicable law or agreed to in writing, software
+distributed under the License is distributed on an "AS IS" BASIS,
+WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+See the License for the specific language governing permissions and
+limitations under the License.
+*/
+
+package openai
+
+import (
+	"context"
+	"testing"
+	"time"
+
+	"github.com/linuxsuren/atest-ext-ai/pkg/interfaces"
+)
+
+func TestNewClient(t *testing.T) {
+	tests := []struct {
+		name        string
+		config      *Config
+		expectError bool
+	}{
+		{
+			name:        "nil config",
+			config:      nil,
+			expectError: true,
+		},
+		{
+			name: "empty API key",
+			config: &Config{
+				APIKey: "",
+			},
+			expectError: true,
+		},
+		{
+			name: "valid config with defaults",
+			config: &Config{
+				APIKey: "test-key",
+			},
+			expectError: false,
+		},
+		{
+			name: "valid config with all fields",
+			config: &Config{
+				APIKey:    "test-key",
+				BaseURL:   "https://api.openai.com/v1",
+				Timeout:   30 * time.Second,
+				MaxTokens: 4096,
+				Model:     "gpt-4",
+				OrgID:     "org-123",
+				UserAgent: "test-agent",
+			},
+			expectError: false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			client, err := NewClient(tt.config)
+			if tt.expectError && err == nil {
+				t.Errorf("Expected error but got none")
+			}
+			if !tt.expectError && err != nil {
+				t.Errorf("Unexpected error: %v", err)
+			}
+			if !tt.expectError && client == nil {
+				t.Errorf("Expected client but got nil")
+			}
+		})
+	}
+}
+
+func TestClient_GetCapabilities(t *testing.T) {
+	config := &Config{
+		APIKey: "test-key",
+	}
+	client, err := NewClient(config)
+	if err != nil {
+		t.Fatalf("Failed to create client: %v", err)
+	}
+
+	ctx := context.Background()
+	caps, err := client.GetCapabilities(ctx)
+	if err != nil {
+		t.Fatalf("GetCapabilities failed: %v", err)
+	}
+
+	if caps == nil {
+		t.Fatal("Expected capabilities but got nil")
+	}
+
+	if caps.Provider != "openai" {
+		t.Errorf("Expected provider 'openai', got '%s'", caps.Provider)
+	}
+
+	if len(caps.Models) == 0 {
+		t.Error("Expected at least one model")
+	}
+
+	if len(caps.Features) == 0 {
+		t.Error("Expected at least one feature")
+	}
+}
+
+func TestClient_Close(t *testing.T) {
+	config := &Config{
+		APIKey: "test-key",
+	}
+	client, err := NewClient(config)
+	if err != nil {
+		t.Fatalf("Failed to create client: %v", err)
+	}
+
+	err = client.Close()
+	if err != nil {
+		t.Errorf("Close failed: %v", err)
+	}
+}
+
+func TestClient_getModel(t *testing.T) {
+	config := &Config{
+		APIKey: "test-key",
+		Model:  "gpt-3.5-turbo",
+	}
+	client, err := NewClient(config)
+	if err != nil {
+		t.Fatalf("Failed to create client: %v", err)
+	}
+
+	// Test with request-specific model
+	req := &interfaces.GenerateRequest{
+		Model: "gpt-4",
+	}
+	model := client.getModel(req)
+	if model != "gpt-4" {
+		t.Errorf("Expected 'gpt-4', got '%s'", model)
+	}
+
+	// Test with default model
+	req = &interfaces.GenerateRequest{}
+	model = client.getModel(req)
+	if model != "gpt-3.5-turbo" {
+		t.Errorf("Expected 'gpt-3.5-turbo', got '%s'", model)
+	}
+}
+
+func TestClient_getMaxTokens(t *testing.T) {
+	config := &Config{
+		APIKey:    "test-key",
+		MaxTokens: 2048,
+	}
+	client, err := NewClient(config)
+	if err != nil {
+		t.Fatalf("Failed to create client: %v", err)
+	}
+
+	// Test with request-specific max tokens
+	req := &interfaces.GenerateRequest{
+		MaxTokens: 1024,
+	}
+	maxTokens := client.getMaxTokens(req)
+	if maxTokens != 1024 {
+		t.Errorf("Expected 1024, got %d", maxTokens)
+	}
+
+	// Test with default max tokens
+	req = &interfaces.GenerateRequest{}
+	maxTokens = client.getMaxTokens(req)
+	if maxTokens != 2048 {
+		t.Errorf("Expected 2048, got %d", maxTokens)
+	}
+}
+
+func TestClient_getTemperature(t *testing.T) {
+	config := &Config{
+		APIKey: "test-key",
+	}
+	client, err := NewClient(config)
+	if err != nil {
+		t.Fatalf("Failed to create client: %v", err)
+	}
+
+	// Test with request-specific temperature
+	req := &interfaces.GenerateRequest{
+		Temperature: 0.5,
+	}
+	temp := client.getTemperature(req)
+	if temp != 0.5 {
+		t.Errorf("Expected 0.5, got %f", temp)
+	}
+
+	// Test with default temperature
+	req = &interfaces.GenerateRequest{}
+	temp = client.getTemperature(req)
+	if temp != 0.7 {
+		t.Errorf("Expected 0.7, got %f", temp)
+	}
+}

@@ -72,49 +72,59 @@ func (s *AIPluginService) Query(ctx context.Context, req *server.DataQuery) (*se
 		return nil, status.Errorf(codes.InvalidArgument, "unsupported query type: %s", req.Type)
 	}
 
-	// Validate natural language input
-	if req.NaturalLanguage == "" {
-		log.Printf("Missing natural language field in request")
-		return nil, status.Errorf(codes.InvalidArgument, "natural_language field is required for AI queries")
+	// Validate natural language input (using Key field for natural language)
+	if req.Key == "" {
+		log.Printf("Missing key field (natural language query) in request")
+		return nil, status.Errorf(codes.InvalidArgument, "key field is required for AI queries (natural language input)")
 	}
 
-	log.Printf("Generating SQL for natural language query: %s", req.NaturalLanguage)
+	log.Printf("Generating SQL for natural language query: %s", req.Key)
 
 	// Generate SQL using AI engine
+	contextMap := make(map[string]string)
+	if req.Sql != "" {
+		contextMap["existing_sql"] = req.Sql
+	}
+
 	sqlResult, err := s.aiEngine.GenerateSQL(ctx, &ai.GenerateSQLRequest{
-		NaturalLanguage: req.NaturalLanguage,
-		DatabaseType:    req.DatabaseType,
-		Context:         req.AiContext,
+		NaturalLanguage: req.Key,
+		DatabaseType:    "mysql", // Default database type
+		Context:         contextMap,
 	})
 	if err != nil {
 		log.Printf("Failed to generate SQL: %v", err)
 		return nil, status.Errorf(codes.Internal, "failed to generate SQL: %v", err)
 	}
 
-	// Create response with AI processing info
+	// Create response with basic data structure
 	result := &server.DataQueryResult{
-		AiInfo: &server.AIProcessingInfo{
-			RequestId:        sqlResult.RequestID,
-			ProcessingTimeMs: float32(sqlResult.ProcessingTime.Milliseconds()),
-			ModelUsed:        sqlResult.ModelUsed,
-			ConfidenceScore:  sqlResult.ConfidenceScore,
-			DebugInfo:        sqlResult.DebugInfo,
+		Data: []*server.Pair{
+			{
+				Key:   "generated_sql",
+				Value: sqlResult.SQL,
+			},
+			{
+				Key:   "explanation",
+				Value: sqlResult.Explanation,
+			},
+			{
+				Key:   "confidence_score",
+				Value: fmt.Sprintf("%.2f", sqlResult.ConfidenceScore),
+			},
+			{
+				Key:   "request_id",
+				Value: sqlResult.RequestID,
+			},
+			{
+				Key:   "processing_time_ms",
+				Value: fmt.Sprintf("%d", sqlResult.ProcessingTime.Milliseconds()),
+			},
+			{
+				Key:   "model_used",
+				Value: sqlResult.ModelUsed,
+			},
 		},
 	}
-
-	// Add generated SQL and explanation to result
-	result.Data = append(result.Data, &server.Pair{
-		Key:   "generated_sql",
-		Value: sqlResult.SQL,
-	})
-	result.Data = append(result.Data, &server.Pair{
-		Key:   "explanation",
-		Value: sqlResult.Explanation,
-	})
-	result.Data = append(result.Data, &server.Pair{
-		Key:   "confidence_score",
-		Value: fmt.Sprintf("%.2f", sqlResult.ConfidenceScore),
-	})
 
 	log.Printf("AI query completed successfully: request_id=%s, confidence=%.2f, processing_time=%dms",
 		sqlResult.RequestID, sqlResult.ConfidenceScore, sqlResult.ProcessingTime.Milliseconds())
@@ -145,31 +155,51 @@ func (s *AIPluginService) Verify(ctx context.Context, req *server.Empty) (*serve
 }
 
 // GetAICapabilities returns information about AI plugin capabilities
-func (s *AIPluginService) GetAICapabilities(ctx context.Context, req *server.Empty) (*server.AICapabilitiesResponse, error) {
+func (s *AIPluginService) GetAICapabilities(ctx context.Context, req *server.Empty) (*server.DataQueryResult, error) {
 	capabilities := s.aiEngine.GetCapabilities()
 
-	response := &server.AICapabilitiesResponse{
-		SupportedDatabases: capabilities.SupportedDatabases,
-		Version:            "1.0.0",
-		Status:             server.HealthStatus_HEALTHY,
-		Features:           make([]*server.AIFeature, 0),
+	result := &server.DataQueryResult{
+		Data: []*server.Pair{
+			{
+				Key:   "version",
+				Value: "1.0.0",
+			},
+			{
+				Key:   "status",
+				Value: "healthy",
+			},
+		},
 	}
 
 	if !s.aiEngine.IsHealthy() {
-		response.Status = server.HealthStatus_UNHEALTHY
+		result.Data[1].Value = "unhealthy"
 	}
 
-	// Add feature capabilities
-	for _, feature := range capabilities.Features {
-		response.Features = append(response.Features, &server.AIFeature{
-			Name:        feature.Name,
-			Enabled:     feature.Enabled,
-			Description: feature.Description,
-			Parameters:  feature.Parameters,
+	// Add supported databases
+	for i, db := range capabilities.SupportedDatabases {
+		result.Data = append(result.Data, &server.Pair{
+			Key:   fmt.Sprintf("supported_database_%d", i),
+			Value: db,
 		})
 	}
 
-	return response, nil
+	// Add features
+	for i, feature := range capabilities.Features {
+		result.Data = append(result.Data, &server.Pair{
+			Key:   fmt.Sprintf("feature_%d_name", i),
+			Value: feature.Name,
+		})
+		result.Data = append(result.Data, &server.Pair{
+			Key:   fmt.Sprintf("feature_%d_enabled", i),
+			Value: fmt.Sprintf("%t", feature.Enabled),
+		})
+		result.Data = append(result.Data, &server.Pair{
+			Key:   fmt.Sprintf("feature_%d_description", i),
+			Value: feature.Description,
+		})
+	}
+
+	return result, nil
 }
 
 // Shutdown gracefully stops the AI plugin service
