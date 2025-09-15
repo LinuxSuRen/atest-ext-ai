@@ -121,6 +121,23 @@ func (c *Client) Close() error {
 	return c.manager.Close()
 }
 
+// GetAllClients returns all available clients from the client manager
+func (c *Client) GetAllClients() map[string]interfaces.AIClient {
+	if c.manager == nil {
+		return make(map[string]interfaces.AIClient)
+	}
+
+	c.manager.mu.RLock()
+	defer c.manager.mu.RUnlock()
+
+	// Create a copy to avoid concurrent access issues
+	clients := make(map[string]interfaces.AIClient)
+	for name, client := range c.manager.clients {
+		clients[name] = client
+	}
+
+	return clients
+}
 // convertAIConfigToServiceConfig converts the new config format to the service config format
 func convertAIConfigToServiceConfig(cfg config.AIConfig) *AIServiceConfig {
 	serviceConfig := &AIServiceConfig{

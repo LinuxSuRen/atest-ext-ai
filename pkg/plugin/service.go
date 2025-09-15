@@ -18,8 +18,10 @@ package plugin
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"log"
+	"strings"
 
 	"github.com/linuxsuren/atest-ext-ai/pkg/ai"
 	"github.com/linuxsuren/atest-ext-ai/pkg/config"
@@ -32,8 +34,10 @@ import (
 // AIPluginService implements the Loader gRPC service for AI functionality
 type AIPluginService struct {
 	remote.UnimplementedLoaderServer
-	aiEngine ai.Engine
-	config   *config.Config
+	aiEngine           ai.Engine
+	config             *config.Config
+	capabilityDetector *ai.CapabilityDetector
+	metadataProvider   *ai.MetadataProvider
 }
 
 // NewAIPluginService creates a new AI plugin service instance
@@ -54,9 +58,27 @@ func NewAIPluginService() (*AIPluginService, error) {
 	}
 	log.Printf("AI engine initialized successfully")
 
+	// Create AI client for capability detection
+	var aiClient *ai.Client
+	aiClient, err = ai.NewClient(cfg.AI)
+	if err != nil {
+		log.Printf("Warning: Failed to create AI client for capabilities: %v", err)
+		// Continue without AI client - capability detector will work with limited functionality
+	}
+
+	// Initialize capability detector
+	capabilityDetector := ai.NewCapabilityDetector(cfg.AI, aiClient)
+	log.Printf("Capability detector initialized")
+
+	// Initialize metadata provider
+	metadataProvider := ai.NewMetadataProvider(*cfg)
+	log.Printf("Metadata provider initialized")
+
 	service := &AIPluginService{
-		aiEngine: aiEngine,
-		config:   cfg,
+		aiEngine:           aiEngine,
+		config:             cfg,
+		capabilityDetector: capabilityDetector,
+		metadataProvider:   metadataProvider,
 	}
 
 	log.Println("AI plugin service creation completed")
@@ -65,22 +87,33 @@ func NewAIPluginService() (*AIPluginService, error) {
 
 // Query handles AI query requests from the main API testing system
 func (s *AIPluginService) Query(ctx context.Context, req *server.DataQuery) (*server.DataQueryResult, error) {
-	log.Printf("Received query request: type=%s", req.Type)
+	log.Printf("Received query request: type=%s, key=%s, sql_length=%d", req.Type, req.Key, len(req.Sql))
 
 	if req.Type != "ai" {
 		log.Printf("Unsupported query type: %s", req.Type)
 		return nil, status.Errorf(codes.InvalidArgument, "unsupported query type: %s", req.Type)
 	}
 
-	// Validate natural language input (using Key field for natural language)
+	// Handle capabilities query
+	if req.Key == "capabilities" || strings.HasPrefix(req.Key, "ai.capabilities") {
+		return s.handleCapabilitiesQuery(ctx, req)
+	}
+
+	// For AI queries, we use the 'key' field as the natural language input
+	// and 'sql' field for any additional context or existing SQL
 	if req.Key == "" {
 		log.Printf("Missing key field (natural language query) in request")
 		return nil, status.Errorf(codes.InvalidArgument, "key field is required for AI queries (natural language input)")
 	}
 
-	log.Printf("Generating SQL for natural language query: %s", req.Key)
-
 	// Generate SQL using AI engine
+	queryPreview := req.Key
+	if len(queryPreview) > 100 {
+		queryPreview = queryPreview[:100] + "..."
+	}
+	log.Printf("Generating SQL for natural language query: %s", queryPreview)
+
+	// Create context map from available information
 	contextMap := make(map[string]string)
 	if req.Sql != "" {
 		contextMap["existing_sql"] = req.Sql
@@ -132,11 +165,192 @@ func (s *AIPluginService) Query(ctx context.Context, req *server.DataQuery) (*se
 	return result, nil
 }
 
+// handleCapabilitiesQuery handles requests for AI plugin capabilities
+func (s *AIPluginService) handleCapabilitiesQuery(ctx context.Context, req *server.DataQuery) (*server.DataQueryResult, error) {
+	log.Printf("Handling capabilities query: key=%s", req.Key)
+
+	// Parse capability request parameters from SQL field (if provided)
+	capReq := &ai.CapabilitiesRequest{
+		IncludeModels:    true,
+		IncludeDatabases: true,
+		IncludeFeatures:  true,
+		CheckHealth:      false, // Default to false for performance
+	}
+
+	// Parse parameters from SQL field if provided
+	if req.Sql != "" {
+		var params map[string]bool
+		if err := json.Unmarshal([]byte(req.Sql), &params); err == nil {
+			if includeModels, ok := params["include_models"]; ok {
+				capReq.IncludeModels = includeModels
+			}
+			if includeDatabases, ok := params["include_databases"]; ok {
+				capReq.IncludeDatabases = includeDatabases
+			}
+			if includeFeatures, ok := params["include_features"]; ok {
+				capReq.IncludeFeatures = includeFeatures
+			}
+			if checkHealth, ok := params["check_health"]; ok {
+				capReq.CheckHealth = checkHealth
+			}
+		} else {
+			log.Printf("Failed to parse capability request parameters: %v", err)
+		}
+	}
+
+	// Handle specific capability subqueries
+	if strings.Contains(req.Key, ".") {
+		parts := strings.Split(req.Key, ".")
+		if len(parts) >= 2 {
+			subQuery := parts[len(parts)-1]
+			switch subQuery {
+			case "metadata":
+				return s.handleMetadataQuery(ctx)
+			case "models":
+				capReq.IncludeModels = true
+				capReq.IncludeDatabases = false
+				capReq.IncludeFeatures = false
+			case "databases":
+				capReq.IncludeModels = false
+				capReq.IncludeDatabases = true
+				capReq.IncludeFeatures = false
+			case "features":
+				capReq.IncludeModels = false
+				capReq.IncludeDatabases = false
+				capReq.IncludeFeatures = true
+			case "health":
+				capReq.CheckHealth = true
+			}
+		}
+	}
+
+	// Get capabilities
+	if s.capabilityDetector == nil {
+		return nil, status.Errorf(codes.Internal, "capability detector not initialized")
+	}
+
+	capabilities, err := s.capabilityDetector.GetCapabilities(ctx, capReq)
+	if err != nil {
+		log.Printf("Failed to get capabilities: %v", err)
+		return nil, status.Errorf(codes.Internal, "failed to get capabilities: %v", err)
+	}
+
+	// Convert capabilities to JSON
+	capabilitiesJSON, err := json.Marshal(capabilities)
+	if err != nil {
+		log.Printf("Failed to marshal capabilities: %v", err)
+		return nil, status.Errorf(codes.Internal, "failed to serialize capabilities: %v", err)
+	}
+
+	// Create response
+	result := &server.DataQueryResult{
+		Data: []*server.Pair{
+			{
+				Key:   "capabilities",
+				Value: string(capabilitiesJSON),
+			},
+			{
+				Key:   "version",
+				Value: capabilities.Version,
+			},
+			{
+				Key:   "last_updated",
+				Value: capabilities.LastUpdated.Format("2006-01-02T15:04:05Z"),
+			},
+			{
+				Key:   "model_count",
+				Value: fmt.Sprintf("%d", len(capabilities.Models)),
+			},
+			{
+				Key:   "database_count",
+				Value: fmt.Sprintf("%d", len(capabilities.Databases)),
+			},
+			{
+				Key:   "feature_count",
+				Value: fmt.Sprintf("%d", len(capabilities.Features)),
+			},
+			{
+				Key:   "overall_health",
+				Value: fmt.Sprintf("%t", capabilities.Health.Overall),
+			},
+		},
+	}
+
+	log.Printf("Capabilities query completed successfully: models=%d, databases=%d, features=%d",
+		len(capabilities.Models), len(capabilities.Databases), len(capabilities.Features))
+
+	return result, nil
+}
+
+// handleMetadataQuery handles requests for plugin metadata
+func (s *AIPluginService) handleMetadataQuery(ctx context.Context) (*server.DataQueryResult, error) {
+	log.Printf("Handling metadata query")
+
+	if s.metadataProvider == nil {
+		return nil, status.Errorf(codes.Internal, "metadata provider not initialized")
+	}
+
+	// Get plugin metadata
+	metadata := s.metadataProvider.GetMetadata()
+
+	// Convert metadata to JSON
+	metadataJSON, err := json.Marshal(metadata)
+	if err != nil {
+		log.Printf("Failed to marshal metadata: %v", err)
+		return nil, status.Errorf(codes.Internal, "failed to serialize metadata: %v", err)
+	}
+
+	// Get runtime summary for quick overview
+	summary := s.metadataProvider.GetSummary()
+	summaryJSON, _ := json.Marshal(summary)
+
+	// Create response
+	result := &server.DataQueryResult{
+		Data: []*server.Pair{
+			{
+				Key:   "metadata",
+				Value: string(metadataJSON),
+			},
+			{
+				Key:   "summary",
+				Value: string(summaryJSON),
+			},
+			{
+				Key:   "name",
+				Value: metadata.Name,
+			},
+			{
+				Key:   "version",
+				Value: metadata.Version,
+			},
+			{
+				Key:   "uptime",
+				Value: metadata.Runtime.Uptime.String(),
+			},
+			{
+				Key:   "go_version",
+				Value: metadata.Runtime.GoVersion,
+			},
+			{
+				Key:   "platform",
+				Value: metadata.Runtime.GOOS + "/" + metadata.Runtime.GOARCH,
+			},
+		},
+	}
+
+	log.Printf("Metadata query completed successfully: name=%s, version=%s", metadata.Name, metadata.Version)
+
+	return result, nil
+}
 // Verify returns the plugin status for health checks
 func (s *AIPluginService) Verify(ctx context.Context, req *server.Empty) (*server.ExtensionStatus, error) {
 	log.Printf("Health check requested")
 
-	engineHealthy := s.aiEngine.IsHealthy()
+	var engineHealthy bool
+	if s.aiEngine != nil {
+		engineHealthy = s.aiEngine.IsHealthy()
+	}
+
 	status := &server.ExtensionStatus{
 		Ready:    engineHealthy,
 		ReadOnly: false,
@@ -145,8 +359,12 @@ func (s *AIPluginService) Verify(ctx context.Context, req *server.Empty) (*serve
 	}
 
 	if !status.Ready {
-		status.Message = "AI engine not available"
-		log.Printf("Health check failed: AI engine not healthy")
+		if s.aiEngine == nil {
+			status.Message = "AI engine not initialized"
+		} else {
+			status.Message = "AI engine not available"
+		}
+		log.Printf("Health check failed: %s", status.Message)
 	} else {
 		log.Printf("Health check passed: AI plugin is ready")
 	}
@@ -154,53 +372,6 @@ func (s *AIPluginService) Verify(ctx context.Context, req *server.Empty) (*serve
 	return status, nil
 }
 
-// GetAICapabilities returns information about AI plugin capabilities
-func (s *AIPluginService) GetAICapabilities(ctx context.Context, req *server.Empty) (*server.DataQueryResult, error) {
-	capabilities := s.aiEngine.GetCapabilities()
-
-	result := &server.DataQueryResult{
-		Data: []*server.Pair{
-			{
-				Key:   "version",
-				Value: "1.0.0",
-			},
-			{
-				Key:   "status",
-				Value: "healthy",
-			},
-		},
-	}
-
-	if !s.aiEngine.IsHealthy() {
-		result.Data[1].Value = "unhealthy"
-	}
-
-	// Add supported databases
-	for i, db := range capabilities.SupportedDatabases {
-		result.Data = append(result.Data, &server.Pair{
-			Key:   fmt.Sprintf("supported_database_%d", i),
-			Value: db,
-		})
-	}
-
-	// Add features
-	for i, feature := range capabilities.Features {
-		result.Data = append(result.Data, &server.Pair{
-			Key:   fmt.Sprintf("feature_%d_name", i),
-			Value: feature.Name,
-		})
-		result.Data = append(result.Data, &server.Pair{
-			Key:   fmt.Sprintf("feature_%d_enabled", i),
-			Value: fmt.Sprintf("%t", feature.Enabled),
-		})
-		result.Data = append(result.Data, &server.Pair{
-			Key:   fmt.Sprintf("feature_%d_description", i),
-			Value: feature.Description,
-		})
-	}
-
-	return result, nil
-}
 
 // Shutdown gracefully stops the AI plugin service
 func (s *AIPluginService) Shutdown() {
