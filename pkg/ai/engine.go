@@ -27,7 +27,7 @@ import (
 // Engine defines the interface for AI SQL generation
 type Engine interface {
 	GenerateSQL(ctx context.Context, req *GenerateSQLRequest) (*GenerateSQLResponse, error)
-	GetCapabilities() *Capabilities
+	GetCapabilities() *SQLCapabilities
 	IsHealthy() bool
 	Close()
 }
@@ -50,14 +50,14 @@ type GenerateSQLResponse struct {
 	DebugInfo       []string      `json:"debug_info,omitempty"`
 }
 
-// Capabilities represents AI engine capabilities
-type Capabilities struct {
-	SupportedDatabases []string  `json:"supported_databases"`
-	Features           []Feature `json:"features"`
+// SQLCapabilities represents AI engine capabilities for SQL generation
+type SQLCapabilities struct {
+	SupportedDatabases []string     `json:"supported_databases"`
+	Features           []SQLFeature `json:"features"`
 }
 
-// Feature represents a specific AI feature
-type Feature struct {
+// SQLFeature represents a specific AI SQL feature
+type SQLFeature struct {
 	Name        string            `json:"name"`
 	Enabled     bool              `json:"enabled"`
 	Description string            `json:"description"`
@@ -66,24 +66,25 @@ type Feature struct {
 
 // basicEngine is a basic implementation for testing
 type basicEngine struct {
-	config LegacyAIConfig
+	config      config.AIConfig
+	legacyConfig LegacyAIConfig
 }
 
 // NewEngine creates a new AI engine based on configuration
 func NewEngine(config config.AIConfig) (Engine, error) {
-	// Convert new config format to legacy for basicEngine compatibility
+	// Convert new config format to legacy for backward compatibility
 	legacyConfig := convertToLegacyAIConfig(config)
 
 	switch legacyConfig.Provider {
 	case "local", "ollama":
-		return NewOllamaEngine(legacyConfig)
+		return NewOllamaEngine(config)
 	case "openai":
-		return NewOpenAIEngine(legacyConfig)
+		return NewOpenAIEngine(config)
 	case "claude":
-		return NewClaudeEngine(legacyConfig)
+		return NewClaudeEngine(config)
 	default:
 		// Return basic engine for unsupported providers or fallback
-		return &basicEngine{config: legacyConfig}, nil
+		return &basicEngine{config: config, legacyConfig: legacyConfig}, nil
 	}
 }
 
@@ -127,18 +128,21 @@ type LegacyAIConfig struct {
 }
 
 // NewOllamaEngine creates an Ollama-based AI engine
-func NewOllamaEngine(config LegacyAIConfig) (Engine, error) {
-	return &basicEngine{config: config}, nil
+func NewOllamaEngine(config config.AIConfig) (Engine, error) {
+	legacyConfig := convertToLegacyAIConfig(config)
+	return &basicEngine{config: config, legacyConfig: legacyConfig}, nil
 }
 
 // NewOpenAIEngine creates an OpenAI-based AI engine
-func NewOpenAIEngine(config LegacyAIConfig) (Engine, error) {
-	return &basicEngine{config: config}, nil
+func NewOpenAIEngine(config config.AIConfig) (Engine, error) {
+	legacyConfig := convertToLegacyAIConfig(config)
+	return &basicEngine{config: config, legacyConfig: legacyConfig}, nil
 }
 
 // NewClaudeEngine creates a Claude-based AI engine
-func NewClaudeEngine(config LegacyAIConfig) (Engine, error) {
-	return &basicEngine{config: config}, nil
+func NewClaudeEngine(config config.AIConfig) (Engine, error) {
+	legacyConfig := convertToLegacyAIConfig(config)
+	return &basicEngine{config: config, legacyConfig: legacyConfig}, nil
 }
 
 // GenerateSQL implements Engine.GenerateSQL
@@ -152,16 +156,16 @@ func (e *basicEngine) GenerateSQL(ctx context.Context, req *GenerateSQLRequest) 
 		ConfidenceScore: 0.5,
 		ProcessingTime:  time.Since(start),
 		RequestID:       fmt.Sprintf("req_%d", time.Now().UnixNano()),
-		ModelUsed:       e.config.Provider,
+		ModelUsed:       e.legacyConfig.Provider,
 		DebugInfo:       []string{"Using basic implementation"},
 	}, nil
 }
 
 // GetCapabilities implements Engine.GetCapabilities
-func (e *basicEngine) GetCapabilities() *Capabilities {
-	return &Capabilities{
+func (e *basicEngine) GetCapabilities() *SQLCapabilities {
+	return &SQLCapabilities{
 		SupportedDatabases: []string{"mysql", "postgresql", "sqlite"},
-		Features: []Feature{
+		Features: []SQLFeature{
 			{
 				Name:        "SQL Generation",
 				Enabled:     true,
