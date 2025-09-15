@@ -1,0 +1,58 @@
+# AI Plugin Configuration Example
+# This file shows all available configuration options
+
+ai:
+  # AI Provider Configuration
+  # Supported providers: local, openai, claude
+  provider: local
+  
+  # Local AI (Ollama) Configuration
+  ollama_endpoint: http://localhost:11434
+  model: codellama
+  
+  # Online AI Service Configuration (for openai/claude providers)
+  # api_key: your-api-key-here
+  
+  # AI Processing Configuration
+  confidence_threshold: 0.7
+  enable_sql_execution: true
+  
+  # Database Support Configuration
+  supported_databases:
+    - mysql
+    - postgresql
+    - sqlite
+  
+  # Additional Metadata
+  metadata:
+    author: api-testing-team
+    version: "1.0.0"
+    environment: development
+
+# Alternative: Environment Variable Configuration
+# You can also configure using environment variables:
+# AI_PROVIDER=local
+# OLLAMA_ENDPOINT=http://localhost:11434
+# AI_MODEL=codellama
+# AI_API_KEY=your-api-key
+# AI_CONFIG_FILE=/path/to/config.yaml
+
+# Main Project Integration (stores.yaml format)
+# When used as a store in the main project, configuration is passed as:
+# stores:
+#   - name: "ai-assistant"
+#     type: "ai"
+#     url: "unix:///tmp/atest-store-ai.sock"
+#     properties:
+#       - key: ai_provider
+#         value: local
+#       - key: ollama_endpoint
+#         value: http://localhost:11434
+#       - key: model
+#         value: codellama
+#       - key: confidence_threshold
+#         value: "0.7"
+#       - key: enable_sql_execution
+#         value: "true"
+#       - key: supported_databases
+#         value: "mysql,postgresql,sqlite"

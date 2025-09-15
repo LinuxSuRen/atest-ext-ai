@@ -1,1 +1,90 @@
+# Binaries for programs and plugins
+*.exe
+*.exe~
+*.dll
+*.so
+*.dylib
+
+# Test binary, built with `go test -c`
+*.test
+
+# Output of the go coverage tool, specifically when used with LiteIDE
+*.out
+
+# Dependency directories (remove the comment below to include it)
+# vendor/
+
+# Go workspace file
+go.work
+
+# IDE files
+.vscode/
 .idea/
+*.swp
+*.swo
+
+# OS generated files
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+
+# Claude Code project files
+.claude/
+
+# AI integration guide documents (copied to .claude folder)
+AI_PLUGIN_INTEGRATION_GUIDE*.md
+
+# Local configuration files
+config.local.yaml
+*.local.yaml
+
+# Log files
+*.log
+logs/
+
+# Build artifacts
+bin/
+dist/
+build/
+
+# Temporary files
+tmp/
+temp/
+*.tmp
+
+# AI model files and caches
+models/
+*.model
+*.cache
+
+# Environment variables
+.env
+.env.local
+.env.*.local
+
+# Database files
+*.db
+*.sqlite
+*.sqlite3
+
+# Coverage reports
+coverage.html
+coverage.xml
+*.cover
+
+# Documentation build output
+docs/_build/
+site/
+
+# Plugin binaries
+atest-store-ai*
+plugins/
+
+# Socket files
+*.sock
+CLAUDE.md
+AI_PLUGIN_DEVELOPMENT.md
