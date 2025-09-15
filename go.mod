@@ -4,7 +4,12 @@ go 1.22.4
 
 toolchain go1.23.7
 
-require github.com/tmc/langchaingo v0.1.13
+require (
+	github.com/linuxsuren/api-testing v0.0.19
+	github.com/tmc/langchaingo v0.1.13
+	google.golang.org/grpc v1.71.1
+	gopkg.in/yaml.v2 v2.4.0
+)
 
 require (
 	github.com/Masterminds/goutils v1.1.1 // indirect
@@ -15,9 +20,6 @@ require (
 	github.com/blang/semver/v4 v4.0.0 // indirect
 	github.com/bufbuild/protocompile v0.6.0 // indirect
 	github.com/cespare/xxhash/v2 v2.3.0 // indirect
-	github.com/cucumber/gherkin-go/v19 v19.0.3 // indirect
-	github.com/cucumber/godog v0.12.6 // indirect
-	github.com/cucumber/messages-go/v16 v16.0.1 // indirect
 	github.com/dlclark/regexp2 v1.10.0 // indirect
 	github.com/evanphx/json-patch v0.5.2 // indirect
 	github.com/expr-lang/expr v1.15.6 // indirect
@@ -29,24 +31,15 @@ require (
 	github.com/go-openapi/jsonreference v0.21.0 // indirect
 	github.com/go-openapi/spec v0.21.0 // indirect
 	github.com/go-openapi/swag v0.23.0 // indirect
-	github.com/gofrs/uuid v4.2.0+incompatible // indirect
 	github.com/golang/protobuf v1.5.4 // indirect
 	github.com/google/uuid v1.6.0 // indirect
 	github.com/gorilla/mux v1.8.1 // indirect
 	github.com/grpc-ecosystem/grpc-gateway/v2 v2.19.0 // indirect
-	github.com/hashicorp/go-immutable-radix v1.3.1 // indirect
-	github.com/hashicorp/go-memdb v1.3.2 // indirect
-	github.com/hashicorp/golang-lru v0.5.4 // indirect
 	github.com/huandu/xstrings v1.4.0 // indirect
-	github.com/iancoleman/orderedmap v0.3.0 // indirect
 	github.com/imdario/mergo v0.3.16 // indirect
-	github.com/inconshreveable/mousetrap v1.1.0 // indirect
-	github.com/invopop/jsonschema v0.7.0 // indirect
 	github.com/jhump/protoreflect v1.15.3 // indirect
 	github.com/josharian/intern v1.0.0 // indirect
-	github.com/linuxsuren/api-testing v0.0.19 // indirect
 	github.com/linuxsuren/go-fake-runtime v0.0.4 // indirect
-	github.com/linuxsuren/go-service v0.0.0-20231225060426-efabcd3a5161 // indirect
 	github.com/linuxsuren/oauth-hub v0.0.0-20240809060240-e78c21b5d8d4 // indirect
 	github.com/linuxsuren/unstructured v0.0.1 // indirect
 	github.com/mailru/easyjson v0.7.7 // indirect
@@ -63,8 +56,6 @@ require (
 	github.com/shopspring/decimal v1.3.1 // indirect
 	github.com/signintech/gopdf v0.18.0 // indirect
 	github.com/spf13/cast v1.5.0 // indirect
-	github.com/spf13/cobra v1.8.1 // indirect
-	github.com/spf13/pflag v1.0.5 // indirect
 	github.com/swaggest/jsonschema-go v0.3.70 // indirect
 	github.com/swaggest/openapi-go v0.2.50 // indirect
 	github.com/swaggest/refl v1.3.0 // indirect
@@ -87,8 +78,6 @@ require (
 	golang.org/x/text v0.21.0 // indirect
 	google.golang.org/genproto/googleapis/api v0.0.0-20250106144421-5f5ef82da422 // indirect
 	google.golang.org/genproto/googleapis/rpc v0.0.0-20250115164207-1a7da9e5054f // indirect
-	google.golang.org/grpc v1.71.1 // indirect
 	google.golang.org/protobuf v1.36.4 // indirect
-	gopkg.in/yaml.v2 v2.4.0 // indirect
 	gopkg.in/yaml.v3 v3.0.1 // indirect
 )
