@@ -66,36 +66,78 @@ type Feature struct {
 
 // basicEngine is a basic implementation for testing
 type basicEngine struct {
-	config config.AIConfig
+	config LegacyAIConfig
 }
 
 // NewEngine creates a new AI engine based on configuration
 func NewEngine(config config.AIConfig) (Engine, error) {
-	switch config.Provider {
-	case "local":
-		return NewOllamaEngine(config)
+	// Convert new config format to legacy for basicEngine compatibility
+	legacyConfig := convertToLegacyAIConfig(config)
+
+	switch legacyConfig.Provider {
+	case "local", "ollama":
+		return NewOllamaEngine(legacyConfig)
 	case "openai":
-		return NewOpenAIEngine(config)
+		return NewOpenAIEngine(legacyConfig)
 	case "claude":
-		return NewClaudeEngine(config)
+		return NewClaudeEngine(legacyConfig)
 	default:
 		// Return basic engine for unsupported providers or fallback
-		return &basicEngine{config: config}, nil
+		return &basicEngine{config: legacyConfig}, nil
 	}
 }
 
+// convertToLegacyAIConfig converts new AIConfig to legacy format for backward compatibility
+func convertToLegacyAIConfig(newConfig config.AIConfig) LegacyAIConfig {
+	legacy := LegacyAIConfig{
+		Provider:            newConfig.DefaultService,
+		ConfidenceThreshold: 0.7,
+		SupportedDatabases:  []string{"mysql", "postgresql", "sqlite"},
+		EnableSQLExecution:  true,
+		Metadata:            make(map[string]string),
+	}
+
+	// Get configuration from the default service
+	if service, exists := newConfig.Services[newConfig.DefaultService]; exists {
+		legacy.OllamaEndpoint = service.Endpoint
+		legacy.APIKey = service.APIKey
+		legacy.Model = service.Model
+
+		// Map provider names to legacy format
+		if service.Provider == "ollama" {
+			legacy.Provider = "local"
+		} else {
+			legacy.Provider = service.Provider
+		}
+	}
+
+	return legacy
+}
+
+// LegacyAIConfig represents the legacy configuration format for backward compatibility
+type LegacyAIConfig struct {
+	Provider           string            `json:"provider"`
+	OllamaEndpoint     string            `json:"ollama_endpoint"`
+	Model              string            `json:"model"`
+	APIKey             string            `json:"api_key"`
+	ConfidenceThreshold float32           `json:"confidence_threshold"`
+	SupportedDatabases []string          `json:"supported_databases"`
+	EnableSQLExecution bool              `json:"enable_sql_execution"`
+	Metadata           map[string]string `json:"metadata"`
+}
+
 // NewOllamaEngine creates an Ollama-based AI engine
-func NewOllamaEngine(config config.AIConfig) (Engine, error) {
+func NewOllamaEngine(config LegacyAIConfig) (Engine, error) {
 	return &basicEngine{config: config}, nil
 }
 
 // NewOpenAIEngine creates an OpenAI-based AI engine
-func NewOpenAIEngine(config config.AIConfig) (Engine, error) {
+func NewOpenAIEngine(config LegacyAIConfig) (Engine, error) {
 	return &basicEngine{config: config}, nil
 }
 
 // NewClaudeEngine creates a Claude-based AI engine
-func NewClaudeEngine(config config.AIConfig) (Engine, error) {
+func NewClaudeEngine(config LegacyAIConfig) (Engine, error) {
 	return &basicEngine{config: config}, nil
 }
 

@@ -24,27 +24,47 @@ import (
 	"gopkg.in/yaml.v2"
 )
 
-// Config represents the AI plugin configuration
-type Config struct {
-	AI AIConfig `yaml:"ai" json:"ai"`
+// LegacyConfig represents the legacy AI plugin configuration for backward compatibility
+type LegacyConfig struct {
+	AI LegacyAIConfig `yaml:"ai" json:"ai"`
 }
 
-// AIConfig contains AI-specific configuration
-type AIConfig struct {
+// LegacyAIConfig contains legacy AI-specific configuration
+type LegacyAIConfig struct {
 	Provider           string            `yaml:"provider" json:"provider"`                       // local, openai, claude
-	OllamaEndpoint     string            `yaml:"ollama_endpoint" json:"ollama_endpoint"`         
-	Model              string            `yaml:"model" json:"model"`                             
-	APIKey             string            `yaml:"api_key" json:"api_key"`                         
+	OllamaEndpoint     string            `yaml:"ollama_endpoint" json:"ollama_endpoint"`
+	Model              string            `yaml:"model" json:"model"`
+	APIKey             string            `yaml:"api_key" json:"api_key"`
 	ConfidenceThreshold float32           `yaml:"confidence_threshold" json:"confidence_threshold"`
 	SupportedDatabases []string          `yaml:"supported_databases" json:"supported_databases"`
 	EnableSQLExecution bool              `yaml:"enable_sql_execution" json:"enable_sql_execution"`
 	Metadata           map[string]string `yaml:"metadata" json:"metadata"`
 }
 
-// LoadConfig loads configuration from environment variables and stores.yaml format
+// LoadConfig loads configuration using the new configuration system with backward compatibility
+// This function provides backward compatibility for existing code
 func LoadConfig() (*Config, error) {
-	config := &Config{
-		AI: AIConfig{
+	// Create a new manager with backward compatibility options
+	manager, err := NewManager(ManagerOptions{
+		EnableHotReload: false, // Disable for legacy compatibility
+		ValidateOnLoad:  true,
+	})
+	if err != nil {
+		return nil, fmt.Errorf("failed to create config manager: %w", err)
+	}
+
+	// Load configuration using the new system
+	if err := manager.Load(); err != nil {
+		return nil, fmt.Errorf("failed to load configuration: %w", err)
+	}
+
+	return manager.GetConfig(), nil
+}
+
+// LoadLegacyConfig loads configuration using the old format for backward compatibility
+func LoadLegacyConfig() (*LegacyConfig, error) {
+	config := &LegacyConfig{
+		AI: LegacyAIConfig{
 			Provider:            getEnvWithDefault("AI_PROVIDER", "local"),
 			OllamaEndpoint:      getEnvWithDefault("OLLAMA_ENDPOINT", "http://localhost:11434"),
 			Model:               getEnvWithDefault("AI_MODEL", "codellama"),
@@ -58,28 +78,108 @@ func LoadConfig() (*Config, error) {
 
 	// Try to load from YAML file if specified
 	if configFile := os.Getenv("AI_CONFIG_FILE"); configFile != "" {
-		if err := loadFromYAML(config, configFile); err != nil {
+		if err := loadLegacyFromYAML(config, configFile); err != nil {
 			return nil, fmt.Errorf("failed to load config from file %s: %w", configFile, err)
 		}
 	}
 
 	// Load stores.yaml format from environment (main project integration)
 	if storeConfig := os.Getenv("STORE_CONFIG"); storeConfig != "" {
-		if err := loadFromStoreConfig(config, storeConfig); err != nil {
+		if err := loadLegacyFromStoreConfig(config, storeConfig); err != nil {
 			return nil, fmt.Errorf("failed to load store config: %w", err)
 		}
 	}
 
 	// Validate configuration
-	if err := validateConfig(config); err != nil {
+	if err := validateLegacyConfig(config); err != nil {
 		return nil, fmt.Errorf("invalid configuration: %w", err)
 	}
 
 	return config, nil
 }
 
-// loadFromYAML loads configuration from YAML file
-func loadFromYAML(config *Config, filename string) error {
+// ConvertLegacyToNew converts legacy configuration to new format
+func ConvertLegacyToNew(legacy *LegacyConfig) *Config {
+	if legacy == nil {
+		return nil
+	}
+
+	// Map legacy provider names to new format
+	provider := legacy.AI.Provider
+	if provider == "local" {
+		provider = "ollama"
+	}
+
+	// Create new configuration with converted values
+	config := &Config{
+		Server: ServerConfig{
+			Host:       "0.0.0.0",
+			Port:       8080,
+			SocketPath: "/tmp/atest-ext-ai.sock",
+		},
+		Plugin: PluginConfig{
+			Name:        "atest-ext-ai",
+			Version:     "1.0.0",
+			Environment: "development",
+			LogLevel:    "info",
+		},
+		AI: AIConfig{
+			DefaultService: provider,
+			Services: map[string]AIService{
+				provider: {
+					Enabled:     true,
+					Provider:    provider,
+					Endpoint:    legacy.AI.OllamaEndpoint,
+					APIKey:      legacy.AI.APIKey,
+					Model:       legacy.AI.Model,
+					Temperature: 0.7,
+					Priority:    1,
+				},
+			},
+		},
+		Logging: LoggingConfig{
+			Level:  "info",
+			Format: "json",
+			Output: "stdout",
+		},
+	}
+
+	return config
+}
+
+// ConvertNewToLegacy converts new configuration to legacy format
+func ConvertNewToLegacy(config *Config) *LegacyConfig {
+	if config == nil {
+		return nil
+	}
+
+	legacy := &LegacyConfig{
+		AI: LegacyAIConfig{
+			Provider:            config.AI.DefaultService,
+			ConfidenceThreshold: 0.7,
+			SupportedDatabases:  []string{"mysql", "postgresql", "sqlite"},
+			EnableSQLExecution:  true,
+			Metadata:            make(map[string]string),
+		},
+	}
+
+	// Get default service configuration
+	if service, exists := config.AI.Services[config.AI.DefaultService]; exists {
+		legacy.AI.OllamaEndpoint = service.Endpoint
+		legacy.AI.APIKey = service.APIKey
+		legacy.AI.Model = service.Model
+
+		// Map provider names back to legacy format
+		if service.Provider == "ollama" {
+			legacy.AI.Provider = "local"
+		}
+	}
+
+	return legacy
+}
+
+// loadLegacyFromYAML loads legacy configuration from YAML file
+func loadLegacyFromYAML(config *LegacyConfig, filename string) error {
 	data, err := os.ReadFile(filename)
 	if err != nil {
 		return err
@@ -88,17 +188,16 @@ func loadFromYAML(config *Config, filename string) error {
 	return yaml.Unmarshal(data, config)
 }
 
-// loadFromStoreConfig loads configuration from stores.yaml format (main project integration)
-func loadFromStoreConfig(config *Config, storeConfigData string) error {
+// loadLegacyFromStoreConfig loads legacy configuration from stores.yaml format
+func loadLegacyFromStoreConfig(config *LegacyConfig, storeConfigData string) error {
 	// Parse stores.yaml format properties
-	// Example: "ai_provider=local;ollama_endpoint=http://localhost:11434;model=codellama"
 	properties := strings.Split(storeConfigData, ";")
 	for _, prop := range properties {
 		parts := strings.SplitN(prop, "=", 2)
 		if len(parts) != 2 {
 			continue
 		}
-		
+
 		key, value := strings.TrimSpace(parts[0]), strings.TrimSpace(parts[1])
 		switch key {
 		case "ai_provider":
@@ -110,9 +209,8 @@ func loadFromStoreConfig(config *Config, storeConfigData string) error {
 		case "api_key":
 			config.AI.APIKey = value
 		case "confidence_threshold":
-			// Parse float32 from string
 			if value != "" {
-				config.AI.ConfidenceThreshold = 0.7 // Default, could parse from string
+				config.AI.ConfidenceThreshold = 0.7
 			}
 		case "enable_sql_execution":
 			config.AI.EnableSQLExecution = value == "true"
@@ -122,17 +220,16 @@ func loadFromStoreConfig(config *Config, storeConfigData string) error {
 			}
 		}
 	}
-	
+
 	return nil
 }
 
-// validateConfig validates the configuration
-func validateConfig(config *Config) error {
+// validateLegacyConfig validates legacy configuration
+func validateLegacyConfig(config *LegacyConfig) error {
 	if config.AI.Provider == "" {
 		return fmt.Errorf("ai provider is required")
 	}
 
-	// Validate provider-specific requirements
 	switch config.AI.Provider {
 	case "local":
 		if config.AI.OllamaEndpoint == "" {
@@ -145,12 +242,11 @@ func validateConfig(config *Config) error {
 		if config.AI.APIKey == "" {
 			return fmt.Errorf("api_key is required for %s provider", config.AI.Provider)
 		}
+		if config.AI.Model == "" {
+			return fmt.Errorf("model is required for %s provider", config.AI.Provider)
+		}
 	default:
-		return fmt.Errorf("unsupported AI provider: %s", config.AI.Provider)
-	}
-
-	if len(config.AI.SupportedDatabases) == 0 {
-		return fmt.Errorf("at least one supported database is required")
+		return fmt.Errorf("unsupported provider: %s", config.AI.Provider)
 	}
 
 	return nil
