@@ -18,6 +18,7 @@ package local
 
 import (
 	"context"
+	"os"
 	"strings"
 	"testing"
 	"time"
@@ -267,5 +268,110 @@ func TestClient_getTemperature(t *testing.T) {
 	temp = client.getTemperature(req)
 	if temp != 0.8 {
 		t.Errorf("Expected 0.8, got %f", temp)
+	}
+}
+
+func TestNewClient_EnvironmentVariables(t *testing.T) {
+	// Test environment variable override for base URL
+	originalURL := os.Getenv("OLLAMA_BASE_URL")
+	defer func() {
+		if originalURL != "" {
+			os.Setenv("OLLAMA_BASE_URL", originalURL)
+		} else {
+			os.Unsetenv("OLLAMA_BASE_URL")
+		}
+	}()
+
+	os.Setenv("OLLAMA_BASE_URL", "http://custom:11434")
+
+	config := &Config{}
+	client, err := NewClient(config)
+	if err != nil {
+		t.Fatalf("Failed to create client: %v", err)
+	}
+
+	if client.config.BaseURL != "http://custom:11434" {
+		t.Errorf("Expected BaseURL to be 'http://custom:11434', got '%s'", client.config.BaseURL)
+	}
+}
+
+func TestNewClient_ConnectionPooling(t *testing.T) {
+	config := &Config{
+		MaxIdleConns:    50,
+		MaxConnsPerHost: 5,
+		IdleConnTimeout: 60 * time.Second,
+	}
+
+	client, err := NewClient(config)
+	if err != nil {
+		t.Fatalf("Failed to create client: %v", err)
+	}
+
+	if client.config.MaxIdleConns != 50 {
+		t.Errorf("Expected MaxIdleConns to be 50, got %d", client.config.MaxIdleConns)
+	}
+	if client.config.MaxConnsPerHost != 5 {
+		t.Errorf("Expected MaxConnsPerHost to be 5, got %d", client.config.MaxConnsPerHost)
+	}
+	if client.config.IdleConnTimeout != 60*time.Second {
+		t.Errorf("Expected IdleConnTimeout to be 60s, got %v", client.config.IdleConnTimeout)
+	}
+}
+
+func TestClient_CloseWithConnectionPool(t *testing.T) {
+	config := &Config{}
+	client, err := NewClient(config)
+	if err != nil {
+		t.Fatalf("Failed to create client: %v", err)
+	}
+
+	// Verify the client has an HTTP transport
+	if client.httpClient.Transport == nil {
+		t.Error("Expected HTTP transport to be configured")
+	}
+
+	err = client.Close()
+	if err != nil {
+		t.Errorf("Close failed: %v", err)
+	}
+}
+
+func TestClient_GenerateOptions(t *testing.T) {
+	config := &Config{}
+	client, err := NewClient(config)
+	if err != nil {
+		t.Fatalf("Failed to create client: %v", err)
+	}
+
+	req := &interfaces.GenerateRequest{
+		Prompt:      "Test prompt",
+		Model:       "test-model",
+		MaxTokens:   100,
+		Temperature: 0.5,
+		Stream:      false,
+	}
+
+	// Test that streaming flag is properly handled in the request building
+	ollamaReq := &GenerateRequest{
+		Model:  client.getModel(req),
+		Prompt: client.buildPrompt(req),
+		Stream: req.Stream,
+		Options: map[string]any{
+			"temperature": client.getTemperature(req),
+			"num_predict": client.getMaxTokens(req),
+		},
+	}
+
+	if ollamaReq.Stream != false {
+		t.Errorf("Expected Stream to be false, got %v", ollamaReq.Stream)
+	}
+	if ollamaReq.Model != "test-model" {
+		t.Errorf("Expected Model to be 'test-model', got '%s'", ollamaReq.Model)
+	}
+	if ollamaReq.Options["temperature"] != 0.5 {
+		t.Errorf("Expected temperature to be 0.5, got %v", ollamaReq.Options["temperature"])
+	}
+	if ollamaReq.Options["num_predict"] != 100 {
+		t.Errorf("Expected num_predict to be 100, got %v", ollamaReq.Options["num_predict"])
 	}
 }
