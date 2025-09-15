@@ -1,8 +1,8 @@
 module github.com/linuxsuren/atest-ext-ai
 
-go 1.22.4
+go 1.23.0
 
-toolchain go1.23.7
+toolchain go1.24.2
 
 require (
 	github.com/fsnotify/fsnotify v1.9.0

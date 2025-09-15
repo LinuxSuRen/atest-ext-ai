@@ -19,9 +19,11 @@ package ai
 import (
 	"context"
 	"fmt"
+	"log"
 	"time"
 
 	"github.com/linuxsuren/atest-ext-ai/pkg/config"
+	"github.com/linuxsuren/atest-ext-ai/pkg/interfaces"
 )
 
 // Engine defines the interface for AI SQL generation
@@ -66,37 +68,63 @@ type SQLFeature struct {
 
 // basicEngine is a basic implementation for testing
 type basicEngine struct {
-	config config.AIConfig
+	config      config.AIConfig
+	generator   *SQLGenerator
+	aiClient    interfaces.AIClient
+}
+
+// aiEngine is a full-featured implementation using AI clients
+type aiEngine struct {
+	config      config.AIConfig
+	generator   *SQLGenerator
+	aiClient    interfaces.AIClient
+	client      *Client
 }
 
 // NewEngine creates a new AI engine based on configuration
-func NewEngine(config config.AIConfig) (Engine, error) {
-	switch config.Provider {
-	case "local":
-		return NewOllamaEngine(config)
-	case "openai":
-		return NewOpenAIEngine(config)
-	case "claude":
-		return NewClaudeEngine(config)
-	default:
-		// Return basic engine for unsupported providers or fallback
-		return &basicEngine{config: config}, nil
+func NewEngine(cfg config.AIConfig) (Engine, error) {
+	// Try to create a full AI client first
+	client, err := NewClient(cfg)
+	if err != nil {
+		log.Printf("Failed to create AI client, falling back to basic engine: %v", err)
+		return &basicEngine{config: cfg}, nil
 	}
+
+	// Get the AI client from the Client
+	aiClient := client.GetPrimaryClient()
+	if aiClient == nil {
+		log.Printf("No primary AI client available, using basic engine")
+		return &basicEngine{config: cfg}, nil
+	}
+
+	// Create SQL generator with AI client
+	generator, err := NewSQLGenerator(aiClient, cfg)
+	if err != nil {
+		log.Printf("Failed to create SQL generator: %v", err)
+		return &basicEngine{config: cfg}, nil
+	}
+
+	return &aiEngine{
+		config:    cfg,
+		generator: generator,
+		aiClient:  aiClient,
+		client:    client,
+	}, nil
 }
 
 // NewOllamaEngine creates an Ollama-based AI engine
-func NewOllamaEngine(config config.AIConfig) (Engine, error) {
-	return &basicEngine{config: config}, nil
+func NewOllamaEngine(cfg config.AIConfig) (Engine, error) {
+	return NewEngine(cfg)
 }
 
 // NewOpenAIEngine creates an OpenAI-based AI engine
-func NewOpenAIEngine(config config.AIConfig) (Engine, error) {
-	return &basicEngine{config: config}, nil
+func NewOpenAIEngine(cfg config.AIConfig) (Engine, error) {
+	return NewEngine(cfg)
 }
 
 // NewClaudeEngine creates a Claude-based AI engine
-func NewClaudeEngine(config config.AIConfig) (Engine, error) {
-	return &basicEngine{config: config}, nil
+func NewClaudeEngine(cfg config.AIConfig) (Engine, error) {
+	return NewEngine(cfg)
 }
 
 // GenerateSQL implements Engine.GenerateSQL
@@ -110,11 +138,53 @@ func (e *basicEngine) GenerateSQL(ctx context.Context, req *GenerateSQLRequest) 
 		ConfidenceScore: 0.5,
 		ProcessingTime:  time.Since(start),
 		RequestID:       fmt.Sprintf("req_%d", time.Now().UnixNano()),
-		ModelUsed:       e.config.Provider,
+		ModelUsed:       e.config.DefaultService,
 		DebugInfo:       []string{"Using basic implementation"},
 	}, nil
 }
 
+// GenerateSQL implements Engine.GenerateSQL with full AI integration
+func (e *aiEngine) GenerateSQL(ctx context.Context, req *GenerateSQLRequest) (*GenerateSQLResponse, error) {
+	if e.generator == nil {
+		return nil, fmt.Errorf("SQL generator not initialized")
+	}
+
+	// Convert request to generator options
+	options := &GenerateOptions{
+		DatabaseType:       req.DatabaseType,
+		ValidateSQL:        true,
+		OptimizeQuery:      false,
+		IncludeExplanation: true,
+		SafetyMode:         true,
+		Temperature:        0.3,
+		MaxTokens:          2000,
+	}
+
+	// Add context if provided
+	if len(req.Context) > 0 {
+		options.Context = make([]string, 0, len(req.Context))
+		for key, value := range req.Context {
+			options.Context = append(options.Context, fmt.Sprintf("%s: %s", key, value))
+		}
+	}
+
+	// Generate SQL using the generator
+	result, err := e.generator.Generate(ctx, req.NaturalLanguage, options)
+	if err != nil {
+		return nil, fmt.Errorf("failed to generate SQL: %w", err)
+	}
+
+	// Convert generator result to engine response
+	return &GenerateSQLResponse{
+		SQL:             result.SQL,
+		Explanation:     result.Explanation,
+		ConfidenceScore: float32(result.ConfidenceScore),
+		ProcessingTime:  result.Metadata.ProcessingTime,
+		RequestID:       result.Metadata.RequestID,
+		ModelUsed:       result.Metadata.ModelUsed,
+		DebugInfo:       append(result.Metadata.DebugInfo, fmt.Sprintf("Query complexity: %s", result.Metadata.Complexity)),
+	}, nil
+}
 // GetCapabilities implements Engine.GetCapabilities
 func (e *basicEngine) GetCapabilities() *SQLCapabilities {
 	return &SQLCapabilities{
@@ -129,6 +199,23 @@ func (e *basicEngine) GetCapabilities() *SQLCapabilities {
 	}
 }
 
+// GetCapabilities implements Engine.GetCapabilities for AI engine
+func (e *aiEngine) GetCapabilities() *SQLCapabilities {
+	if e.generator != nil {
+		return e.generator.GetCapabilities()
+	}
+	// Fallback to basic capabilities
+	return &SQLCapabilities{
+		SupportedDatabases: []string{"mysql", "postgresql", "sqlite"},
+		Features: []SQLFeature{
+			{
+				Name:        "SQL Generation",
+				Enabled:     true,
+				Description: "AI-powered SQL generation from natural language",
+			},
+		},
+	}
+}
 // IsHealthy implements Engine.IsHealthy
 func (e *basicEngine) IsHealthy() bool {
 	return true
@@ -137,4 +224,27 @@ func (e *basicEngine) IsHealthy() bool {
 // Close implements Engine.Close
 func (e *basicEngine) Close() {
 	// No cleanup needed for basic implementation
+}
+
+// IsHealthy implements Engine.IsHealthy for AI engine
+func (e *aiEngine) IsHealthy() bool {
+	if e.client != nil {
+		// Check if primary client is healthy
+		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+		defer cancel()
+
+		healthStatus, err := e.aiClient.HealthCheck(ctx)
+		return err == nil && healthStatus != nil && healthStatus.Healthy
+	}
+	return false
+}
+
+// Close implements Engine.Close for AI engine
+func (e *aiEngine) Close() {
+	if e.client != nil {
+		e.client.Close()
+	}
+	if e.aiClient != nil {
+		e.aiClient.Close()
+	}
 }

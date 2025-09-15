@@ -26,6 +26,7 @@ import (
 	"github.com/linuxsuren/atest-ext-ai/pkg/ai/providers/anthropic"
 	"github.com/linuxsuren/atest-ext-ai/pkg/ai/providers/local"
 	"github.com/linuxsuren/atest-ext-ai/pkg/ai/providers/openai"
+	"github.com/linuxsuren/atest-ext-ai/pkg/config"
 	"github.com/linuxsuren/atest-ext-ai/pkg/interfaces"
 )
 
@@ -46,6 +47,132 @@ var (
 	ErrCircuitBreakerOpen = errors.New("circuit breaker is open")
 )
 
+// Client provides a simplified interface for AI interactions
+type Client struct {
+	manager       *ClientManager
+	primaryClient interfaces.AIClient
+	defaultService string
+}
+
+// NewClient creates a new AI client from configuration
+func NewClient(cfg interface{}) (*Client, error) {
+	// Handle different config types for backward compatibility
+	var serviceConfig *AIServiceConfig
+	var defaultService string
+
+	switch c := cfg.(type) {
+	case config.AIConfig:
+		// Convert new config to service config
+		serviceConfig = convertAIConfigToServiceConfig(c)
+		defaultService = c.DefaultService
+	default:
+		return nil, fmt.Errorf("unsupported configuration type")
+	}
+
+	if len(serviceConfig.Providers) == 0 {
+		return nil, fmt.Errorf("no providers configured")
+	}
+
+	manager, err := NewClientManager(serviceConfig)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create client manager: %w", err)
+	}
+
+	// Get primary client
+	var primaryClient interfaces.AIClient
+	if defaultService != "" {
+		if client, err := manager.GetClient(defaultService); err == nil {
+			primaryClient = client
+		}
+	}
+
+	// If no primary client, use the first available one
+	if primaryClient == nil {
+		for _, provider := range serviceConfig.Providers {
+			if provider.Enabled {
+				if client, err := manager.GetClient(provider.Name); err == nil {
+					primaryClient = client
+					defaultService = provider.Name
+					break
+				}
+			}
+		}
+	}
+
+	return &Client{
+		manager:        manager,
+		primaryClient:  primaryClient,
+		defaultService: defaultService,
+	}, nil
+}
+
+// GetPrimaryClient returns the primary AI client
+func (c *Client) GetPrimaryClient() interfaces.AIClient {
+	return c.primaryClient
+}
+
+// Generate executes an AI generation request
+func (c *Client) Generate(ctx context.Context, req *GenerateRequest) (*GenerateResponse, error) {
+	return c.manager.Generate(ctx, req)
+}
+
+// Close closes the client and all its resources
+func (c *Client) Close() error {
+	return c.manager.Close()
+}
+
+// convertAIConfigToServiceConfig converts the new config format to the service config format
+func convertAIConfigToServiceConfig(cfg config.AIConfig) *AIServiceConfig {
+	serviceConfig := &AIServiceConfig{
+		Providers: make([]ProviderConfig, 0, len(cfg.Services)),
+		LoadBalancer: LoadBalancerConfig{
+			Strategy:             "failover",
+			HealthCheckInterval:  30 * time.Second,
+			HealthCheckTimeout:   10 * time.Second,
+		},
+		Retry: RetryConfig{
+			MaxAttempts:       3,
+			BaseDelay:        100 * time.Millisecond,
+			MaxDelay:         5 * time.Second,
+			BackoffMultiplier: 2.0,
+			Jitter:           true,
+		},
+		CircuitBreaker: CircuitBreakerConfig{
+			FailureThreshold:  5,
+			ResetTimeout:     30 * time.Second,
+			HalfOpenMaxCalls: 3,
+			SuccessThreshold: 2,
+		},
+	}
+
+	// Convert services to providers
+	for name, service := range cfg.Services {
+		if !service.Enabled {
+			continue
+		}
+
+		providerConfig := ProviderConfig{
+			Name:     name,
+			Enabled:  service.Enabled,
+			Priority: service.Priority,
+			Config: map[string]any{
+				"api_key":     service.APIKey,
+				"base_url":    service.Endpoint,
+				"model":       service.Model,
+				"max_tokens":  service.MaxTokens,
+				"temperature": service.Temperature,
+				"timeout":     service.Timeout,
+			},
+			Models:     service.Models,
+			Timeout:    service.Timeout.Value(),
+			MaxRetries: 3,
+		}
+
+		serviceConfig.Providers = append(serviceConfig.Providers, providerConfig)
+	}
+
+	return serviceConfig
+}
 // ClientManager manages multiple AI clients and provides unified access
 type ClientManager struct {
 	clients       map[string]interfaces.AIClient
