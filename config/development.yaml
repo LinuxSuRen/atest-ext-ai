@@ -1,0 +1,151 @@
+# atest-ext-ai Development Configuration
+# This file contains development-specific configuration overrides
+
+# Server Configuration - Development settings
+server:
+  host: "localhost"
+  port: 8080
+  timeout: "30s"
+  max_connections: 50
+  socket_path: "/tmp/atest-ext-ai-dev.sock"
+  read_timeout: "15s"
+  write_timeout: "15s"
+
+# Plugin Configuration - Development settings
+plugin:
+  name: "atest-ext-ai"
+  version: "1.0.0-dev"
+  debug: true
+  log_level: "debug"
+  environment: "development"
+  metadata:
+    author: "api-testing-team"
+    description: "AI-powered testing extension (development)"
+    build: "development"
+
+# AI Service Configuration - Development settings
+ai:
+  default_service: "ollama"
+  timeout: "45s"
+  fallback_order:
+    - "ollama"
+
+  # Relaxed rate limiting for development
+  rate_limit:
+    enabled: false
+    requests_per_minute: 1000
+    burst_size: 100
+    window_size: "1m"
+
+  # Disabled circuit breaker for development
+  circuit_breaker:
+    enabled: false
+    failure_threshold: 10
+    success_threshold: 2
+    timeout: "30s"
+    reset_timeout: "60s"
+
+  # Minimal retry for faster development
+  retry:
+    enabled: true
+    max_attempts: 2
+    initial_delay: "500ms"
+    max_delay: "5s"
+    multiplier: 1.5
+    jitter: false
+
+  # Shorter cache for development
+  cache:
+    enabled: true
+    ttl: "10m"
+    max_size: 100
+    provider: "memory"
+
+  # Minimal security for development
+  security:
+    encrypt_credentials: false
+    allowed_hosts:
+      - "localhost"
+      - "127.0.0.1"
+      - "0.0.0.0"
+    tls_enabled: false
+
+  # Development AI services
+  services:
+    ollama:
+      enabled: true
+      provider: "ollama"
+      endpoint: "http://localhost:11434"
+      model: "codellama:7b"
+      max_tokens: 2048
+      temperature: 0.8
+      top_p: 0.9
+      priority: 1
+      timeout: "45s"
+      models:
+        - "codellama:7b"
+        - "llama2:7b"
+        - "mistral:7b"
+      headers:
+        Content-Type: "application/json"
+        X-Debug: "true"
+
+    # Keep other services disabled but available for testing
+    openai:
+      enabled: false
+      provider: "openai"
+      # Set via env: export ATEST_EXT_AI_AI_SERVICES_OPENAI_API_KEY="your-key"
+      model: "gpt-3.5-turbo"
+      max_tokens: 2048
+      temperature: 0.8
+      priority: 2
+      timeout: "30s"
+
+    claude:
+      enabled: false
+      provider: "claude"
+      # Set via env: export ATEST_EXT_AI_AI_SERVICES_CLAUDE_API_KEY="your-key"
+      model: "claude-3-haiku"
+      max_tokens: 2048
+      temperature: 0.8
+      priority: 3
+      timeout: "30s"
+
+# Database Configuration - Development (disabled by default)
+database:
+  enabled: false
+  driver: "sqlite"
+  dsn: "file:./dev.db?cache=shared&mode=rwc"
+  max_connections: 5
+  max_idle: 2
+  max_lifetime: "30m"
+
+# Logging Configuration - Development (verbose)
+logging:
+  level: "debug"
+  format: "text"
+  output: "stdout"
+
+  # Development file logging (optional)
+  file:
+    path: "./logs/atest-ext-ai-dev.log"
+    max_size: "50MB"
+    max_backups: 2
+    max_age: 7
+    compress: false
+
+  # Simple rotation for development
+  rotation:
+    enabled: true
+    size: "50MB"
+    count: 3
+    age: "7d"
+    compress: false
+
+  # Minimal filtering for development visibility
+  filters:
+    - name: "api_keys"
+      level: "debug"
+      pattern: "api_key"
+      fields:
+        action: "truncate"

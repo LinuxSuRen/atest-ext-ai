@@ -1,0 +1,140 @@
+# atest-ext-ai Docker Configuration
+# This file contains Docker-specific configuration overrides
+
+# Server Configuration - Docker settings
+server:
+  host: "0.0.0.0"
+  port: 8080
+  timeout: "30s"
+  max_connections: 100
+  socket_path: "/app/sockets/atest-ext-ai.sock"
+  read_timeout: "15s"
+  write_timeout: "15s"
+
+# Plugin Configuration - Docker settings
+plugin:
+  name: "atest-ext-ai"
+  version: "1.0.0"
+  debug: false
+  log_level: "info"
+  environment: "docker"
+  metadata:
+    author: "api-testing-team"
+    description: "AI-powered testing extension (Docker)"
+    runtime: "docker"
+
+# AI Service Configuration - Docker settings
+ai:
+  default_service: "ollama"
+  timeout: "60s"
+  fallback_order:
+    - "ollama"
+    - "openai"
+    - "claude"
+
+  # Standard rate limiting
+  rate_limit:
+    enabled: true
+    requests_per_minute: 60
+    burst_size: 10
+    window_size: "1m"
+
+  # Circuit breaker configuration
+  circuit_breaker:
+    enabled: true
+    failure_threshold: 5
+    success_threshold: 3
+    timeout: "30s"
+    reset_timeout: "60s"
+
+  # Retry configuration
+  retry:
+    enabled: true
+    max_attempts: 3
+    initial_delay: "1s"
+    max_delay: "30s"
+    multiplier: 2.0
+    jitter: true
+
+  # Cache configuration
+  cache:
+    enabled: true
+    ttl: "1h"
+    max_size: 1000
+    provider: "memory"
+
+  # Basic security
+  security:
+    encrypt_credentials: false
+    allowed_hosts:
+      - "ollama"
+      - "localhost"
+      - "api.openai.com"
+      - "api.anthropic.com"
+    tls_enabled: false
+
+  # Docker AI services
+  services:
+    ollama:
+      enabled: true
+      provider: "ollama"
+      endpoint: "http://ollama:11434"  # Docker service name
+      model: "codellama"
+      max_tokens: 4096
+      temperature: 0.7
+      top_p: 0.9
+      priority: 1
+      timeout: "60s"
+      models:
+        - "codellama"
+        - "llama2"
+      headers:
+        Content-Type: "application/json"
+
+    openai:
+      enabled: false
+      provider: "openai"
+      # Set via environment variable in Docker: ATEST_EXT_AI_AI_SERVICES_OPENAI_API_KEY
+      model: "gpt-4"
+      max_tokens: 4096
+      temperature: 0.7
+      priority: 2
+      timeout: "60s"
+
+    claude:
+      enabled: false
+      provider: "claude"
+      # Set via environment variable in Docker: ATEST_EXT_AI_AI_SERVICES_CLAUDE_API_KEY
+      model: "claude-3-sonnet"
+      max_tokens: 4096
+      temperature: 0.7
+      priority: 3
+      timeout: "60s"
+
+# Database Configuration - Docker
+database:
+  enabled: false
+  driver: "postgres"
+  # Connect to postgres service: postgres://user:pass@postgres:5432/dbname
+  # Set via environment variable: ATEST_EXT_AI_DATABASE_DSN
+  max_connections: 20
+  max_idle: 10
+  max_lifetime: "2h"
+
+# Logging Configuration - Docker (structured for container logs)
+logging:
+  level: "info"
+  format: "json"
+  output: "stdout"  # Docker logs to stdout/stderr
+
+  # Container log settings
+  rotation:
+    enabled: false  # Docker handles log rotation
+
+  # Security filters for container logs
+  filters:
+    - name: "credentials"
+      level: "warn"
+      pattern: "api_key|password|secret|token"
+      fields:
+        action: "redact"

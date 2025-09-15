@@ -1,6 +1,5 @@
-# atest-ext-ai Configuration Example
-# This file shows all available configuration options for the new configuration system
-# Copy this file to config.yaml and modify as needed
+# atest-ext-ai Default Configuration
+# This file contains the default configuration for the AI Testing Extension
 
 # Server Configuration
 server:
@@ -29,8 +28,8 @@ ai:
   timeout: "60s"
   fallback_order:
     - "ollama"
-    # - "openai"    # Uncomment and configure if needed
-    # - "claude"    # Uncomment and configure if needed
+    - "openai"
+    - "claude"
 
   # Rate limiting configuration
   rate_limit:
@@ -73,7 +72,6 @@ ai:
 
   # AI Service Definitions
   services:
-    # Ollama (Local AI) - Default enabled
     ollama:
       enabled: true
       provider: "ollama"
@@ -88,30 +86,34 @@ ai:
         - "codellama"
         - "llama2"
         - "mistral"
+      headers:
+        Content-Type: "application/json"
 
-    # OpenAI - Disabled by default (uncomment and configure to use)
-    # openai:
-    #   enabled: true
-    #   provider: "openai"
-    #   api_key: "your-openai-api-key-here"  # Or set ATEST_EXT_AI_AI_SERVICES_OPENAI_API_KEY
-    #   model: "gpt-4"
-    #   max_tokens: 4096
-    #   temperature: 0.7
-    #   top_p: 0.9
-    #   priority: 2
-    #   timeout: "60s"
+    openai:
+      enabled: false
+      provider: "openai"
+      # api_key: "your-openai-api-key-here"
+      model: "gpt-4"
+      max_tokens: 4096
+      temperature: 0.7
+      top_p: 0.9
+      priority: 2
+      timeout: "60s"
+      headers:
+        Content-Type: "application/json"
 
-    # Claude (Anthropic) - Disabled by default (uncomment and configure to use)
-    # claude:
-    #   enabled: true
-    #   provider: "claude"
-    #   api_key: "your-claude-api-key-here"  # Or set ATEST_EXT_AI_AI_SERVICES_CLAUDE_API_KEY
-    #   model: "claude-3-sonnet"
-    #   max_tokens: 4096
-    #   temperature: 0.7
-    #   top_p: 0.9
-    #   priority: 3
-    #   timeout: "60s"
+    claude:
+      enabled: false
+      provider: "claude"
+      # api_key: "your-claude-api-key-here"
+      model: "claude-3-sonnet"
+      max_tokens: 4096
+      temperature: 0.7
+      top_p: 0.9
+      priority: 3
+      timeout: "60s"
+      headers:
+        Content-Type: "application/json"
 
 # Database Configuration (Optional)
 database:
@@ -128,7 +130,7 @@ logging:
   format: "json"
   output: "stdout"
 
-  # File logging (when output is "file")
+  # File logging configuration (when output is "file")
   file:
     path: "/var/log/atest-ext-ai.log"
     max_size: "100MB"
@@ -136,7 +138,7 @@ logging:
     max_age: 28
     compress: true
 
-  # Log rotation
+  # Log rotation configuration
   rotation:
     enabled: true
     size: "100MB"
@@ -144,26 +146,10 @@ logging:
     age: "30d"
     compress: true
 
-# Environment Variable Configuration
-# You can override any configuration using environment variables with the prefix ATEST_EXT_AI_
-# Examples:
-# ATEST_EXT_AI_SERVER_HOST=localhost
-# ATEST_EXT_AI_SERVER_PORT=9090
-# ATEST_EXT_AI_AI_DEFAULT_SERVICE=openai
-# ATEST_EXT_AI_AI_SERVICES_OPENAI_API_KEY=your-api-key
-# ATEST_EXT_AI_AI_SERVICES_CLAUDE_API_KEY=your-claude-key
-# ATEST_EXT_AI_LOG_LEVEL=debug
-
-# Main Project Integration (stores.yaml format)
-# When used as a store in the main API Testing project, configure as:
-# stores:
-#   - name: "ai-assistant"
-#     type: "ai"
-#     url: "unix:///tmp/atest-ext-ai.sock"
-#     properties:
-#       - key: ai_provider
-#         value: local
-#       - key: ollama_endpoint
-#         value: http://localhost:11434
-#       - key: model
-#         value: codellama
+  # Log filters
+  filters:
+    - name: "sensitive_data"
+      level: "warn"
+      pattern: "api_key|password|secret"
+      fields:
+        action: "redact"
