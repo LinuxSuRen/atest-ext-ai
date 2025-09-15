@@ -17,12 +17,15 @@ limitations under the License.
 package local
 
 import (
+	"bufio"
 	"bytes"
 	"context"
 	"encoding/json"
 	"fmt"
 	"io"
+	"net"
 	"net/http"
+	"os"
 	"strings"
 	"time"
 
@@ -37,12 +40,15 @@ type Client struct {
 
 // Config holds local model configuration
 type Config struct {
-	BaseURL     string        `json:"base_url"`
-	Timeout     time.Duration `json:"timeout"`
-	MaxTokens   int           `json:"max_tokens"`
-	Model       string        `json:"model"`
-	UserAgent   string        `json:"user_agent,omitempty"`
-	Temperature float64       `json:"temperature"`
+	BaseURL       string        `json:"base_url"`
+	Timeout       time.Duration `json:"timeout"`
+	MaxTokens     int           `json:"max_tokens"`
+	Model         string        `json:"model"`
+	UserAgent     string        `json:"user_agent,omitempty"`
+	Temperature   float64       `json:"temperature"`
+	MaxIdleConns  int           `json:"max_idle_conns,omitempty"`
+	MaxConnsPerHost int         `json:"max_conns_per_host,omitempty"`
+	IdleConnTimeout time.Duration `json:"idle_conn_timeout,omitempty"`
 }
 
 // NewClient creates a new local model client
@@ -53,7 +59,12 @@ func NewClient(config *Config) (*Client, error) {
 
 	// Set defaults
 	if config.BaseURL == "" {
-		config.BaseURL = "http://localhost:11434"
+		// Try environment variable first, then default
+		if envURL := os.Getenv("OLLAMA_BASE_URL"); envURL != "" {
+			config.BaseURL = envURL
+		} else {
+			config.BaseURL = "http://localhost:11434"
+		}
 	}
 	if config.Timeout == 0 {
 		config.Timeout = 60 * time.Second
@@ -70,11 +81,35 @@ func NewClient(config *Config) (*Client, error) {
 	if config.Temperature == 0 {
 		config.Temperature = 0.7
 	}
+	if config.MaxIdleConns == 0 {
+		config.MaxIdleConns = 100
+	}
+	if config.MaxConnsPerHost == 0 {
+		config.MaxConnsPerHost = 10
+	}
+	if config.IdleConnTimeout == 0 {
+		config.IdleConnTimeout = 90 * time.Second
+	}
+
+	// Create HTTP transport with connection pooling
+	transport := &http.Transport{
+		MaxIdleConns:        config.MaxIdleConns,
+		MaxIdleConnsPerHost: config.MaxConnsPerHost,
+		IdleConnTimeout:     config.IdleConnTimeout,
+		DialContext: (&net.Dialer{
+			Timeout:   30 * time.Second,
+			KeepAlive: 30 * time.Second,
+		}).DialContext,
+		TLSHandshakeTimeout:   10 * time.Second,
+		ResponseHeaderTimeout: 30 * time.Second,
+		ExpectContinueTimeout: 1 * time.Second,
+	}
 
 	client := &Client{
 		config: config,
 		httpClient: &http.Client{
-			Timeout: config.Timeout,
+			Timeout:   config.Timeout,
+			Transport: transport,
 		},
 	}
 
@@ -99,7 +134,11 @@ func (c *Client) Generate(ctx context.Context, req *interfaces.GenerateRequest) 
 		},
 	}
 
-	// Make the HTTP request
+	if req.Stream {
+		return c.generateStream(ctx, ollamaReq, start)
+	}
+
+	// Make the HTTP request for non-streaming
 	response, err := c.makeRequest(ctx, "/api/generate", ollamaReq)
 	if err != nil {
 		return nil, fmt.Errorf("failed to make request: %w", err)
@@ -123,6 +162,7 @@ func (c *Client) Generate(ctx context.Context, req *interfaces.GenerateRequest) 
 			"load_duration":    response.LoadDuration,
 			"prompt_eval_duration": response.PromptEvalDuration,
 			"eval_duration":    response.EvalDuration,
+			"streaming":        false,
 		},
 	}
 
@@ -212,8 +252,100 @@ func (c *Client) HealthCheck(ctx context.Context) (*interfaces.HealthStatus, err
 
 // Close releases any resources held by the client
 func (c *Client) Close() error {
-	// No resources to clean up for HTTP client
+	// Close idle connections in the transport
+	if transport, ok := c.httpClient.Transport.(*http.Transport); ok {
+		transport.CloseIdleConnections()
+	}
 	return nil
+}
+
+// generateStream handles streaming generation requests
+func (c *Client) generateStream(ctx context.Context, ollamaReq *GenerateRequest, start time.Time) (*interfaces.GenerateResponse, error) {
+	// Marshal the request body
+	jsonBody, err := json.Marshal(ollamaReq)
+	if err != nil {
+		return nil, fmt.Errorf("failed to marshal request: %w", err)
+	}
+
+	// Create HTTP request
+	req, err := http.NewRequestWithContext(ctx, "POST", c.config.BaseURL+"/api/generate", bytes.NewBuffer(jsonBody))
+	if err != nil {
+		return nil, fmt.Errorf("failed to create request: %w", err)
+	}
+
+	// Set headers
+	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("User-Agent", c.config.UserAgent)
+
+	// Make the request
+	resp, err := c.httpClient.Do(req)
+	if err != nil {
+		return nil, fmt.Errorf("request failed: %w", err)
+	}
+	defer resp.Body.Close()
+
+	// Check for errors
+	if resp.StatusCode != http.StatusOK {
+		respBody, _ := io.ReadAll(resp.Body)
+		return nil, fmt.Errorf("API returned status %d: %s", resp.StatusCode, string(respBody))
+	}
+
+	// Read streaming response
+	var responseText strings.Builder
+	var lastResponse *GenerateResponse
+	scanner := bufio.NewScanner(resp.Body)
+
+	for scanner.Scan() {
+		line := scanner.Text()
+		if line == "" {
+			continue
+		}
+
+		var streamResp GenerateResponse
+		if err := json.Unmarshal([]byte(line), &streamResp); err != nil {
+			continue // Skip malformed lines
+		}
+
+		responseText.WriteString(streamResp.Response)
+		lastResponse = &streamResp
+
+		// Break if we're done
+		if streamResp.Done {
+			break
+		}
+	}
+
+	if err := scanner.Err(); err != nil {
+		return nil, fmt.Errorf("error reading stream: %w", err)
+	}
+
+	if lastResponse == nil {
+		return nil, fmt.Errorf("no valid response received from stream")
+	}
+
+	// Build the final response
+	aiResponse := &interfaces.GenerateResponse{
+		Text:            responseText.String(),
+		Model:           lastResponse.Model,
+		ProcessingTime:  time.Since(start),
+		RequestID:       fmt.Sprintf("ollama_stream_%d", time.Now().UnixNano()),
+		ConfidenceScore: 1.0,
+		Usage: interfaces.TokenUsage{
+			PromptTokens:     lastResponse.PromptEvalCount,
+			CompletionTokens: lastResponse.EvalCount,
+			TotalTokens:      lastResponse.PromptEvalCount + lastResponse.EvalCount,
+		},
+		Metadata: map[string]any{
+			"done":                 lastResponse.Done,
+			"total_duration":       lastResponse.TotalDuration,
+			"load_duration":        lastResponse.LoadDuration,
+			"prompt_eval_duration": lastResponse.PromptEvalDuration,
+			"eval_duration":        lastResponse.EvalDuration,
+			"streaming":            true,
+		},
+	}
+
+	return aiResponse, nil
 }
 
 // buildPrompt constructs a prompt from the request

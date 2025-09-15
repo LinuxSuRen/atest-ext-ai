@@ -18,6 +18,7 @@ package openai
 
 import (
 	"context"
+	"os"
 	"testing"
 	"time"
 
@@ -204,5 +205,149 @@ func TestClient_getTemperature(t *testing.T) {
 	temp = client.getTemperature(req)
 	if temp != 0.7 {
 		t.Errorf("Expected 0.7, got %f", temp)
+	}
+}
+
+func TestNewClient_EnvironmentVariables(t *testing.T) {
+	// Test environment variable for API key
+	originalKey := os.Getenv("OPENAI_API_KEY")
+	originalOrg := os.Getenv("OPENAI_ORG_ID")
+	defer func() {
+		if originalKey != "" {
+			os.Setenv("OPENAI_API_KEY", originalKey)
+		} else {
+			os.Unsetenv("OPENAI_API_KEY")
+		}
+		if originalOrg != "" {
+			os.Setenv("OPENAI_ORG_ID", originalOrg)
+		} else {
+			os.Unsetenv("OPENAI_ORG_ID")
+		}
+	}()
+
+	os.Setenv("OPENAI_API_KEY", "env-test-key")
+	os.Setenv("OPENAI_ORG_ID", "env-test-org")
+
+	config := &Config{}
+	client, err := NewClient(config)
+	if err != nil {
+		t.Fatalf("Failed to create client: %v", err)
+	}
+
+	if client.config.APIKey != "env-test-key" {
+		t.Errorf("Expected API key to be 'env-test-key', got '%s'", client.config.APIKey)
+	}
+	if client.config.OrgID != "env-test-org" {
+		t.Errorf("Expected OrgID to be 'env-test-org', got '%s'", client.config.OrgID)
+	}
+}
+
+func TestNewClient_ConnectionPooling(t *testing.T) {
+	config := &Config{
+		APIKey:          "test-key",
+		MaxIdleConns:    50,
+		MaxConnsPerHost: 5,
+		IdleConnTimeout: 60 * time.Second,
+	}
+
+	client, err := NewClient(config)
+	if err != nil {
+		t.Fatalf("Failed to create client: %v", err)
+	}
+
+	if client.config.MaxIdleConns != 50 {
+		t.Errorf("Expected MaxIdleConns to be 50, got %d", client.config.MaxIdleConns)
+	}
+	if client.config.MaxConnsPerHost != 5 {
+		t.Errorf("Expected MaxConnsPerHost to be 5, got %d", client.config.MaxConnsPerHost)
+	}
+	if client.config.IdleConnTimeout != 60*time.Second {
+		t.Errorf("Expected IdleConnTimeout to be 60s, got %v", client.config.IdleConnTimeout)
+	}
+}
+
+func TestClient_CloseWithConnectionPool(t *testing.T) {
+	config := &Config{
+		APIKey: "test-key",
+	}
+	client, err := NewClient(config)
+	if err != nil {
+		t.Fatalf("Failed to create client: %v", err)
+	}
+
+	// Verify the client has an HTTP transport
+	if client.httpClient.Transport == nil {
+		t.Error("Expected HTTP transport to be configured")
+	}
+
+	err = client.Close()
+	if err != nil {
+		t.Errorf("Close failed: %v", err)
+	}
+}
+
+func TestClient_StreamingRequest(t *testing.T) {
+	config := &Config{
+		APIKey: "test-key",
+	}
+	client, err := NewClient(config)
+	if err != nil {
+		t.Fatalf("Failed to create client: %v", err)
+	}
+
+	req := &interfaces.GenerateRequest{
+		Prompt:      "Test prompt",
+		Model:       "gpt-3.5-turbo",
+		MaxTokens:   100,
+		Temperature: 0.5,
+		Stream:      true,
+	}
+
+	// Test that streaming flag is properly handled in the request building
+	openaiReq := &ChatCompletionRequest{
+		Model:       client.getModel(req),
+		MaxTokens:   client.getMaxTokens(req),
+		Temperature: client.getTemperature(req),
+		Stream:      req.Stream,
+	}
+
+	if openaiReq.Stream != true {
+		t.Errorf("Expected Stream to be true, got %v", openaiReq.Stream)
+	}
+	if openaiReq.Model != "gpt-3.5-turbo" {
+		t.Errorf("Expected Model to be 'gpt-3.5-turbo', got '%s'", openaiReq.Model)
+	}
+	if openaiReq.Temperature != 0.5 {
+		t.Errorf("Expected temperature to be 0.5, got %v", openaiReq.Temperature)
+	}
+	if openaiReq.MaxTokens != 100 {
+		t.Errorf("Expected MaxTokens to be 100, got %v", openaiReq.MaxTokens)
+	}
+}
+
+func TestClient_RateLimits(t *testing.T) {
+	config := &Config{
+		APIKey: "test-key",
+	}
+	client, err := NewClient(config)
+	if err != nil {
+		t.Fatalf("Failed to create client: %v", err)
+	}
+
+	ctx := context.Background()
+	caps, err := client.GetCapabilities(ctx)
+	if err != nil {
+		t.Fatalf("GetCapabilities failed: %v", err)
+	}
+
+	if caps.RateLimits == nil {
+		t.Error("Expected rate limits to be defined")
+	} else {
+		if caps.RateLimits.RequestsPerMinute <= 0 {
+			t.Error("Expected positive requests per minute")
+		}
+		if caps.RateLimits.TokensPerMinute <= 0 {
+			t.Error("Expected positive tokens per minute")
+		}
 	}
 }

@@ -17,12 +17,16 @@ limitations under the License.
 package anthropic
 
 import (
+	"bufio"
 	"bytes"
 	"context"
 	"encoding/json"
 	"fmt"
 	"io"
+	"net"
 	"net/http"
+	"os"
+	"strings"
 	"time"
 
 	"github.com/linuxsuren/atest-ext-ai/pkg/interfaces"
@@ -36,13 +40,16 @@ type Client struct {
 
 // Config holds Anthropic-specific configuration
 type Config struct {
-	APIKey     string        `json:"api_key"`
-	BaseURL    string        `json:"base_url"`
-	Timeout    time.Duration `json:"timeout"`
-	MaxTokens  int           `json:"max_tokens"`
-	Model      string        `json:"model"`
-	Version    string        `json:"version"`
-	UserAgent  string        `json:"user_agent,omitempty"`
+	APIKey          string        `json:"api_key"`
+	BaseURL         string        `json:"base_url"`
+	Timeout         time.Duration `json:"timeout"`
+	MaxTokens       int           `json:"max_tokens"`
+	Model           string        `json:"model"`
+	Version         string        `json:"version"`
+	UserAgent       string        `json:"user_agent,omitempty"`
+	MaxIdleConns    int           `json:"max_idle_conns,omitempty"`
+	MaxConnsPerHost int           `json:"max_conns_per_host,omitempty"`
+	IdleConnTimeout time.Duration `json:"idle_conn_timeout,omitempty"`
 }
 
 // NewClient creates a new Anthropic client
@@ -51,8 +58,13 @@ func NewClient(config *Config) (*Client, error) {
 		return nil, fmt.Errorf("config cannot be nil")
 	}
 
+	// Set API key from environment if not provided
 	if config.APIKey == "" {
-		return nil, fmt.Errorf("API key is required")
+		if envKey := os.Getenv("ANTHROPIC_API_KEY"); envKey != "" {
+			config.APIKey = envKey
+		} else {
+			return nil, fmt.Errorf("API key is required (set ANTHROPIC_API_KEY environment variable or provide in config)")
+		}
 	}
 
 	// Set defaults
@@ -74,11 +86,35 @@ func NewClient(config *Config) (*Client, error) {
 	if config.UserAgent == "" {
 		config.UserAgent = "atest-ext-ai/1.0"
 	}
+	if config.MaxIdleConns == 0 {
+		config.MaxIdleConns = 100
+	}
+	if config.MaxConnsPerHost == 0 {
+		config.MaxConnsPerHost = 10
+	}
+	if config.IdleConnTimeout == 0 {
+		config.IdleConnTimeout = 90 * time.Second
+	}
+
+	// Create HTTP transport with connection pooling
+	transport := &http.Transport{
+		MaxIdleConns:        config.MaxIdleConns,
+		MaxIdleConnsPerHost: config.MaxConnsPerHost,
+		IdleConnTimeout:     config.IdleConnTimeout,
+		DialContext: (&net.Dialer{
+			Timeout:   30 * time.Second,
+			KeepAlive: 30 * time.Second,
+		}).DialContext,
+		TLSHandshakeTimeout:   10 * time.Second,
+		ResponseHeaderTimeout: 30 * time.Second,
+		ExpectContinueTimeout: 1 * time.Second,
+	}
 
 	client := &Client{
 		config: config,
 		httpClient: &http.Client{
-			Timeout: config.Timeout,
+			Timeout:   config.Timeout,
+			Transport: transport,
 		},
 	}
 
@@ -125,7 +161,11 @@ func (c *Client) Generate(ctx context.Context, req *interfaces.GenerateRequest) 
 		Content: req.Prompt,
 	})
 
-	// Make the HTTP request
+	if req.Stream {
+		return c.generateStream(ctx, claudeReq, start)
+	}
+
+	// Make the HTTP request for non-streaming
 	response, err := c.makeRequest(ctx, "/v1/messages", claudeReq)
 	if err != nil {
 		return nil, fmt.Errorf("failed to make request: %w", err)
@@ -152,6 +192,7 @@ func (c *Client) Generate(ctx context.Context, req *interfaces.GenerateRequest) 
 		Metadata: map[string]any{
 			"stop_reason": response.StopReason,
 			"role":        response.Role,
+			"streaming":   false,
 		},
 	}
 
@@ -258,8 +299,124 @@ func (c *Client) HealthCheck(ctx context.Context) (*interfaces.HealthStatus, err
 
 // Close releases any resources held by the client
 func (c *Client) Close() error {
-	// No resources to clean up for HTTP client
+	// Close idle connections in the transport
+	if transport, ok := c.httpClient.Transport.(*http.Transport); ok {
+		transport.CloseIdleConnections()
+	}
 	return nil
+}
+
+// generateStream handles streaming generation requests
+func (c *Client) generateStream(ctx context.Context, claudeReq *MessagesRequest, start time.Time) (*interfaces.GenerateResponse, error) {
+	// Marshal the request body
+	jsonBody, err := json.Marshal(claudeReq)
+	if err != nil {
+		return nil, fmt.Errorf("failed to marshal request: %w", err)
+	}
+
+	// Create HTTP request
+	req, err := http.NewRequestWithContext(ctx, "POST", c.config.BaseURL+"/v1/messages", bytes.NewBuffer(jsonBody))
+	if err != nil {
+		return nil, fmt.Errorf("failed to create request: %w", err)
+	}
+
+	// Set headers
+	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("x-api-key", c.config.APIKey)
+	req.Header.Set("anthropic-version", c.config.Version)
+	req.Header.Set("User-Agent", c.config.UserAgent)
+	req.Header.Set("Accept", "text/event-stream")
+	req.Header.Set("Cache-Control", "no-cache")
+
+	// Make the request
+	resp, err := c.httpClient.Do(req)
+	if err != nil {
+		return nil, fmt.Errorf("request failed: %w", err)
+	}
+	defer resp.Body.Close()
+
+	// Check for errors
+	if resp.StatusCode != http.StatusOK {
+		respBody, _ := io.ReadAll(resp.Body)
+		var errorResp ErrorResponse
+		if err := json.Unmarshal(respBody, &errorResp); err == nil {
+			return nil, fmt.Errorf("API error: %s", errorResp.Error.Message)
+		}
+		return nil, fmt.Errorf("API returned status %d: %s", resp.StatusCode, string(respBody))
+	}
+
+	// Read streaming response
+	var responseText strings.Builder
+	var model string
+	var stopReason string
+	var requestID string
+	var inputTokens, outputTokens int
+	scanner := bufio.NewScanner(resp.Body)
+
+	for scanner.Scan() {
+		line := scanner.Text()
+		if line == "" || !strings.HasPrefix(line, "data: ") {
+			continue
+		}
+
+		data := strings.TrimPrefix(line, "data: ")
+		if strings.HasPrefix(data, "[DONE]") {
+			break
+		}
+
+		var streamResp StreamEvent
+		if err := json.Unmarshal([]byte(data), &streamResp); err != nil {
+			continue // Skip malformed lines
+		}
+
+		switch streamResp.Type {
+		case "message_start":
+			if streamResp.Message != nil {
+				model = streamResp.Message.Model
+				requestID = streamResp.Message.ID
+				if streamResp.Message.Usage.InputTokens > 0 {
+					inputTokens = streamResp.Message.Usage.InputTokens
+				}
+			}
+		case "content_block_delta":
+			if streamResp.Delta != nil && streamResp.Delta.Text != "" {
+				responseText.WriteString(streamResp.Delta.Text)
+			}
+		case "message_delta":
+			if streamResp.Delta != nil && streamResp.Delta.StopReason != "" {
+				stopReason = streamResp.Delta.StopReason
+			}
+			if streamResp.Usage != nil && streamResp.Usage.OutputTokens > 0 {
+				outputTokens = streamResp.Usage.OutputTokens
+			}
+		case "message_stop":
+			break
+		}
+	}
+
+	if err := scanner.Err(); err != nil {
+		return nil, fmt.Errorf("error reading stream: %w", err)
+	}
+
+	// Build the final response
+	aiResponse := &interfaces.GenerateResponse{
+		Text:            responseText.String(),
+		Model:           model,
+		ProcessingTime:  time.Since(start),
+		RequestID:       requestID,
+		ConfidenceScore: 1.0,
+		Usage: interfaces.TokenUsage{
+			PromptTokens:     inputTokens,
+			CompletionTokens: outputTokens,
+			TotalTokens:      inputTokens + outputTokens,
+		},
+		Metadata: map[string]any{
+			"stop_reason": stopReason,
+			"streaming":   true,
+		},
+	}
+
+	return aiResponse, nil
 }
 
 // getModel returns the model to use for the request
@@ -377,4 +534,19 @@ type ErrorResponse struct {
 		Type    string `json:"type"`
 		Message string `json:"message"`
 	} `json:"error"`
+}
+
+// StreamEvent represents a streaming event from Anthropic
+type StreamEvent struct {
+	Type    string                 `json:"type"`
+	Message *MessagesResponse      `json:"message,omitempty"`
+	Delta   *StreamDelta          `json:"delta,omitempty"`
+	Usage   *UsageInfo            `json:"usage,omitempty"`
+}
+
+// StreamDelta represents the delta content in a streaming response
+type StreamDelta struct {
+	Type       string `json:"type,omitempty"`
+	Text       string `json:"text,omitempty"`
+	StopReason string `json:"stop_reason,omitempty"`
 }

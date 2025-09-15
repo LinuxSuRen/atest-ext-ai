@@ -1,159 +1,107 @@
-# atest-ext-ai Production Configuration
-# This file contains production-specific configuration overrides
+# Production configuration for atest-ext-ai plugin
+# Minimal configuration with environment variables for sensitive data
 
-# Server Configuration - Production settings
 server:
   host: "0.0.0.0"
   port: 8080
-  timeout: "60s"
-  max_connections: 200
+  timeout: "30s"
+  max_connections: 1000
   socket_path: "/var/run/atest-ext-ai.sock"
-  read_timeout: "30s"
-  write_timeout: "30s"
+  read_timeout: "15s"
+  write_timeout: "15s"
 
-# Plugin Configuration - Production settings
 plugin:
   name: "atest-ext-ai"
   version: "1.0.0"
   debug: false
-  log_level: "warn"
+  log_level: "info"
   environment: "production"
-  metadata:
-    author: "api-testing-team"
-    description: "AI-powered testing extension"
-    environment: "production"
 
-# AI Service Configuration - Production settings
 ai:
   default_service: "openai"
-  timeout: "120s"
-  fallback_order:
-    - "openai"
-    - "claude"
-    - "ollama"
+  fallback_order: ["openai", "claude", "ollama"]
+  timeout: "30s"
 
-  # Enhanced rate limiting for production
+  services:
+    openai:
+      enabled: true
+      provider: "openai"
+      # Use environment variables for API keys in production
+      # Set OPENAI_API_KEY environment variable
+      model: "gpt-3.5-turbo"
+      max_tokens: 4096
+      temperature: 0.1  # Lower temperature for more consistent results
+      priority: 1
+      timeout: "30s"
+
+    claude:
+      enabled: true
+      provider: "claude"
+      # Set ANTHROPIC_API_KEY environment variable
+      model: "claude-3-sonnet-20240229"
+      max_tokens: 4096
+      temperature: 0.1
+      priority: 2
+      timeout: "45s"
+
+    ollama:
+      enabled: false  # Disabled in production by default
+      provider: "ollama"
+      # Set OLLAMA_BASE_URL environment variable if using external Ollama
+      model: "llama2"
+      max_tokens: 4096
+      temperature: 0.1
+      priority: 3
+      timeout: "60s"
+
   rate_limit:
     enabled: true
-    requests_per_minute: 120
+    requests_per_minute: 100
     burst_size: 20
     window_size: "1m"
 
-  # Circuit breaker with conservative settings
   circuit_breaker:
     enabled: true
     failure_threshold: 3
-    success_threshold: 5
-    timeout: "60s"
-    reset_timeout: "120s"
+    success_threshold: 2
+    timeout: "30s"
+    reset_timeout: "60s"
 
-  # Retry with backoff
   retry:
     enabled: true
-    max_attempts: 5
-    initial_delay: "2s"
-    max_delay: "60s"
+    max_attempts: 2
+    initial_delay: "100ms"
+    max_delay: "2s"
     multiplier: 2.0
     jitter: true
 
-  # Cache with longer TTL
   cache:
     enabled: true
-    ttl: "24h"
-    max_size: 5000
-    provider: "redis"
-    redis_url: "redis://localhost:6379/0"
-
-  # Enhanced security
+    ttl: "30m"
+    max_size: 10000
+    provider: "memory"
   security:
     encrypt_credentials: true
     allowed_hosts:
       - "api.openai.com"
       - "api.anthropic.com"
     tls_enabled: true
-    cert_file: "/etc/ssl/certs/atest-ext-ai.crt"
-    key_file: "/etc/ssl/private/atest-ext-ai.key"
 
-  # Production AI services
-  services:
-    openai:
-      enabled: true
-      provider: "openai"
-      # api_key should be set via environment variable: ATEST_EXT_AI_AI_SERVICES_OPENAI_API_KEY
-      model: "gpt-4"
-      max_tokens: 4096
-      temperature: 0.3
-      top_p: 0.9
-      priority: 1
-      timeout: "120s"
-      headers:
-        Content-Type: "application/json"
-        User-Agent: "atest-ext-ai/1.0.0"
-
-    claude:
-      enabled: true
-      provider: "claude"
-      # api_key should be set via environment variable: ATEST_EXT_AI_AI_SERVICES_CLAUDE_API_KEY
-      model: "claude-3-opus"
-      max_tokens: 4096
-      temperature: 0.3
-      top_p: 0.9
-      priority: 2
-      timeout: "120s"
-      headers:
-        Content-Type: "application/json"
-        User-Agent: "atest-ext-ai/1.0.0"
-
-    ollama:
-      enabled: false
-      provider: "ollama"
-      endpoint: "http://internal-ollama:11434"
-      model: "codellama"
-      max_tokens: 4096
-      temperature: 0.5
-      priority: 3
-      timeout: "90s"
-
-# Database Configuration - Production
 database:
-  enabled: true
-  driver: "postgres"
-  # dsn should be set via environment variable: ATEST_EXT_AI_DATABASE_DSN
-  max_connections: 50
-  max_idle: 25
-  max_lifetime: "4h"
-
-# Logging Configuration - Production
+  enabled: false
 logging:
   level: "warn"
   format: "json"
   output: "file"
-
-  # Structured logging to files
   file:
-    path: "/var/log/atest-ext-ai/app.log"
-    max_size: "500MB"
-    max_backups: 10
-    max_age: 90
+    path: "/var/log/atest-ext-ai.log"
+    max_size: "100MB"
+    max_backups: 5
+    max_age: 30
     compress: true
-
-  # Log rotation for production
   rotation:
     enabled: true
-    size: "500MB"
-    count: 30
-    age: "90d"
+    size: "100MB"
+    count: 10
+    age: "7d"
     compress: true
-
-  # Security-focused log filters
-  filters:
-    - name: "credentials"
-      level: "error"
-      pattern: "api_key|password|secret|token|credential"
-      fields:
-        action: "redact"
-    - name: "pii"
-      level: "warn"
-      pattern: "email|phone|ssn|credit_card"
-      fields:
-        action: "mask"
