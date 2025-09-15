@@ -19,6 +19,7 @@ package plugin
 import (
 	"context"
 	"fmt"
+	"log"
 
 	"github.com/linuxsuren/atest-ext-ai/pkg/ai"
 	"github.com/linuxsuren/atest-ext-ai/pkg/config"
@@ -37,32 +38,47 @@ type AIPluginService struct {
 
 // NewAIPluginService creates a new AI plugin service instance
 func NewAIPluginService() (*AIPluginService, error) {
+	log.Println("Initializing AI plugin service...")
+
 	cfg, err := config.LoadConfig()
 	if err != nil {
+		log.Printf("Failed to load configuration: %v", err)
 		return nil, fmt.Errorf("failed to load configuration: %w", err)
 	}
+	log.Printf("Configuration loaded successfully")
 
 	aiEngine, err := ai.NewEngine(cfg.AI)
 	if err != nil {
+		log.Printf("Failed to initialize AI engine: %v", err)
 		return nil, fmt.Errorf("failed to initialize AI engine: %w", err)
 	}
+	log.Printf("AI engine initialized successfully")
 
-	return &AIPluginService{
+	service := &AIPluginService{
 		aiEngine: aiEngine,
 		config:   cfg,
-	}, nil
+	}
+
+	log.Println("AI plugin service creation completed")
+	return service, nil
 }
 
 // Query handles AI query requests from the main API testing system
 func (s *AIPluginService) Query(ctx context.Context, req *server.DataQuery) (*server.DataQueryResult, error) {
+	log.Printf("Received query request: type=%s", req.Type)
+
 	if req.Type != "ai" {
+		log.Printf("Unsupported query type: %s", req.Type)
 		return nil, status.Errorf(codes.InvalidArgument, "unsupported query type: %s", req.Type)
 	}
 
 	// Validate natural language input
 	if req.NaturalLanguage == "" {
+		log.Printf("Missing natural language field in request")
 		return nil, status.Errorf(codes.InvalidArgument, "natural_language field is required for AI queries")
 	}
+
+	log.Printf("Generating SQL for natural language query: %s", req.NaturalLanguage)
 
 	// Generate SQL using AI engine
 	sqlResult, err := s.aiEngine.GenerateSQL(ctx, &ai.GenerateSQLRequest{
@@ -71,6 +87,7 @@ func (s *AIPluginService) Query(ctx context.Context, req *server.DataQuery) (*se
 		Context:         req.AiContext,
 	})
 	if err != nil {
+		log.Printf("Failed to generate SQL: %v", err)
 		return nil, status.Errorf(codes.Internal, "failed to generate SQL: %v", err)
 	}
 
@@ -99,13 +116,19 @@ func (s *AIPluginService) Query(ctx context.Context, req *server.DataQuery) (*se
 		Value: fmt.Sprintf("%.2f", sqlResult.ConfidenceScore),
 	})
 
+	log.Printf("AI query completed successfully: request_id=%s, confidence=%.2f, processing_time=%dms",
+		sqlResult.RequestID, sqlResult.ConfidenceScore, sqlResult.ProcessingTime.Milliseconds())
+
 	return result, nil
 }
 
 // Verify returns the plugin status for health checks
 func (s *AIPluginService) Verify(ctx context.Context, req *server.Empty) (*server.ExtensionStatus, error) {
+	log.Printf("Health check requested")
+
+	engineHealthy := s.aiEngine.IsHealthy()
 	status := &server.ExtensionStatus{
-		Ready:    s.aiEngine.IsHealthy(),
+		Ready:    engineHealthy,
 		ReadOnly: false,
 		Version:  "1.0.0",
 		Message:  "AI Plugin ready",
@@ -113,6 +136,9 @@ func (s *AIPluginService) Verify(ctx context.Context, req *server.Empty) (*serve
 
 	if !status.Ready {
 		status.Message = "AI engine not available"
+		log.Printf("Health check failed: AI engine not healthy")
+	} else {
+		log.Printf("Health check passed: AI plugin is ready")
 	}
 
 	return status, nil
@@ -121,7 +147,7 @@ func (s *AIPluginService) Verify(ctx context.Context, req *server.Empty) (*serve
 // GetAICapabilities returns information about AI plugin capabilities
 func (s *AIPluginService) GetAICapabilities(ctx context.Context, req *server.Empty) (*server.AICapabilitiesResponse, error) {
 	capabilities := s.aiEngine.GetCapabilities()
-	
+
 	response := &server.AICapabilitiesResponse{
 		SupportedDatabases: capabilities.SupportedDatabases,
 		Version:            "1.0.0",
@@ -148,7 +174,13 @@ func (s *AIPluginService) GetAICapabilities(ctx context.Context, req *server.Emp
 
 // Shutdown gracefully stops the AI plugin service
 func (s *AIPluginService) Shutdown() {
+	log.Println("Shutting down AI plugin service...")
+
 	if s.aiEngine != nil {
+		log.Println("Closing AI engine...")
 		s.aiEngine.Close()
+		log.Println("AI engine closed successfully")
 	}
+
+	log.Println("AI plugin service shutdown complete")
 }
