@@ -1,0 +1,129 @@
+# Development environment Docker Compose
+version: '3.8'
+
+services:
+  # Development version of atest-ext-ai plugin
+  atest-ai-plugin-dev:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: builder
+    image: atest-ext-ai:dev
+    container_name: atest-ai-plugin-dev
+    restart: "no"
+    environment:
+      - AI_PROVIDER=local
+      - OLLAMA_ENDPOINT=http://ollama:11434
+      - AI_MODEL=codellama
+      - AI_PLUGIN_SOCKET_PATH=/tmp/atest-store-ai.sock
+      - LOG_LEVEL=debug
+      - CONFIG_PATH=/app/config/development.yaml
+    volumes:
+      - .:/app
+      - socket_volume:/tmp
+      - go_cache:/go/pkg/mod
+    working_dir: /app
+    command: ["go", "run", "./cmd/atest-store-ai"]
+    networks:
+      - atest-dev-network
+    depends_on:
+      ollama:
+        condition: service_healthy
+    ports:
+      - "9090:9090"  # Debug/metrics port
+
+  # Local AI service for development
+  ollama:
+    image: ollama/ollama:latest
+    container_name: atest-ollama-dev
+    restart: unless-stopped
+    environment:
+      - OLLAMA_ORIGINS=*
+      - OLLAMA_HOST=0.0.0.0
+    volumes:
+      - ollama_dev_data:/root/.ollama
+    ports:
+      - "11434:11434"
+    networks:
+      - atest-dev-network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:11434/api/tags"]
+      interval: 30s
+      timeout: 10s
+      start_period: 60s
+      retries: 5
+
+  # PostgreSQL for testing
+  postgres-dev:
+    image: postgres:16-alpine
+    container_name: atest-postgres-dev
+    restart: unless-stopped
+    environment:
+      - POSTGRES_DB=testdb
+      - POSTGRES_USER=testuser
+      - POSTGRES_PASSWORD=testpass
+    volumes:
+      - postgres_dev_data:/var/lib/postgresql/data
+      - ./scripts/init-test-db.sql:/docker-entrypoint-initdb.d/01-init.sql:ro
+    ports:
+      - "5432:5432"
+    networks:
+      - atest-dev-network
+
+  # MySQL for testing
+  mysql-dev:
+    image: mysql:8.0
+    container_name: atest-mysql-dev
+    restart: unless-stopped
+    environment:
+      - MYSQL_ROOT_PASSWORD=rootpass
+      - MYSQL_DATABASE=testdb
+      - MYSQL_USER=testuser
+      - MYSQL_PASSWORD=testpass
+    volumes:
+      - mysql_dev_data:/var/lib/mysql
+      - ./scripts/init-test-db.sql:/docker-entrypoint-initdb.d/01-init.sql:ro
+    ports:
+      - "3306:3306"
+    networks:
+      - atest-dev-network
+    command: --default-authentication-plugin=mysql_native_password
+
+  # Redis for development testing
+  redis-dev:
+    image: redis:7-alpine
+    container_name: atest-redis-dev
+    restart: unless-stopped
+    ports:
+      - "6379:6379"
+    networks:
+      - atest-dev-network
+
+  # Adminer for database management
+  adminer:
+    image: adminer:latest
+    container_name: atest-adminer
+    restart: unless-stopped
+    ports:
+      - "8081:8080"
+    networks:
+      - atest-dev-network
+    depends_on:
+      - postgres-dev
+      - mysql-dev
+
+networks:
+  atest-dev-network:
+    driver: bridge
+
+volumes:
+  socket_volume:
+    driver: local
+  ollama_dev_data:
+    driver: local
+  postgres_dev_data:
+    driver: local
+  mysql_dev_data:
+    driver: local
+  go_cache:
+    driver: local

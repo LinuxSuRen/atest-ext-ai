@@ -1,0 +1,80 @@
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: atest-ai-plugin-ingress
+  namespace: atest-system
+  labels:
+    app.kubernetes.io/name: atest-ext-ai
+    app.kubernetes.io/component: plugin
+  annotations:
+    nginx.ingress.kubernetes.io/rewrite-target: /
+    nginx.ingress.kubernetes.io/ssl-redirect: "true"
+    nginx.ingress.kubernetes.io/use-regex: "true"
+    nginx.ingress.kubernetes.io/rate-limit: "60"
+    nginx.ingress.kubernetes.io/rate-limit-window: "1m"
+    nginx.ingress.kubernetes.io/proxy-body-size: "10m"
+    nginx.ingress.kubernetes.io/proxy-read-timeout: "300"
+    nginx.ingress.kubernetes.io/proxy-connect-timeout: "60"
+    cert-manager.io/cluster-issuer: "letsencrypt-prod"
+spec:
+  ingressClassName: nginx
+  tls:
+  - hosts:
+    - ai-plugin.example.com
+    - ollama.example.com
+    secretName: atest-ai-plugin-tls
+  rules:
+  - host: ai-plugin.example.com
+    http:
+      paths:
+      - path: /metrics
+        pathType: Prefix
+        backend:
+          service:
+            name: atest-ai-plugin-service
+            port:
+              number: 9090
+      - path: /health
+        pathType: Prefix
+        backend:
+          service:
+            name: atest-ai-plugin-service
+            port:
+              number: 9090
+  - host: ollama.example.com
+    http:
+      paths:
+      - path: /
+        pathType: Prefix
+        backend:
+          service:
+            name: ollama-service
+            port:
+              number: 11434
+
+---
+# Internal ingress for cluster-only access
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: atest-ai-plugin-internal
+  namespace: atest-system
+  labels:
+    app.kubernetes.io/name: atest-ext-ai
+    app.kubernetes.io/component: plugin
+  annotations:
+    nginx.ingress.kubernetes.io/rewrite-target: /
+    nginx.ingress.kubernetes.io/whitelist-source-range: "10.0.0.0/8,172.16.0.0/12,192.168.0.0/16"
+spec:
+  ingressClassName: nginx-internal
+  rules:
+  - host: ai-plugin-internal.cluster.local
+    http:
+      paths:
+      - path: /
+        pathType: Prefix
+        backend:
+          service:
+            name: atest-ai-plugin-service
+            port:
+              number: 9090
