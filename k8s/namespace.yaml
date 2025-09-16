@@ -1,0 +1,8 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: atest-system
+  labels:
+    name: atest-system
+    app.kubernetes.io/name: atest
+    app.kubernetes.io/component: system
