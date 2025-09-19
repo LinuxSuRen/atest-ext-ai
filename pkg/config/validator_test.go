@@ -35,11 +35,11 @@ func TestValidateValidConfiguration(t *testing.T) {
 		Server: ServerConfig{
 			Host:         "localhost",
 			Port:         8080,
-			Timeout:      30 * NewDuration(time.Second),
+			Timeout:      NewDuration(30 * time.Second),
 			MaxConns:     100,
 			SocketPath:   "/tmp/test.sock",
-			ReadTimeout:  15 * NewDuration(time.Second),
-			WriteTimeout: 15 * NewDuration(time.Second),
+			ReadTimeout:  NewDuration(15 * time.Second),
+			WriteTimeout: NewDuration(15 * time.Second),
 		},
 		Plugin: PluginConfig{
 			Name:        "test-plugin",
@@ -61,11 +61,11 @@ func TestValidateValidConfiguration(t *testing.T) {
 					Temperature: 0.7,
 					TopP:        0.9,
 					Priority:    1,
-					Timeout:     60 * NewDuration(time.Second),
+					Timeout:     NewDuration(60 * time.Second),
 				},
 			},
 			Fallback: []string{"ollama"},
-			Timeout:  60 * NewDuration(time.Second),
+			Timeout:  NewDuration(60 * time.Second),
 			RateLimit: RateLimitConfig{
 				Enabled:           true,
 				RequestsPerMinute: 60,
@@ -76,8 +76,8 @@ func TestValidateValidConfiguration(t *testing.T) {
 				Enabled:          true,
 				FailureThreshold: 5,
 				SuccessThreshold: 3,
-				Timeout:          30 * NewDuration(time.Second),
-				ResetTimeout:     60 * NewDuration(time.Second),
+				Timeout:          NewDuration(30 * time.Second),
+				ResetTimeout:     NewDuration(60 * time.Second),
 			},
 			Retry: RetryConfig{
 				Enabled:      true,
@@ -141,7 +141,7 @@ func TestValidateInvalidServerConfiguration(t *testing.T) {
 		Server: ServerConfig{
 			Host:       "", // Invalid: empty host
 			Port:       -1, // Invalid: negative port
-			Timeout:    0,  // Invalid: zero timeout
+			Timeout:    NewDuration(0),  // Invalid: zero timeout
 			MaxConns:   -1, // Invalid: negative max connections
 			SocketPath: "", // Invalid: empty socket path
 		},
@@ -162,7 +162,7 @@ func TestValidateInvalidServerConfiguration(t *testing.T) {
 					Priority: 1,
 				},
 			},
-			Timeout: 60 * NewDuration(time.Second),
+			Timeout: NewDuration(60 * time.Second),
 		},
 	}
 
@@ -214,7 +214,7 @@ func TestValidateInvalidPluginConfiguration(t *testing.T) {
 		Server: ServerConfig{
 			Host:       "localhost",
 			Port:       8080,
-			Timeout:    30 * NewDuration(time.Second),
+			Timeout:    NewDuration(30 * time.Second),
 			MaxConns:   100,
 			SocketPath: "/tmp/test.sock",
 		},
@@ -235,7 +235,7 @@ func TestValidateInvalidPluginConfiguration(t *testing.T) {
 					Priority: 1,
 				},
 			},
-			Timeout: 60 * NewDuration(time.Second),
+			Timeout: NewDuration(60 * time.Second),
 		},
 	}
 
@@ -260,7 +260,7 @@ func TestValidateInvalidAIConfiguration(t *testing.T) {
 		Server: ServerConfig{
 			Host:       "localhost",
 			Port:       8080,
-			Timeout:    30 * NewDuration(time.Second),
+			Timeout:    NewDuration(30 * time.Second),
 			MaxConns:   100,
 			SocketPath: "/tmp/test.sock",
 		},
@@ -284,7 +284,7 @@ func TestValidateInvalidAIConfiguration(t *testing.T) {
 				},
 			},
 			Fallback: []string{"nonexistent"}, // Invalid: fallback service doesn't exist
-			Timeout:  0,                       // Invalid: zero timeout
+			Timeout:  NewDuration(0),                       // Invalid: zero timeout
 		},
 	}
 
@@ -310,7 +310,7 @@ func TestValidateAIServiceConfiguration(t *testing.T) {
 		Server: ServerConfig{
 			Host:       "localhost",
 			Port:       8080,
-			Timeout:    30 * NewDuration(time.Second),
+			Timeout:    NewDuration(30 * time.Second),
 			MaxConns:   100,
 			SocketPath: "/tmp/test.sock",
 		},
@@ -331,7 +331,7 @@ func TestValidateAIServiceConfiguration(t *testing.T) {
 					Priority: 1,
 				},
 			},
-			Timeout: 60 * NewDuration(time.Second),
+			Timeout: NewDuration(60 * time.Second),
 		},
 	}
 
@@ -345,7 +345,7 @@ func TestValidateAIServiceConfiguration(t *testing.T) {
 		Server: ServerConfig{
 			Host:       "localhost",
 			Port:       8080,
-			Timeout:    30 * NewDuration(time.Second),
+			Timeout:    NewDuration(30 * time.Second),
 			MaxConns:   100,
 			SocketPath: "/tmp/test.sock",
 		},
@@ -366,7 +366,7 @@ func TestValidateAIServiceConfiguration(t *testing.T) {
 					Priority: 1,
 				},
 			},
-			Timeout: 60 * NewDuration(time.Second),
+			Timeout: NewDuration(60 * time.Second),
 		},
 	}
 
@@ -380,7 +380,7 @@ func TestValidateAIServiceConfiguration(t *testing.T) {
 		Server: ServerConfig{
 			Host:       "localhost",
 			Port:       8080,
-			Timeout:    30 * NewDuration(time.Second),
+			Timeout:    NewDuration(30 * time.Second),
 			MaxConns:   100,
 			SocketPath: "/tmp/test.sock",
 		},
@@ -401,7 +401,7 @@ func TestValidateAIServiceConfiguration(t *testing.T) {
 					Priority: 1,
 				},
 			},
-			Timeout: 60 * NewDuration(time.Second),
+			Timeout: NewDuration(60 * time.Second),
 		},
 	}
 
@@ -418,7 +418,7 @@ func TestValidateRateLimitConfiguration(t *testing.T) {
 		Server: ServerConfig{
 			Host:       "localhost",
 			Port:       8080,
-			Timeout:    30 * NewDuration(time.Second),
+			Timeout:    NewDuration(30 * time.Second),
 			MaxConns:   100,
 			SocketPath: "/tmp/test.sock",
 		},
@@ -439,7 +439,7 @@ func TestValidateRateLimitConfiguration(t *testing.T) {
 					Priority: 1,
 				},
 			},
-			Timeout: 60 * NewDuration(time.Second),
+			Timeout: NewDuration(60 * time.Second),
 			RateLimit: RateLimitConfig{
 				Enabled:           true,
 				RequestsPerMinute: 0,  // Invalid: must be > 0
@@ -461,7 +461,7 @@ func TestValidateLoggingConfiguration(t *testing.T) {
 		Server: ServerConfig{
 			Host:       "localhost",
 			Port:       8080,
-			Timeout:    30 * NewDuration(time.Second),
+			Timeout:    NewDuration(30 * time.Second),
 			MaxConns:   100,
 			SocketPath: "/tmp/test.sock",
 		},
@@ -482,7 +482,7 @@ func TestValidateLoggingConfiguration(t *testing.T) {
 					Priority: 1,
 				},
 			},
-			Timeout: 60 * NewDuration(time.Second),
+			Timeout: NewDuration(60 * time.Second),
 		},
 		Logging: LoggingConfig{
 			Level:  "invalid", // Invalid: not a valid log level
@@ -563,7 +563,7 @@ func TestValidationErrorMessages(t *testing.T) {
 		Server: ServerConfig{
 			Host:       "",
 			Port:       -1,
-			Timeout:    0,
+			Timeout:    NewDuration(0),
 			MaxConns:   0,
 			SocketPath: "",
 		},
@@ -576,7 +576,7 @@ func TestValidationErrorMessages(t *testing.T) {
 		AI: AIConfig{
 			DefaultService: "",
 			Services:       nil,
-			Timeout:        0,
+			Timeout:        NewDuration(0),
 		},
 	}
 

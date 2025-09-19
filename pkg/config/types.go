@@ -16,9 +16,7 @@ limitations under the License.
 
 package config
 
-import (
-	"time"
-)
+// No imports needed for this file
 
 // Config represents the complete application configuration
 type Config struct {
