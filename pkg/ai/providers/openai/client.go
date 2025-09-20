@@ -320,7 +320,7 @@ func (c *Client) generateStream(ctx context.Context, openaiReq *ChatCompletionRe
 	if err != nil {
 		return nil, fmt.Errorf("request failed: %w", err)
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	// Check for errors
 	if resp.StatusCode != http.StatusOK {
@@ -458,7 +458,7 @@ func (c *Client) makeRequest(ctx context.Context, endpoint string, body interfac
 	if err != nil {
 		return nil, fmt.Errorf("request failed: %w", err)
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	// Read response body
 	respBody, err := io.ReadAll(resp.Body)

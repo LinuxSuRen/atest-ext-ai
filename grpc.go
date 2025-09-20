@@ -8,12 +8,13 @@ import (
 	testing "github.com/linuxsuren/api-testing/pkg/testing"
 	"github.com/linuxsuren/api-testing/pkg/testing/remote"
 	grpc "google.golang.org/grpc"
+	"google.golang.org/grpc/credentials/insecure"
 )
 
 func query(ctx context.Context, store testing.Store, sql string) (data *server.DataQueryResult, err error) {
 	address := store.Kind.URL
 	var conn *grpc.ClientConn
-	if conn, err = grpc.Dial(address, grpc.WithInsecure()); err == nil {
+	if conn, err = grpc.NewClient(address, grpc.WithTransportCredentials(insecure.NewCredentials())); err == nil {
 		ctx = remote.WithStoreContext(ctx, &store)
 		writer := &gRPCLoader{
 			store:  &store,

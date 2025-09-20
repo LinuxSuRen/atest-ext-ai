@@ -290,15 +290,15 @@ func TestLoadDefaults(t *testing.T) {
 
 func TestEnvironmentVariableOverrides(t *testing.T) {
 	// Set environment variables
-	os.Setenv("ATEST_EXT_AI_SERVER_HOST", "env-host")
-	os.Setenv("ATEST_EXT_AI_SERVER_PORT", "5555")
-	os.Setenv("ATEST_EXT_AI_PLUGIN_NAME", "env-plugin")
-	os.Setenv("ATEST_EXT_AI_AI_DEFAULT_SERVICE", "claude")
+	_ = os.Setenv("ATEST_EXT_AI_SERVER_HOST", "env-host")
+	_ = os.Setenv("ATEST_EXT_AI_SERVER_PORT", "5555")
+	_ = os.Setenv("ATEST_EXT_AI_PLUGIN_NAME", "env-plugin")
+	_ = os.Setenv("ATEST_EXT_AI_AI_DEFAULT_SERVICE", "claude")
 	defer func() {
-		os.Unsetenv("ATEST_EXT_AI_SERVER_HOST")
-		os.Unsetenv("ATEST_EXT_AI_SERVER_PORT")
-		os.Unsetenv("ATEST_EXT_AI_PLUGIN_NAME")
-		os.Unsetenv("ATEST_EXT_AI_AI_DEFAULT_SERVICE")
+		_ = os.Unsetenv("ATEST_EXT_AI_SERVER_HOST")
+		_ = os.Unsetenv("ATEST_EXT_AI_SERVER_PORT")
+		_ = os.Unsetenv("ATEST_EXT_AI_PLUGIN_NAME")
+		_ = os.Unsetenv("ATEST_EXT_AI_AI_DEFAULT_SERVICE")
 	}()
 
 	loader := NewLoader()

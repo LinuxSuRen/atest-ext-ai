@@ -133,6 +133,7 @@ func TestNewSQLGenerator(t *testing.T) {
 			caps := generator.GetCapabilities()
 			if caps == nil {
 				t.Errorf("Expected capabilities but got nil")
+				return
 			}
 
 			if len(caps.SupportedDatabases) == 0 {

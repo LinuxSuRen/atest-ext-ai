@@ -68,9 +68,9 @@ type SQLFeature struct {
 
 // basicEngine is a basic implementation for testing
 type basicEngine struct {
-	config    config.AIConfig
-	generator *SQLGenerator
-	aiClient  interfaces.AIClient
+	config config.AIConfig
+	// generator and aiClient are reserved for future expansion
+	// when basicEngine will support actual AI functionality
 }
 
 // aiEngine is a full-featured implementation using AI clients
@@ -244,9 +244,9 @@ func (e *aiEngine) IsHealthy() bool {
 // Close implements Engine.Close for AI engine
 func (e *aiEngine) Close() {
 	if e.client != nil {
-		e.client.Close()
+		_ = e.client.Close()
 	}
 	if e.aiClient != nil {
-		e.aiClient.Close()
+		_ = e.aiClient.Close()
 	}
 }

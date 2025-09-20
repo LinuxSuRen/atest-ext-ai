@@ -199,13 +199,13 @@ func TestNewClient_EnvironmentVariables(t *testing.T) {
 	originalKey := os.Getenv("ANTHROPIC_API_KEY")
 	defer func() {
 		if originalKey != "" {
-			os.Setenv("ANTHROPIC_API_KEY", originalKey)
+			_ = os.Setenv("ANTHROPIC_API_KEY", originalKey)
 		} else {
-			os.Unsetenv("ANTHROPIC_API_KEY")
+			_ = os.Unsetenv("ANTHROPIC_API_KEY")
 		}
 	}()
 
-	os.Setenv("ANTHROPIC_API_KEY", "env-test-key")
+	_ = os.Setenv("ANTHROPIC_API_KEY", "env-test-key")
 
 	config := &Config{}
 	client, err := NewClient(config)

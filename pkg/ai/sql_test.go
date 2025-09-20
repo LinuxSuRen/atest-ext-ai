@@ -667,7 +667,7 @@ func TestSQLDialect_Integration(t *testing.T) {
 
 	// Test cross-dialect transformation
 	for sourceName, sourceDialect := range dialects {
-		for targetName, _ := range dialects {
+		for targetName := range dialects {
 			if sourceName == targetName {
 				continue
 			}

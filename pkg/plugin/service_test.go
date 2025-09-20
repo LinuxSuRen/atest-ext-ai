@@ -45,21 +45,21 @@ ai:
 	if err != nil {
 		panic(err)
 	}
-	defer os.Remove(tmpFile.Name())
+	defer func() { _ = os.Remove(tmpFile.Name()) }()
 
 	if _, err := tmpFile.WriteString(configContent); err != nil {
 		panic(err)
 	}
-	tmpFile.Close()
+	_ = tmpFile.Close()
 
 	// Set config file path
-	os.Setenv("ATEST_AI_CONFIG", tmpFile.Name())
+	_ = os.Setenv("ATEST_AI_CONFIG", tmpFile.Name())
 
 	// Run tests
 	code := m.Run()
 
 	// Cleanup
-	os.Unsetenv("ATEST_AI_CONFIG")
+	_ = os.Unsetenv("ATEST_AI_CONFIG")
 	os.Exit(code)
 }
 

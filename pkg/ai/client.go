@@ -351,7 +351,7 @@ func (cm *ClientManager) AddClient(name string, config map[string]any) error {
 
 	// Close existing client if it exists
 	if existingClient, exists := cm.clients[name]; exists {
-		existingClient.Close()
+		_ = existingClient.Close()
 	}
 
 	cm.clients[name] = client
@@ -368,7 +368,7 @@ func (cm *ClientManager) RemoveClient(name string) error {
 		return fmt.Errorf("%w: %s", ErrClientNotFound, name)
 	}
 
-	client.Close()
+	_ = client.Close()
 	delete(cm.clients, name)
 	return nil
 }

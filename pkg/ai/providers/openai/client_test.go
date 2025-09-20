@@ -214,19 +214,19 @@ func TestNewClient_EnvironmentVariables(t *testing.T) {
 	originalOrg := os.Getenv("OPENAI_ORG_ID")
 	defer func() {
 		if originalKey != "" {
-			os.Setenv("OPENAI_API_KEY", originalKey)
+			_ = os.Setenv("OPENAI_API_KEY", originalKey)
 		} else {
-			os.Unsetenv("OPENAI_API_KEY")
+			_ = os.Unsetenv("OPENAI_API_KEY")
 		}
 		if originalOrg != "" {
-			os.Setenv("OPENAI_ORG_ID", originalOrg)
+			_ = os.Setenv("OPENAI_ORG_ID", originalOrg)
 		} else {
-			os.Unsetenv("OPENAI_ORG_ID")
+			_ = os.Unsetenv("OPENAI_ORG_ID")
 		}
 	}()
 
-	os.Setenv("OPENAI_API_KEY", "env-test-key")
-	os.Setenv("OPENAI_ORG_ID", "env-test-org")
+	_ = os.Setenv("OPENAI_API_KEY", "env-test-key")
+	_ = os.Setenv("OPENAI_ORG_ID", "env-test-org")
 
 	config := &Config{}
 	client, err := NewClient(config)

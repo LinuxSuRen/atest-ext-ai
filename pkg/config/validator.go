@@ -18,6 +18,7 @@ package config
 
 import (
 	"fmt"
+	"log"
 	"net/url"
 	"os"
 	"regexp"
@@ -441,21 +442,25 @@ func registerCustomValidations(validate *validator.Validate) {
 	// Register semver validation
 	if err := validate.RegisterValidation("semver", validateSemVer); err != nil {
 		// Log error but continue - custom validations are not critical
+		log.Printf("Failed to register semver validation: %v", err)
 	}
 
 	// Register file validation
 	if err := validate.RegisterValidation("file", validateFile); err != nil {
 		// Log error but continue - custom validations are not critical
+		log.Printf("Failed to register file validation: %v", err)
 	}
 
 	// Register duration validation
 	if err := validate.RegisterValidation("duration", validateDuration); err != nil {
 		// Log error but continue - custom validations are not critical
+		log.Printf("Failed to register duration validation: %v", err)
 	}
 
 	// Register log level validation
 	if err := validate.RegisterValidation("log_level", validateLogLevel); err != nil {
 		// Log error but continue - custom validations are not critical
+		log.Printf("Failed to register log level validation: %v", err)
 	}
 }
 

@@ -276,13 +276,13 @@ func TestNewClient_EnvironmentVariables(t *testing.T) {
 	originalURL := os.Getenv("OLLAMA_BASE_URL")
 	defer func() {
 		if originalURL != "" {
-			os.Setenv("OLLAMA_BASE_URL", originalURL)
+			_ = os.Setenv("OLLAMA_BASE_URL", originalURL)
 		} else {
-			os.Unsetenv("OLLAMA_BASE_URL")
+			_ = os.Unsetenv("OLLAMA_BASE_URL")
 		}
 	}()
 
-	os.Setenv("OLLAMA_BASE_URL", "http://custom:11434")
+	_ = os.Setenv("OLLAMA_BASE_URL", "http://custom:11434")
 
 	config := &Config{}
 	client, err := NewClient(config)

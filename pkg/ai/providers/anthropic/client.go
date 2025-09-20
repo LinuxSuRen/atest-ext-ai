@@ -333,7 +333,7 @@ func (c *Client) generateStream(ctx context.Context, claudeReq *MessagesRequest,
 	if err != nil {
 		return nil, fmt.Errorf("request failed: %w", err)
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	// Check for errors
 	if resp.StatusCode != http.StatusOK {
@@ -353,6 +353,7 @@ func (c *Client) generateStream(ctx context.Context, claudeReq *MessagesRequest,
 	var inputTokens, outputTokens int
 	scanner := bufio.NewScanner(resp.Body)
 
+readLoop:
 	for scanner.Scan() {
 		line := scanner.Text()
 		if line == "" || !strings.HasPrefix(line, "data: ") {
@@ -390,7 +391,7 @@ func (c *Client) generateStream(ctx context.Context, claudeReq *MessagesRequest,
 				outputTokens = streamResp.Usage.OutputTokens
 			}
 		case "message_stop":
-			break
+			break readLoop
 		}
 	}
 
@@ -460,7 +461,7 @@ func (c *Client) makeRequest(ctx context.Context, endpoint string, body interfac
 	if err != nil {
 		return nil, fmt.Errorf("request failed: %w", err)
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	// Read response body
 	respBody, err := io.ReadAll(resp.Body)

@@ -464,13 +464,13 @@ func TestManagerDefaults(t *testing.T) {
 
 func TestManagerEnvironmentVariables(t *testing.T) {
 	// Set environment variables
-	os.Setenv("ATEST_EXT_AI_SERVER_HOST", "custom-host")
-	os.Setenv("ATEST_EXT_AI_SERVER_PORT", "9999")
-	os.Setenv("ATEST_EXT_AI_AI_DEFAULT_SERVICE", "openai")
+	_ = os.Setenv("ATEST_EXT_AI_SERVER_HOST", "custom-host")
+	_ = os.Setenv("ATEST_EXT_AI_SERVER_PORT", "9999")
+	_ = os.Setenv("ATEST_EXT_AI_AI_DEFAULT_SERVICE", "openai")
 	defer func() {
-		os.Unsetenv("ATEST_EXT_AI_SERVER_HOST")
-		os.Unsetenv("ATEST_EXT_AI_SERVER_PORT")
-		os.Unsetenv("ATEST_EXT_AI_AI_DEFAULT_SERVICE")
+		_ = os.Unsetenv("ATEST_EXT_AI_SERVER_HOST")
+		_ = os.Unsetenv("ATEST_EXT_AI_SERVER_PORT")
+		_ = os.Unsetenv("ATEST_EXT_AI_AI_DEFAULT_SERVICE")
 	}()
 
 	manager, err := NewManager()
