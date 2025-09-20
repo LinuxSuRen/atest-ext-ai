@@ -498,64 +498,6 @@ func contains(slice []string, item string) bool {
 	return false
 }
 
-// deepMerge recursively merges two maps, with values from src overriding values in dst
-func deepMerge(dst, src map[string]interface{}) map[string]interface{} {
-	result := make(map[string]interface{})
-
-	// Copy all values from dst
-	for k, v := range dst {
-		result[k] = v
-	}
-
-	// Merge values from src
-	for k, srcValue := range src {
-		if dstValue, exists := result[k]; exists {
-			// If both values are maps, merge them recursively
-			if dstMap, dstOk := dstValue.(map[string]interface{}); dstOk {
-				if srcMap, srcOk := srcValue.(map[string]interface{}); srcOk {
-					result[k] = deepMerge(dstMap, srcMap)
-					continue
-				}
-			}
-		}
-		// Otherwise, src value overwrites dst value
-		result[k] = srcValue
-	}
-
-	return result
-}
-
-// deepMergeNonZero recursively merges two maps, only overriding with non-zero values from src
-func deepMergeNonZero(dst, src map[string]interface{}) map[string]interface{} {
-	result := make(map[string]interface{})
-
-	// Copy all values from dst
-	for k, v := range dst {
-		result[k] = v
-	}
-
-	// Merge values from src, only if they are non-zero
-	for k, srcValue := range src {
-		if isZeroValue(srcValue) {
-			continue // Skip zero values
-		}
-
-		if dstValue, exists := result[k]; exists {
-			// If both values are maps, merge them recursively
-			if dstMap, dstOk := dstValue.(map[string]interface{}); dstOk {
-				if srcMap, srcOk := srcValue.(map[string]interface{}); srcOk {
-					result[k] = deepMergeNonZero(dstMap, srcMap)
-					continue
-				}
-			}
-		}
-		// Otherwise, src value overwrites dst value
-		result[k] = srcValue
-	}
-
-	return result
-}
-
 // mergeConfigs merges two Config structs, preserving non-zero values from dst and overriding with non-zero values from src
 func (l *Loader) mergeConfigs(dst, src *Config) *Config {
 	if dst == nil && src == nil {
@@ -661,48 +603,4 @@ func (l *Loader) mergeConfigs(dst, src *Config) *Config {
 	}
 
 	return &result
-}
-
-// isZeroValue checks if a value is considered zero/empty
-func isZeroValue(v interface{}) bool {
-	if v == nil {
-		return true
-	}
-
-	switch value := v.(type) {
-	case string:
-		return value == ""
-	case int:
-		return value == 0
-	case int8:
-		return value == 0
-	case int16:
-		return value == 0
-	case int32:
-		return value == 0
-	case int64:
-		return value == 0
-	case uint:
-		return value == 0
-	case uint8:
-		return value == 0
-	case uint16:
-		return value == 0
-	case uint32:
-		return value == 0
-	case uint64:
-		return value == 0
-	case float32:
-		return value == 0.0
-	case float64:
-		return value == 0.0
-	case bool:
-		return !value
-	case []interface{}:
-		return len(value) == 0
-	case map[string]interface{}:
-		return len(value) == 0
-	default:
-		return false
-	}
 }
