@@ -235,16 +235,37 @@ jobs:
         username: ${{ github.actor }}
         password: ${{ secrets.GITHUB_TOKEN }}
 
+    - name: Generate sanitized Docker tag
+      id: docker-tag
+      run: |
+        # Sanitize branch/PR name for Docker tag compatibility
+        if [ "${{ github.event_name }}" = "pull_request" ]; then
+          RAW_REF="pr-${{ github.event.number }}"
+        else
+          RAW_REF="${{ github.ref_name }}"
+        fi
+
+        # Clean tag: replace invalid chars with -, remove leading/trailing -
+        CLEAN_TAG=$(echo "$RAW_REF" | sed 's/[^a-zA-Z0-9_.-]/-/g' | sed 's/^-\+//' | sed 's/-\+$//')
+
+        # Ensure tag is not empty and has valid length
+        if [ -z "$CLEAN_TAG" ] || [ "$CLEAN_TAG" = "-" ]; then
+          CLEAN_TAG="latest"
+        fi
+
+        # Set outputs
+        echo "tag=$CLEAN_TAG" >> $GITHUB_OUTPUT
+        echo "image=${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:$CLEAN_TAG" >> $GITHUB_OUTPUT
+
+        echo "Generated Docker tag: $CLEAN_TAG"
+
     - name: Extract metadata
       id: meta
       uses: docker/metadata-action@v5
       with:
         images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
         tags: |
-          type=ref,event=branch
-          type=ref,event=pr
-          type=semver,pattern={{version}}
-          type=semver,pattern={{major}}.{{minor}}
+          type=raw,value=${{ steps.docker-tag.outputs.tag }}
           type=raw,value=latest,enable={{is_default_branch}}
 
     - name: Build and push Docker image
@@ -302,26 +323,32 @@ jobs:
     - name: Checkout code
       uses: actions/checkout@v4
 
-    - name: Extract metadata for security scan
-      id: meta
-      uses: docker/metadata-action@v5
-      with:
-        images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
-        tags: |
-          type=ref,event=branch
-          type=ref,event=pr
-          type=semver,pattern={{version}}
-          type=semver,pattern={{major}}.{{minor}}
-          type=raw,value=latest,enable={{is_default_branch}}
+    - name: Generate sanitized Docker tag for scanning
+      id: docker-tag
+      run: |
+        # Use same sanitization logic as docker job
+        if [ "${{ github.event_name }}" = "pull_request" ]; then
+          RAW_REF="pr-${{ github.event.number }}"
+        else
+          RAW_REF="${{ github.ref_name }}"
+        fi
 
-    - name: Get first image tag
-      id: get-image-tag
-      run: echo "tag=$(echo '${{ steps.meta.outputs.tags }}' | head -n1)" >> $GITHUB_OUTPUT
+        # Clean tag: replace invalid chars with -, remove leading/trailing -
+        CLEAN_TAG=$(echo "$RAW_REF" | sed 's/[^a-zA-Z0-9_.-]/-/g' | sed 's/^-\+//' | sed 's/-\+$//')
+
+        # Ensure tag is not empty and has valid length
+        if [ -z "$CLEAN_TAG" ] || [ "$CLEAN_TAG" = "-" ]; then
+          CLEAN_TAG="latest"
+        fi
+
+        IMAGE="${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:$CLEAN_TAG"
+        echo "image=$IMAGE" >> $GITHUB_OUTPUT
+        echo "Scanning Docker image: $IMAGE"
 
     - name: Run Trivy vulnerability scanner
       uses: aquasecurity/trivy-action@master
       with:
-        image-ref: ${{ steps.get-image-tag.outputs.tag }}
+        image-ref: ${{ steps.docker-tag.outputs.image }}
         format: 'sarif'
         output: 'trivy-results.sarif'
 
