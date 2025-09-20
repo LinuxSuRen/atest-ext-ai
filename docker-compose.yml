@@ -54,11 +54,11 @@ services:
     networks:
       - atest-network
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:11434/api/tags"]
+      test: ["CMD-SHELL", "wget --no-verbose --tries=1 --spider http://localhost:11434/api/tags || exit 1"]
       interval: 30s
-      timeout: 10s
-      start_period: 60s
-      retries: 5
+      timeout: 15s
+      start_period: 120s
+      retries: 10
     deploy:
       resources:
         reservations:
