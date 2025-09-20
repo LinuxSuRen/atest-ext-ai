@@ -229,7 +229,6 @@ func (cb *defaultCircuitBreaker) updateState(success bool) {
 	}
 }
 
-
 // CircuitBreakerStats provides additional statistics for monitoring
 type CircuitBreakerStats struct {
 	State               CircuitState  `json:"state"`
