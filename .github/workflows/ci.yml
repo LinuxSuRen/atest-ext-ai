@@ -57,7 +57,7 @@ jobs:
     - name: Security check with gosec
       run: |
         # Install gosec
-        go install github.com/securecodewarrior/gosec/v2/cmd/gosec@latest
+        go install github.com/securego/gosec/v2/cmd/gosec@latest
 
         # Run gosec (allow it to fail)
         echo "Running gosec security scan..."
