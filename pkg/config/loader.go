@@ -89,7 +89,7 @@ func (l *Loader) Load(paths ...string) error {
 			stringToDurationHookFunc(),
 			mapstructure.StringToTimeDurationHookFunc(),
 		),
-		Result:     l.config,
+		Result:           l.config,
 		WeaklyTypedInput: true,
 	})
 	if err != nil {
@@ -200,7 +200,7 @@ func (l *Loader) Merge(other *Config) error {
 			stringToDurationHookFunc(),
 			mapstructure.StringToTimeDurationHookFunc(),
 		),
-		Result:     l.config,
+		Result:           l.config,
 		WeaklyTypedInput: true,
 	})
 	if err != nil {
@@ -363,7 +363,7 @@ func (l *Loader) parseContent(data []byte, format string) error {
 			stringToDurationHookFunc(),
 			mapstructure.StringToTimeDurationHookFunc(),
 		),
-		Result:     &config,
+		Result:           &config,
 		WeaklyTypedInput: true,
 	})
 	if err != nil {
