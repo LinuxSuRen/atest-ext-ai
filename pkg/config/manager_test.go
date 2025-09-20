@@ -62,6 +62,29 @@ plugin:
 ai:
   default_service: "ollama"
   timeout: "60s"
+  rate_limit:
+    enabled: true
+    requests_per_minute: 60
+    burst_size: 10
+    window_size: "1m"
+  circuit_breaker:
+    enabled: true
+    failure_threshold: 5
+    success_threshold: 3
+    timeout: "30s"
+    reset_timeout: "60s"
+  retry:
+    enabled: true
+    max_attempts: 3
+    initial_delay: "1s"
+    max_delay: "30s"
+    multiplier: 2.0
+    jitter: true
+  cache:
+    enabled: true
+    ttl: "1h"
+    max_size: 1000
+    provider: "memory"
   services:
     ollama:
       enabled: true
@@ -72,10 +95,19 @@ ai:
       temperature: 0.7
       priority: 1
 
+database:
+  enabled: false
+
 logging:
   level: "info"
   format: "json"
   output: "stdout"
+  rotation:
+    enabled: true
+    size: "100MB"
+    count: 5
+    age: "30d"
+    compress: true
 `
 
 	if err := os.WriteFile(configFile, []byte(configData), 0644); err != nil {
@@ -186,6 +218,29 @@ plugin:
 ai:
   default_service: "ollama"
   timeout: "60s"
+  rate_limit:
+    enabled: true
+    requests_per_minute: 60
+    burst_size: 10
+    window_size: "1m"
+  circuit_breaker:
+    enabled: true
+    failure_threshold: 5
+    success_threshold: 3
+    timeout: "30s"
+    reset_timeout: "60s"
+  retry:
+    enabled: true
+    max_attempts: 3
+    initial_delay: "1s"
+    max_delay: "30s"
+    multiplier: 2.0
+    jitter: true
+  cache:
+    enabled: true
+    ttl: "1h"
+    max_size: 1000
+    provider: "memory"
   services:
     ollama:
       enabled: true
@@ -195,6 +250,20 @@ ai:
       max_tokens: 4096
       temperature: 0.7
       priority: 1
+
+database:
+  enabled: false
+
+logging:
+  level: "info"
+  format: "json"
+  output: "stdout"
+  rotation:
+    enabled: true
+    size: "100MB"
+    count: 5
+    age: "30d"
+    compress: true
 `
 
 	if err := os.WriteFile(configFile, []byte(configData), 0644); err != nil {
@@ -267,6 +336,29 @@ plugin:
 ai:
   default_service: "ollama"
   timeout: "60s"
+  rate_limit:
+    enabled: true
+    requests_per_minute: 60
+    burst_size: 10
+    window_size: "1m"
+  circuit_breaker:
+    enabled: true
+    failure_threshold: 5
+    success_threshold: 3
+    timeout: "30s"
+    reset_timeout: "60s"
+  retry:
+    enabled: true
+    max_attempts: 3
+    initial_delay: "1s"
+    max_delay: "30s"
+    multiplier: 2.0
+    jitter: true
+  cache:
+    enabled: true
+    ttl: "1h"
+    max_size: 1000
+    provider: "memory"
   services:
     ollama:
       enabled: true
@@ -276,6 +368,20 @@ ai:
       max_tokens: 4096
       temperature: 0.7
       priority: 1
+
+database:
+  enabled: false
+
+logging:
+  level: "info"
+  format: "json"
+  output: "stdout"
+  rotation:
+    enabled: true
+    size: "100MB"
+    count: 5
+    age: "30d"
+    compress: true
 `
 
 	if err := os.WriteFile(configFile, []byte(configData), 0644); err != nil {
@@ -362,6 +468,29 @@ plugin:
 ai:
   default_service: "ollama"
   timeout: "60s"
+  rate_limit:
+    enabled: true
+    requests_per_minute: 60
+    burst_size: 10
+    window_size: "1m"
+  circuit_breaker:
+    enabled: true
+    failure_threshold: 5
+    success_threshold: 3
+    timeout: "30s"
+    reset_timeout: "60s"
+  retry:
+    enabled: true
+    max_attempts: 3
+    initial_delay: "1s"
+    max_delay: "30s"
+    multiplier: 2.0
+    jitter: true
+  cache:
+    enabled: true
+    ttl: "1h"
+    max_size: 1000
+    provider: "memory"
   services:
     ollama:
       enabled: true
@@ -371,6 +500,20 @@ ai:
       max_tokens: 4096
       temperature: 0.7
       priority: 1
+
+database:
+  enabled: false
+
+logging:
+  level: "info"
+  format: "json"
+  output: "stdout"
+  rotation:
+    enabled: true
+    size: "100MB"
+    count: 5
+    age: "30d"
+    compress: true
 `
 
 	if err := os.WriteFile(configFile, []byte(configData), 0644); err != nil {
@@ -423,7 +566,10 @@ ai:
 }
 
 func TestManagerDefaults(t *testing.T) {
-	manager, err := NewManager()
+	// Create manager with hot reload disabled for this test
+	opts := DefaultManagerOptions()
+	opts.EnableHotReload = false
+	manager, err := NewManager(opts)
 	if err != nil {
 		t.Fatalf("Failed to create manager: %v", err)
 	}
@@ -466,14 +612,17 @@ func TestManagerEnvironmentVariables(t *testing.T) {
 	// Set environment variables
 	_ = os.Setenv("ATEST_EXT_AI_SERVER_HOST", "custom-host")
 	_ = os.Setenv("ATEST_EXT_AI_SERVER_PORT", "9999")
-	_ = os.Setenv("ATEST_EXT_AI_AI_DEFAULT_SERVICE", "openai")
+	_ = os.Setenv("ATEST_EXT_AI_AI_DEFAULT_SERVICE", "ollama")
 	defer func() {
 		_ = os.Unsetenv("ATEST_EXT_AI_SERVER_HOST")
 		_ = os.Unsetenv("ATEST_EXT_AI_SERVER_PORT")
 		_ = os.Unsetenv("ATEST_EXT_AI_AI_DEFAULT_SERVICE")
 	}()
 
-	manager, err := NewManager()
+	// Create manager with hot reload disabled for this test
+	opts := DefaultManagerOptions()
+	opts.EnableHotReload = false
+	manager, err := NewManager(opts)
 	if err != nil {
 		t.Fatalf("Failed to create manager: %v", err)
 	}
@@ -499,8 +648,8 @@ func TestManagerEnvironmentVariables(t *testing.T) {
 		t.Errorf("Expected port from environment 9999, got %d", config.Server.Port)
 	}
 
-	if config.AI.DefaultService != "openai" {
-		t.Errorf("Expected AI service from environment 'openai', got '%s'", config.AI.DefaultService)
+	if config.AI.DefaultService != "ollama" {
+		t.Errorf("Expected AI service from environment 'ollama', got '%s'", config.AI.DefaultService)
 	}
 }
 
@@ -656,7 +805,10 @@ priority = 1
 }
 
 func TestManagerStats(t *testing.T) {
-	manager, err := NewManager()
+	// Create manager with hot reload disabled for this test
+	opts := DefaultManagerOptions()
+	opts.EnableHotReload = false
+	manager, err := NewManager(opts)
 	if err != nil {
 		t.Fatalf("Failed to create manager: %v", err)
 	}

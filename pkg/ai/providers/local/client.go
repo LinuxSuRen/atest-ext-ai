@@ -173,8 +173,8 @@ func (c *Client) Generate(ctx context.Context, req *interfaces.GenerateRequest) 
 func (c *Client) GetCapabilities(ctx context.Context) (*interfaces.Capabilities, error) {
 	// Get available models from Ollama
 	models, err := c.getAvailableModels(ctx)
-	if err != nil {
-		// Return default capabilities if we can't fetch models
+	if err != nil || len(models) == 0 {
+		// Return default capabilities if we can't fetch models or no models available
 		models = []interfaces.ModelInfo{
 			{
 				ID:           c.config.Model,

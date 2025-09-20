@@ -31,7 +31,7 @@ type Config struct {
 type ServerConfig struct {
 	Host         string   `mapstructure:"host" yaml:"host" json:"host" toml:"host" validate:"required,hostname_rfc1123"`
 	Port         int      `mapstructure:"port" yaml:"port" json:"port" toml:"port" validate:"required,min=1,max=65535"`
-	Timeout      Duration `mapstructure:"timeout" yaml:"timeout" json:"timeout" toml:"timeout" validate:"required"`
+	Timeout      Duration `mapstructure:"timeout" yaml:"timeout" json:"timeout" toml:"timeout" validate:"required,duration_gt_zero"`
 	MaxConns     int      `mapstructure:"max_connections" yaml:"max_connections" json:"max_connections" toml:"max_connections" validate:"min=1,max=10000"`
 	SocketPath   string   `mapstructure:"socket_path" yaml:"socket_path" json:"socket_path" toml:"socket_path" validate:"required"`
 	ReadTimeout  Duration `mapstructure:"read_timeout" yaml:"read_timeout" json:"read_timeout" toml:"read_timeout"`
@@ -125,10 +125,10 @@ type SecurityConfig struct {
 // DatabaseConfig contains database configuration (optional)
 type DatabaseConfig struct {
 	Enabled     bool     `mapstructure:"enabled" yaml:"enabled" json:"enabled" toml:"enabled"`
-	Driver      string   `mapstructure:"driver" yaml:"driver" json:"driver" toml:"driver" validate:"oneof=sqlite mysql postgres"`
+	Driver      string   `mapstructure:"driver" yaml:"driver" json:"driver" toml:"driver"`
 	DSN         string   `mapstructure:"dsn" yaml:"dsn" json:"dsn" toml:"dsn"`
-	MaxConns    int      `mapstructure:"max_connections" yaml:"max_connections" json:"max_connections" toml:"max_connections" validate:"min=1"`
-	MaxIdle     int      `mapstructure:"max_idle" yaml:"max_idle" json:"max_idle" toml:"max_idle" validate:"min=1"`
+	MaxConns    int      `mapstructure:"max_connections" yaml:"max_connections" json:"max_connections" toml:"max_connections"`
+	MaxIdle     int      `mapstructure:"max_idle" yaml:"max_idle" json:"max_idle" toml:"max_idle"`
 	MaxLifetime Duration `mapstructure:"max_lifetime" yaml:"max_lifetime" json:"max_lifetime" toml:"max_lifetime"`
 }
 

@@ -120,6 +120,8 @@ func (v *Validator) generateErrorMessage(err validator.FieldError) string {
 		return fmt.Sprintf("AI service configuration for '%s' is invalid", field)
 	case "log_level":
 		return fmt.Sprintf("field '%s' must be a valid log level (debug, info, warn, error)", field)
+	case "duration_gt_zero":
+		return fmt.Sprintf("field '%s' must be greater than zero", field)
 	default:
 		return fmt.Sprintf("field '%s' with value '%s' failed validation for tag '%s'", field, value, tag)
 	}
@@ -317,6 +319,23 @@ func (v *Validator) validateAIService(name string, service AIService) error {
 func (v *Validator) validateDatabaseConfig(db DatabaseConfig) error {
 	var errors ValidationErrors
 
+	// Validate driver
+	validDrivers := []string{"sqlite", "mysql", "postgres"}
+	validDriver := false
+	for _, driver := range validDrivers {
+		if db.Driver == driver {
+			validDriver = true
+			break
+		}
+	}
+	if !validDriver {
+		errors = append(errors, ValidationError{
+			Field:   "database.driver",
+			Value:   db.Driver,
+			Message: "driver must be one of: sqlite mysql postgres",
+		})
+	}
+
 	if db.DSN == "" {
 		errors = append(errors, ValidationError{
 			Field:   "database.dsn",
@@ -462,6 +481,12 @@ func registerCustomValidations(validate *validator.Validate) {
 		// Log error but continue - custom validations are not critical
 		log.Printf("Failed to register log level validation: %v", err)
 	}
+
+	// Register duration greater than zero validation
+	if err := validate.RegisterValidation("duration_gt_zero", validateDurationGtZero); err != nil {
+		// Log error but continue - custom validations are not critical
+		log.Printf("Failed to register duration_gt_zero validation: %v", err)
+	}
 }
 
 // validateSemVer validates semantic versioning
@@ -503,6 +528,18 @@ func validateLogLevel(fl validator.FieldLevel) bool {
 			return true
 		}
 	}
+	return false
+}
+
+// validateDurationGtZero validates that a Duration is greater than zero
+func validateDurationGtZero(fl validator.FieldLevel) bool {
+	field := fl.Field()
+
+	// Check if it's a Duration type
+	if duration, ok := field.Interface().(Duration); ok {
+		return duration.Duration > 0
+	}
+
 	return false
 }
 

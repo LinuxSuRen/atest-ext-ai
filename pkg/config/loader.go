@@ -168,48 +168,31 @@ func (l *Loader) Merge(other *Config) error {
 		return fmt.Errorf("cannot merge nil config")
 	}
 
-	// Convert other config to yaml, then parse back to map to only get non-zero values
-	otherYaml, err := yaml.Marshal(other)
+	// Directly merge Config structs using reflection
+	mergedConfig := l.mergeConfigs(l.config, other)
+
+	// Update the loader's config
+	l.config = mergedConfig
+
+	// Convert merged config back to a map and update viper
+	configMap := make(map[string]interface{})
+	configJSON, err := json.Marshal(mergedConfig)
 	if err != nil {
-		return fmt.Errorf("error marshaling other config: %w", err)
+		return fmt.Errorf("error marshaling merged config: %w", err)
 	}
 
-	otherMap := make(map[string]interface{})
-	if err := yaml.Unmarshal(otherYaml, &otherMap); err != nil {
-		return fmt.Errorf("error unmarshaling other config: %w", err)
-	}
-
-	// Get current settings
-	currentMap := l.viper.AllSettings()
-
-	// Deep merge maps
-	mergedMap := deepMerge(currentMap, otherMap)
-
-	// Create new viper instance with merged config
-	newViper := viper.New()
-	if err := newViper.MergeConfigMap(mergedMap); err != nil {
-		return fmt.Errorf("error setting merged config map: %w", err)
-	}
-
-	// Update our viper instance
-	l.viper = newViper
-
-	// Unmarshal merged config with custom decoder
-	configDecoder, err := mapstructure.NewDecoder(&mapstructure.DecoderConfig{
-		DecodeHook: mapstructure.ComposeDecodeHookFunc(
-			stringToDurationHookFunc(),
-			mapstructure.StringToTimeDurationHookFunc(),
-		),
-		Result:           l.config,
-		WeaklyTypedInput: true,
-	})
-	if err != nil {
-		return fmt.Errorf("failed to create decoder: %w", err)
-	}
-
-	if err := configDecoder.Decode(l.viper.AllSettings()); err != nil {
+	if err := json.Unmarshal(configJSON, &configMap); err != nil {
 		return fmt.Errorf("error unmarshaling merged config: %w", err)
 	}
+
+	// Create new viper instance and set the merged values
+	newViper := viper.New()
+	setDefaults(newViper) // Restore defaults
+	for key, value := range configMap {
+		newViper.Set(key, value)
+	}
+
+	l.viper = newViper
 
 	return nil
 }
@@ -374,8 +357,28 @@ func (l *Loader) parseContent(data []byte, format string) error {
 		return fmt.Errorf("error decoding config map: %w", err)
 	}
 
-	// Merge with existing config
-	return l.Merge(&config)
+	// Update the loader's config directly for file parsing (not merging)
+	l.config = &config
+
+	// Update viper with the new config values
+	viperConfigMap := make(map[string]interface{})
+	configJSON, err := json.Marshal(&config)
+	if err != nil {
+		return fmt.Errorf("error marshaling config: %w", err)
+	}
+
+	if err := json.Unmarshal(configJSON, &viperConfigMap); err != nil {
+		return fmt.Errorf("error unmarshaling config: %w", err)
+	}
+
+	// Clear viper and reset with new values plus defaults
+	l.viper = viper.New()
+	setDefaults(l.viper) // Set defaults first
+	for key, value := range viperConfigMap {
+		l.viper.Set(key, value) // Override with file values
+	}
+
+	return nil
 }
 
 // detectFormat detects configuration format based on file extension
@@ -520,4 +523,186 @@ func deepMerge(dst, src map[string]interface{}) map[string]interface{} {
 	}
 
 	return result
+}
+
+// deepMergeNonZero recursively merges two maps, only overriding with non-zero values from src
+func deepMergeNonZero(dst, src map[string]interface{}) map[string]interface{} {
+	result := make(map[string]interface{})
+
+	// Copy all values from dst
+	for k, v := range dst {
+		result[k] = v
+	}
+
+	// Merge values from src, only if they are non-zero
+	for k, srcValue := range src {
+		if isZeroValue(srcValue) {
+			continue // Skip zero values
+		}
+
+		if dstValue, exists := result[k]; exists {
+			// If both values are maps, merge them recursively
+			if dstMap, dstOk := dstValue.(map[string]interface{}); dstOk {
+				if srcMap, srcOk := srcValue.(map[string]interface{}); srcOk {
+					result[k] = deepMergeNonZero(dstMap, srcMap)
+					continue
+				}
+			}
+		}
+		// Otherwise, src value overwrites dst value
+		result[k] = srcValue
+	}
+
+	return result
+}
+
+// mergeConfigs merges two Config structs, preserving non-zero values from dst and overriding with non-zero values from src
+func (l *Loader) mergeConfigs(dst, src *Config) *Config {
+	if dst == nil && src == nil {
+		return &Config{}
+	}
+	if dst == nil {
+		return src
+	}
+	if src == nil {
+		return dst
+	}
+
+	// Create a copy of dst to avoid modifying the original
+	result := *dst
+
+	// Merge Server config
+	if src.Server.Host != "" {
+		result.Server.Host = src.Server.Host
+	}
+	if src.Server.Port != 0 {
+		result.Server.Port = src.Server.Port
+	}
+	if src.Server.Timeout.Duration != 0 {
+		result.Server.Timeout = src.Server.Timeout
+	}
+	if src.Server.MaxConns != 0 {
+		result.Server.MaxConns = src.Server.MaxConns
+	}
+	if src.Server.SocketPath != "" {
+		result.Server.SocketPath = src.Server.SocketPath
+	}
+	if src.Server.ReadTimeout.Duration != 0 {
+		result.Server.ReadTimeout = src.Server.ReadTimeout
+	}
+	if src.Server.WriteTimeout.Duration != 0 {
+		result.Server.WriteTimeout = src.Server.WriteTimeout
+	}
+
+	// Merge Plugin config
+	if src.Plugin.Name != "" {
+		result.Plugin.Name = src.Plugin.Name
+	}
+	if src.Plugin.Version != "" {
+		result.Plugin.Version = src.Plugin.Version
+	}
+	if src.Plugin.LogLevel != "" {
+		result.Plugin.LogLevel = src.Plugin.LogLevel
+	}
+	if src.Plugin.Environment != "" {
+		result.Plugin.Environment = src.Plugin.Environment
+	}
+	// Debug is a bool, so we need special handling
+	result.Plugin.Debug = src.Plugin.Debug || dst.Plugin.Debug
+
+	// Merge metadata maps
+	if result.Plugin.Metadata == nil {
+		result.Plugin.Metadata = make(map[string]string)
+	}
+	for k, v := range src.Plugin.Metadata {
+		if v != "" {
+			result.Plugin.Metadata[k] = v
+		}
+	}
+
+	// Merge AI config
+	if src.AI.DefaultService != "" {
+		result.AI.DefaultService = src.AI.DefaultService
+	}
+	if src.AI.Timeout.Duration != 0 {
+		result.AI.Timeout = src.AI.Timeout
+	}
+	if len(src.AI.Fallback) > 0 {
+		result.AI.Fallback = src.AI.Fallback
+	}
+
+	// Merge AI services
+	if result.AI.Services == nil {
+		result.AI.Services = make(map[string]AIService)
+	}
+	for name, service := range src.AI.Services {
+		result.AI.Services[name] = service
+	}
+
+	// Merge other AI configs (rate limit, circuit breaker, etc.) with non-zero checks
+	if src.AI.RateLimit.RequestsPerMinute != 0 {
+		result.AI.RateLimit.RequestsPerMinute = src.AI.RateLimit.RequestsPerMinute
+	}
+	if src.AI.RateLimit.BurstSize != 0 {
+		result.AI.RateLimit.BurstSize = src.AI.RateLimit.BurstSize
+	}
+	if src.AI.RateLimit.WindowSize.Duration != 0 {
+		result.AI.RateLimit.WindowSize = src.AI.RateLimit.WindowSize
+	}
+	result.AI.RateLimit.Enabled = src.AI.RateLimit.Enabled || dst.AI.RateLimit.Enabled
+
+	// Merge other configs as needed - Database, Logging, etc.
+	// For now, just copy them over if they have any meaningful values
+	if src.Database.Driver != "" {
+		result.Database = src.Database
+	}
+	if src.Logging.Level != "" {
+		result.Logging = src.Logging
+	}
+
+	return &result
+}
+
+// isZeroValue checks if a value is considered zero/empty
+func isZeroValue(v interface{}) bool {
+	if v == nil {
+		return true
+	}
+
+	switch value := v.(type) {
+	case string:
+		return value == ""
+	case int:
+		return value == 0
+	case int8:
+		return value == 0
+	case int16:
+		return value == 0
+	case int32:
+		return value == 0
+	case int64:
+		return value == 0
+	case uint:
+		return value == 0
+	case uint8:
+		return value == 0
+	case uint16:
+		return value == 0
+	case uint32:
+		return value == 0
+	case uint64:
+		return value == 0
+	case float32:
+		return value == 0.0
+	case float64:
+		return value == 0.0
+	case bool:
+		return !value
+	case []interface{}:
+		return len(value) == 0
+	case map[string]interface{}:
+		return len(value) == 0
+	default:
+		return false
+	}
 }
