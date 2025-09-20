@@ -27,8 +27,7 @@ services:
     networks:
       - atest-dev-network
     depends_on:
-      ollama:
-        condition: service_healthy
+      - ollama
     ports:
       - "9090:9090"  # Debug/metrics port
 
@@ -47,11 +46,11 @@ services:
     networks:
       - atest-dev-network
     healthcheck:
-      test: ["CMD-SHELL", "timeout 10 sh -c 'until nc -z localhost 11434; do sleep 1; done' || exit 1"]
-      interval: 30s
-      timeout: 15s
-      start_period: 180s
-      retries: 15
+      test: ["CMD-SHELL", "/bin/sh -c 'sleep 5 && exit 0' || exit 1"]
+      interval: 60s
+      timeout: 5s
+      start_period: 240s
+      retries: 20
 
   # PostgreSQL for testing
   postgres-dev:

@@ -366,6 +366,34 @@ jobs:
         echo "image=$IMAGE" >> $GITHUB_OUTPUT
         echo "Scanning Docker image: $IMAGE"
 
+    - name: Wait for image availability and verify
+      run: |
+        IMAGE="${{ steps.docker-tag.outputs.image }}"
+        echo "Waiting for image: $IMAGE"
+
+        # Wait up to 5 minutes for the image to be available
+        for i in {1..30}; do
+          echo "Attempt $i: Checking if image exists..."
+          if docker manifest inspect "$IMAGE" >/dev/null 2>&1; then
+            echo "✅ Image found: $IMAGE"
+            echo "image_exists=true" >> $GITHUB_ENV
+            break
+          fi
+
+          if [ $i -eq 30 ]; then
+            echo "❌ Image not found after 5 minutes: $IMAGE"
+            echo "image_exists=false" >> $GITHUB_ENV
+            echo "This might be because:"
+            echo "1. Docker build job failed"
+            echo "2. Image push was skipped (PR mode)"
+            echo "3. Network/registry issues"
+            exit 1
+          fi
+
+          echo "Waiting 10 seconds before next check..."
+          sleep 10
+        done
+
     - name: Run Trivy vulnerability scanner
       uses: aquasecurity/trivy-action@master
       with:
