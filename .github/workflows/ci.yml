@@ -54,10 +54,13 @@ jobs:
         version: latest
         args: --timeout=10m
 
+    - name: Install gosec
+      run: go install github.com/securecodewarrior/gosec/v2/cmd/gosec@latest
+
     - name: Security check
-      uses: securecodewarrior/github-action-gosec@master
-      with:
-        args: '-fmt sarif -out gosec.sarif ./...'
+      run: |
+        gosec -fmt sarif -out gosec.sarif ./...
+        gosec ./...
 
     - name: Upload SARIF file
       if: always()
