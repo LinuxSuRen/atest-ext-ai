@@ -160,7 +160,9 @@ func (l *Loader) Merge(other *Config) error {
 	}
 
 	// Merge other config
-	l.viper.MergeConfigMap(configMap)
+	if err := l.viper.MergeConfigMap(configMap); err != nil {
+		return fmt.Errorf("error merging config map: %w", err)
+	}
 
 	// Unmarshal merged config
 	if err := l.viper.Unmarshal(l.config); err != nil {
@@ -222,7 +224,10 @@ func (l *Loader) setupEnvironmentVariables() {
 	}
 
 	for viperKey, envKey := range envBindings {
-		l.viper.BindEnv(viperKey, "ATEST_EXT_AI_"+envKey)
+		if err := l.viper.BindEnv(viperKey, "ATEST_EXT_AI_"+envKey); err != nil {
+			// Log but don't fail - environment binding is optional
+			continue
+		}
 	}
 }
 

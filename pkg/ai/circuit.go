@@ -229,16 +229,6 @@ func (cb *defaultCircuitBreaker) updateState(success bool) {
 	}
 }
 
-// countRecentSuccesses counts recent successful requests in half-open state
-func (cb *defaultCircuitBreaker) countRecentSuccesses() int {
-	// In a more sophisticated implementation, we would track a sliding window
-	// For now, we use a simple approach based on consecutive successes
-	if cb.consecutiveFailures == 0 {
-		// If there are no consecutive failures, we've had some successes
-		return cb.config.SuccessThreshold
-	}
-	return 0
-}
 
 // CircuitBreakerStats provides additional statistics for monitoring
 type CircuitBreakerStats struct {

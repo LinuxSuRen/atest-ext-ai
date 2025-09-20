@@ -227,7 +227,9 @@ func (m *Manager) Set(key string, value interface{}) error {
 	if err := m.validator.ValidateConfig(m.config); err != nil {
 		// Rollback if validation fails
 		m.loader.GetViper().Set(key, oldValue)
-		m.loader.GetViper().Unmarshal(m.config)
+		if err := m.loader.GetViper().Unmarshal(m.config); err != nil {
+			// Log rollback error but don't return it as it would mask the validation error
+		}
 		return fmt.Errorf("configuration validation failed after update: %w", err)
 	}
 

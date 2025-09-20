@@ -163,7 +163,7 @@ func TestCircuitBreaker_TransitionToHalfOpen(t *testing.T) {
 
 	// Force circuit to open
 	for i := 0; i < config.FailureThreshold; i++ {
-		cb.Call(context.Background(), func() error {
+		_ = cb.Call(context.Background(), func() error {
 			return testError
 		})
 	}
@@ -205,7 +205,7 @@ func TestCircuitBreaker_HalfOpenFailure(t *testing.T) {
 
 	// Force circuit to open
 	for i := 0; i < config.FailureThreshold; i++ {
-		cb.Call(context.Background(), func() error {
+		_ = cb.Call(context.Background(), func() error {
 			return testError
 		})
 	}
@@ -241,7 +241,7 @@ func TestCircuitBreaker_HalfOpenMaxCalls(t *testing.T) {
 
 	// Force circuit to open
 	for i := 0; i < config.FailureThreshold; i++ {
-		cb.Call(context.Background(), func() error {
+		_ = cb.Call(context.Background(), func() error {
 			return testError
 		})
 	}
@@ -292,7 +292,7 @@ func TestCircuitBreaker_Reset(t *testing.T) {
 
 	// Force circuit to open
 	for i := 0; i < config.FailureThreshold; i++ {
-		cb.Call(context.Background(), func() error {
+		_ = cb.Call(context.Background(), func() error {
 			return testError
 		})
 	}
@@ -330,10 +330,10 @@ func TestCircuitBreaker_GetMetrics(t *testing.T) {
 	testError := errors.New("test error")
 
 	// Make some successful and failed calls
-	cb.Call(context.Background(), func() error { return nil })
-	cb.Call(context.Background(), func() error { return testError })
-	cb.Call(context.Background(), func() error { return nil })
-	cb.Call(context.Background(), func() error { return testError })
+	_ = cb.Call(context.Background(), func() error { return nil })
+	_ = cb.Call(context.Background(), func() error { return testError })
+	_ = cb.Call(context.Background(), func() error { return nil })
+	_ = cb.Call(context.Background(), func() error { return testError })
 
 	metrics := cb.GetMetrics()
 
@@ -383,8 +383,8 @@ func TestCircuitBreaker_GetStats(t *testing.T) {
 		}
 
 		// Make some calls
-		cb.Call(context.Background(), func() error { return nil })
-		cb.Call(context.Background(), func() error { return errors.New("error") })
+		_ = cb.Call(context.Background(), func() error { return nil })
+		_ = cb.Call(context.Background(), func() error { return errors.New("error") })
 
 		stats = cbImpl.GetStats()
 
@@ -426,7 +426,7 @@ func TestCircuitBreaker_IsHealthy(t *testing.T) {
 		// Force circuit to open
 		testError := errors.New("test error")
 		for i := 0; i < config.FailureThreshold; i++ {
-			cb.Call(context.Background(), func() error {
+			_ = cb.Call(context.Background(), func() error {
 				return testError
 			})
 		}
@@ -458,9 +458,9 @@ func TestCircuitBreaker_GetFailureRate(t *testing.T) {
 		}
 
 		// Make some calls: 2 successes, 1 failure
-		cb.Call(context.Background(), func() error { return nil })
-		cb.Call(context.Background(), func() error { return nil })
-		cb.Call(context.Background(), func() error { return errors.New("error") })
+		_ = cb.Call(context.Background(), func() error { return nil })
+		_ = cb.Call(context.Background(), func() error { return nil })
+		_ = cb.Call(context.Background(), func() error { return errors.New("error") })
 
 		expectedRate := 1.0 / 3.0 // 1 failure out of 3 total
 		if rate := cbImpl.GetFailureRate(); rate != expectedRate {

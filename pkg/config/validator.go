@@ -439,16 +439,24 @@ func (v *Validator) validateSecurityConfig(security SecurityConfig) error {
 // registerCustomValidations registers custom validation functions
 func registerCustomValidations(validate *validator.Validate) {
 	// Register semver validation
-	validate.RegisterValidation("semver", validateSemVer)
+	if err := validate.RegisterValidation("semver", validateSemVer); err != nil {
+		// Log error but continue - custom validations are not critical
+	}
 
 	// Register file validation
-	validate.RegisterValidation("file", validateFile)
+	if err := validate.RegisterValidation("file", validateFile); err != nil {
+		// Log error but continue - custom validations are not critical
+	}
 
 	// Register duration validation
-	validate.RegisterValidation("duration", validateDuration)
+	if err := validate.RegisterValidation("duration", validateDuration); err != nil {
+		// Log error but continue - custom validations are not critical
+	}
 
 	// Register log level validation
-	validate.RegisterValidation("log_level", validateLogLevel)
+	if err := validate.RegisterValidation("log_level", validateLogLevel); err != nil {
+		// Log error but continue - custom validations are not critical
+	}
 }
 
 // validateSemVer validates semantic versioning

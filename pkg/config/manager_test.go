@@ -28,7 +28,11 @@ func TestManagerCreation(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Failed to create manager: %v", err)
 	}
-	defer manager.Stop()
+	defer func() {
+		if err := manager.Stop(); err != nil {
+			t.Logf("Error stopping manager: %v", err)
+		}
+	}()
 
 	if manager == nil {
 		t.Fatal("Expected manager to be created, got nil")
@@ -83,7 +87,11 @@ logging:
 	if err != nil {
 		t.Fatalf("Failed to create manager: %v", err)
 	}
-	defer manager.Stop()
+	defer func() {
+		if err := manager.Stop(); err != nil {
+			t.Logf("Error stopping manager: %v", err)
+		}
+	}()
 
 	err = manager.LoadFromFile(configFile)
 	if err != nil {
@@ -118,7 +126,11 @@ func TestManagerValidation(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Failed to create manager: %v", err)
 	}
-	defer manager.Stop()
+	defer func() {
+		if err := manager.Stop(); err != nil {
+			t.Logf("Error stopping manager: %v", err)
+		}
+	}()
 
 	// Test validation with invalid configuration
 	invalidConfigData := `
@@ -193,7 +205,11 @@ ai:
 	if err != nil {
 		t.Fatalf("Failed to create manager: %v", err)
 	}
-	defer manager.Stop()
+	defer func() {
+		if err := manager.Stop(); err != nil {
+			t.Logf("Error stopping manager: %v", err)
+		}
+	}()
 
 	if err := manager.LoadFromFile(configFile); err != nil {
 		t.Fatalf("Failed to load configuration: %v", err)
@@ -270,7 +286,11 @@ ai:
 	if err != nil {
 		t.Fatalf("Failed to create manager: %v", err)
 	}
-	defer manager.Stop()
+	defer func() {
+		if err := manager.Stop(); err != nil {
+			t.Logf("Error stopping manager: %v", err)
+		}
+	}()
 
 	if err := manager.LoadFromFile(configFile); err != nil {
 		t.Fatalf("Failed to load configuration: %v", err)
@@ -361,7 +381,11 @@ ai:
 	if err != nil {
 		t.Fatalf("Failed to create manager: %v", err)
 	}
-	defer manager.Stop()
+	defer func() {
+		if err := manager.Stop(); err != nil {
+			t.Logf("Error stopping manager: %v", err)
+		}
+	}()
 
 	if err := manager.LoadFromFile(configFile); err != nil {
 		t.Fatalf("Failed to load configuration: %v", err)
@@ -403,7 +427,11 @@ func TestManagerDefaults(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Failed to create manager: %v", err)
 	}
-	defer manager.Stop()
+	defer func() {
+		if err := manager.Stop(); err != nil {
+			t.Logf("Error stopping manager: %v", err)
+		}
+	}()
 
 	// Load with default values (empty paths)
 	err = manager.Load()
@@ -449,7 +477,11 @@ func TestManagerEnvironmentVariables(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Failed to create manager: %v", err)
 	}
-	defer manager.Stop()
+	defer func() {
+		if err := manager.Stop(); err != nil {
+			t.Logf("Error stopping manager: %v", err)
+		}
+	}()
 
 	err = manager.Load()
 	if err != nil {
@@ -514,7 +546,11 @@ ai:
 	if err != nil {
 		t.Fatalf("Failed to create manager: %v", err)
 	}
-	defer manager.Stop()
+	defer func() {
+		if err := manager.Stop(); err != nil {
+			t.Logf("Error stopping manager: %v", err)
+		}
+	}()
 
 	err = manager.LoadFromFile(yamlFile)
 	if err != nil {
@@ -624,7 +660,11 @@ func TestManagerStats(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Failed to create manager: %v", err)
 	}
-	defer manager.Stop()
+	defer func() {
+		if err := manager.Stop(); err != nil {
+			t.Logf("Error stopping manager: %v", err)
+		}
+	}()
 
 	stats := manager.GetStats()
 	if stats == nil {

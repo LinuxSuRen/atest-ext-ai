@@ -322,8 +322,8 @@ func TestLoadBalancer_GetStats(t *testing.T) {
 
 		// Make some requests to generate stats
 		req := &GenerateRequest{Prompt: "test"}
-		lb.SelectClient(req)
-		lb.SelectClient(req)
+		_, _ = lb.SelectClient(req)
+		_, _ = lb.SelectClient(req)
 
 		// Record some successes and failures
 		lbImpl.RecordSuccess("client1", 10*time.Millisecond)
