@@ -21,8 +21,11 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"reflect"
 	"strings"
+	"time"
 
+	"github.com/mitchellh/mapstructure"
 	"github.com/pelletier/go-toml/v2"
 	"github.com/spf13/viper"
 	"gopkg.in/yaml.v2"
@@ -80,8 +83,20 @@ func (l *Loader) Load(paths ...string) error {
 		}
 	}
 
-	// Unmarshal into our config struct
-	if err := l.viper.Unmarshal(l.config); err != nil {
+	// Unmarshal into our config struct with custom decoder
+	decoder, err := mapstructure.NewDecoder(&mapstructure.DecoderConfig{
+		DecodeHook: mapstructure.ComposeDecodeHookFunc(
+			stringToDurationHookFunc(),
+			mapstructure.StringToTimeDurationHookFunc(),
+		),
+		Result:     l.config,
+		WeaklyTypedInput: true,
+	})
+	if err != nil {
+		return fmt.Errorf("failed to create decoder: %w", err)
+	}
+
+	if err := decoder.Decode(l.viper.AllSettings()); err != nil {
 		return fmt.Errorf("unable to decode config into struct: %w", err)
 	}
 
@@ -153,19 +168,46 @@ func (l *Loader) Merge(other *Config) error {
 		return fmt.Errorf("cannot merge nil config")
 	}
 
-	// Convert config to map and merge
-	configMap := make(map[string]interface{})
-	if err := l.viper.Unmarshal(&configMap); err != nil {
-		return fmt.Errorf("error unmarshaling current config: %w", err)
+	// Convert other config to yaml, then parse back to map to only get non-zero values
+	otherYaml, err := yaml.Marshal(other)
+	if err != nil {
+		return fmt.Errorf("error marshaling other config: %w", err)
 	}
 
-	// Merge other config
-	if err := l.viper.MergeConfigMap(configMap); err != nil {
-		return fmt.Errorf("error merging config map: %w", err)
+	otherMap := make(map[string]interface{})
+	if err := yaml.Unmarshal(otherYaml, &otherMap); err != nil {
+		return fmt.Errorf("error unmarshaling other config: %w", err)
 	}
 
-	// Unmarshal merged config
-	if err := l.viper.Unmarshal(l.config); err != nil {
+	// Get current settings
+	currentMap := l.viper.AllSettings()
+
+	// Deep merge maps
+	mergedMap := deepMerge(currentMap, otherMap)
+
+	// Create new viper instance with merged config
+	newViper := viper.New()
+	if err := newViper.MergeConfigMap(mergedMap); err != nil {
+		return fmt.Errorf("error setting merged config map: %w", err)
+	}
+
+	// Update our viper instance
+	l.viper = newViper
+
+	// Unmarshal merged config with custom decoder
+	configDecoder, err := mapstructure.NewDecoder(&mapstructure.DecoderConfig{
+		DecodeHook: mapstructure.ComposeDecodeHookFunc(
+			stringToDurationHookFunc(),
+			mapstructure.StringToTimeDurationHookFunc(),
+		),
+		Result:     l.config,
+		WeaklyTypedInput: true,
+	})
+	if err != nil {
+		return fmt.Errorf("failed to create decoder: %w", err)
+	}
+
+	if err := configDecoder.Decode(l.viper.AllSettings()); err != nil {
 		return fmt.Errorf("error unmarshaling merged config: %w", err)
 	}
 
@@ -231,6 +273,27 @@ func (l *Loader) setupEnvironmentVariables() {
 	}
 }
 
+// stringToDurationHookFunc creates a decode hook for converting strings to Duration
+func stringToDurationHookFunc() mapstructure.DecodeHookFunc {
+	return mapstructure.DecodeHookFuncType(func(f reflect.Type, t reflect.Type, data interface{}) (interface{}, error) {
+		if f.Kind() != reflect.String {
+			return data, nil
+		}
+		if t != reflect.TypeOf(Duration{}) {
+			return data, nil
+		}
+
+		// Parse string to Duration
+		s := data.(string)
+		duration, err := time.ParseDuration(s)
+		if err != nil {
+			return nil, fmt.Errorf("invalid duration format: %s", s)
+		}
+
+		return Duration{Duration: duration}, nil
+	})
+}
+
 // loadFromDirectory loads all supported config files from a directory
 func (l *Loader) loadFromDirectory(dirPath string) error {
 	if _, err := os.Stat(dirPath); os.IsNotExist(err) {
@@ -274,23 +337,41 @@ func (l *Loader) loadFromDirectory(dirPath string) error {
 
 // parseContent parses configuration data based on format
 func (l *Loader) parseContent(data []byte, format string) error {
-	var config Config
+	var configMap map[string]interface{}
 
 	switch strings.ToLower(format) {
 	case "yaml", "yml":
-		if err := yaml.Unmarshal(data, &config); err != nil {
+		if err := yaml.Unmarshal(data, &configMap); err != nil {
 			return fmt.Errorf("error parsing YAML: %w", err)
 		}
 	case "json":
-		if err := json.Unmarshal(data, &config); err != nil {
+		if err := json.Unmarshal(data, &configMap); err != nil {
 			return fmt.Errorf("error parsing JSON: %w", err)
 		}
 	case "toml":
-		if err := toml.Unmarshal(data, &config); err != nil {
+		if err := toml.Unmarshal(data, &configMap); err != nil {
 			return fmt.Errorf("error parsing TOML: %w", err)
 		}
 	default:
 		return fmt.Errorf("unsupported format: %s", format)
+	}
+
+	// Convert map to Config struct using mapstructure with custom hooks
+	var config Config
+	decoder, err := mapstructure.NewDecoder(&mapstructure.DecoderConfig{
+		DecodeHook: mapstructure.ComposeDecodeHookFunc(
+			stringToDurationHookFunc(),
+			mapstructure.StringToTimeDurationHookFunc(),
+		),
+		Result:     &config,
+		WeaklyTypedInput: true,
+	})
+	if err != nil {
+		return fmt.Errorf("failed to create decoder: %w", err)
+	}
+
+	if err := decoder.Decode(configMap); err != nil {
+		return fmt.Errorf("error decoding config map: %w", err)
 	}
 
 	// Merge with existing config
@@ -339,7 +420,7 @@ func setDefaults(v *viper.Viper) {
 	// AI defaults
 	v.SetDefault("ai.default_service", "ollama")
 	v.SetDefault("ai.timeout", "60s")
-	v.SetDefault("ai.fallback_order", []string{"ollama", "openai", "claude"})
+	v.SetDefault("ai.fallback_order", []string{"ollama"})
 
 	// AI Rate Limiting defaults
 	v.SetDefault("ai.rate_limit.enabled", true)
@@ -412,4 +493,31 @@ func contains(slice []string, item string) bool {
 		}
 	}
 	return false
+}
+
+// deepMerge recursively merges two maps, with values from src overriding values in dst
+func deepMerge(dst, src map[string]interface{}) map[string]interface{} {
+	result := make(map[string]interface{})
+
+	// Copy all values from dst
+	for k, v := range dst {
+		result[k] = v
+	}
+
+	// Merge values from src
+	for k, srcValue := range src {
+		if dstValue, exists := result[k]; exists {
+			// If both values are maps, merge them recursively
+			if dstMap, dstOk := dstValue.(map[string]interface{}); dstOk {
+				if srcMap, srcOk := srcValue.(map[string]interface{}); srcOk {
+					result[k] = deepMerge(dstMap, srcMap)
+					continue
+				}
+			}
+		}
+		// Otherwise, src value overwrites dst value
+		result[k] = srcValue
+	}
+
+	return result
 }

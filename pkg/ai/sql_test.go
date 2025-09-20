@@ -651,7 +651,8 @@ func TestSQLDialect_FormatSQL(t *testing.T) {
 }
 
 func containsKeywordOnNewLine(sql, keyword string) bool {
-	return strings.Contains(sql, "\n"+keyword)
+	// Check if keyword is at the start of the SQL or after a newline
+	return strings.HasPrefix(sql, keyword) || strings.Contains(sql, "\n"+keyword)
 }
 
 func TestSQLDialect_Integration(t *testing.T) {
