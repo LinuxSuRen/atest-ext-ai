@@ -1,5 +1,4 @@
 # Production-ready Docker Compose for atest-ext-ai plugin
-version: '3.8'
 
 services:
   # Main atest-ext-ai plugin service

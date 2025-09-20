@@ -1,16 +1,12 @@
 # Development environment Docker Compose
-version: '3.8'
+# Docker Compose file for development environment
 
 services:
   # Development version of atest-ext-ai plugin
   atest-ai-plugin-dev:
-    build:
-      context: .
-      dockerfile: Dockerfile
-      target: builder
-    image: atest-ext-ai:dev
+    image: golang:1.24-alpine
     container_name: atest-ai-plugin-dev
-    restart: "no"
+    restart: unless-stopped
     environment:
       - AI_PROVIDER=local
       - OLLAMA_ENDPOINT=http://ollama:11434
@@ -18,12 +14,19 @@ services:
       - AI_PLUGIN_SOCKET_PATH=/tmp/atest-ext-ai.sock
       - LOG_LEVEL=debug
       - CONFIG_PATH=/app/config/development.yaml
+      - AI_API_KEY=${AI_API_KEY:-}
+      - CGO_ENABLED=0
     volumes:
       - .:/app
       - socket_volume:/tmp
       - go_cache:/go/pkg/mod
     working_dir: /app
-    command: ["go", "run", "./cmd/atest-ext-ai"]
+    command: >
+      sh -c "
+        apk add --no-cache git ca-certificates tzdata &&
+        go mod download &&
+        go run ./cmd/atest-ext-ai
+      "
     networks:
       - atest-dev-network
     depends_on:

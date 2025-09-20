@@ -318,6 +318,9 @@ jobs:
     - name: Run integration tests
       run: |
         docker compose exec -T atest-ai-plugin-dev go test -v -tags=integration ./test/integration/...
+      env:
+        AI_API_KEY: mock-api-key-for-testing
+        AI_PROVIDER: mock
 
     - name: Cleanup
       if: always()
