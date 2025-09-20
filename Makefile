@@ -3,10 +3,10 @@
 .PHONY: all build test clean install proto help deploy release
 
 # Build configuration
-BINARY_NAME=atest-store-ai
+BINARY_NAME=atest-ext-ai
 BUILD_DIR=bin
 GO_VERSION=1.22
-MAIN_PACKAGE=./cmd/atest-store-ai
+MAIN_PACKAGE=./cmd/atest-ext-ai
 DOCKER_REGISTRY=ghcr.io
 DOCKER_IMAGE=$(DOCKER_REGISTRY)/linuxsuren/atest-ext-ai
 VERSION ?= $(shell git describe --tags --always --dirty 2>/dev/null || echo "dev")
@@ -91,7 +91,7 @@ uninstall:
 # Run the plugin locally for development
 dev:
 	@echo "Running $(BINARY_NAME) in development mode..."
-	@AI_PLUGIN_SOCKET_PATH="/tmp/atest-store-ai-dev.sock" \
+	@AI_PLUGIN_SOCKET_PATH="/tmp/atest-ext-ai-dev.sock" \
 	 AI_PROVIDER="local" \
 	 OLLAMA_ENDPOINT="http://localhost:11434" \
 	 AI_MODEL="codellama" \
@@ -175,7 +175,7 @@ dev-up:
 	@echo "Starting development environment..."
 	@docker-compose -f docker-compose.dev.yml up -d
 	@echo "Development environment started"
-	@echo "Plugin available at: unix:///tmp/atest-store-ai.sock"
+	@echo "Plugin available at: unix:///tmp/atest-ext-ai.sock"
 	@echo "Ollama available at: http://localhost:11434"
 	@echo "Adminer available at: http://localhost:8081"
 
@@ -319,7 +319,7 @@ health-check:
 	@echo "Checking service health..."
 	@curl -f http://localhost:9090/health || echo "❌ Plugin health check failed"
 	@curl -f http://localhost:11434/api/tags || echo "❌ Ollama health check failed"
-	@test -S /tmp/atest-store-ai.sock && echo "✅ Unix socket available" || echo "❌ Unix socket not available"
+	@test -S /tmp/atest-ext-ai.sock && echo "✅ Unix socket available" || echo "❌ Unix socket not available"
 
 # Backup configuration and data
 backup:
@@ -349,7 +349,7 @@ logs:
 # Monitor resource usage
 monitor:
 	@echo "Resource usage:"
-	@ps aux | grep atest-store-ai | grep -v grep || echo "Process not running"
+	@ps aux | grep atest-ext-ai | grep -v grep || echo "Process not running"
 	@df -h /tmp /var/log 2>/dev/null || true
 	@free -h || echo "Memory info not available"
 

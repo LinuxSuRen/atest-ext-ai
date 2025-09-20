@@ -28,15 +28,15 @@ This guide helps you diagnose and resolve common issues with the atest-ext-ai pl
 echo "=== atest-ext-ai Health Check ==="
 
 # 1. Check if binary exists and is executable
-if command -v atest-store-ai >/dev/null 2>&1; then
-    echo "✓ Binary found: $(which atest-store-ai)"
-    atest-store-ai --version 2>/dev/null || echo "⚠ Version command failed"
+if command -v atest-ext-ai >/dev/null 2>&1; then
+    echo "✓ Binary found: $(which atest-ext-ai)"
+    atest-ext-ai --version 2>/dev/null || echo "⚠ Version command failed"
 else
     echo "✗ Binary not found in PATH"
 fi
 
 # 2. Check socket
-if [[ -S "/tmp/atest-store-ai.sock" ]]; then
+if [[ -S "/tmp/atest-ext-ai.sock" ]]; then
     echo "✓ Unix socket exists"
 else
     echo "✗ Unix socket not found"
@@ -44,7 +44,7 @@ fi
 
 # 3. Check service status (systemd)
 if command -v systemctl >/dev/null 2>&1; then
-    if systemctl is-active --quiet atest-store-ai 2>/dev/null; then
+    if systemctl is-active --quiet atest-ext-ai 2>/dev/null; then
         echo "✓ Service is running"
     else
         echo "✗ Service is not running"
@@ -99,7 +99,7 @@ echo "=== End Health Check ==="
 
 **Symptoms:**
 ```
-permission denied: /usr/local/bin/atest-store-ai
+permission denied: /usr/local/bin/atest-ext-ai
 ```
 
 **Solutions:**
@@ -118,7 +118,7 @@ permission denied: /usr/local/bin/atest-store-ai
 3. **Install to user directory:**
    ```bash
    mkdir -p ~/bin
-   cp bin/atest-store-ai ~/bin/
+   cp bin/atest-ext-ai ~/bin/
    echo 'export PATH=$HOME/bin:$PATH' >> ~/.bashrc
    source ~/.bashrc
    ```
@@ -127,14 +127,14 @@ permission denied: /usr/local/bin/atest-store-ai
 
 **Symptoms:**
 ```
-bash: atest-store-ai: command not found
+bash: atest-ext-ai: command not found
 ```
 
 **Solutions:**
 1. **Check PATH:**
    ```bash
    echo $PATH
-   which atest-store-ai
+   which atest-ext-ai
    ```
 
 2. **Update PATH:**
@@ -145,7 +145,7 @@ bash: atest-store-ai: command not found
 
 3. **Use full path:**
    ```bash
-   /usr/local/bin/atest-store-ai --version
+   /usr/local/bin/atest-ext-ai --version
    ```
 
 ### Issue: Go build failures
@@ -204,7 +204,7 @@ error parsing config: yaml: line 5: mapping values are not allowed in this conte
 
 3. **Use configuration validator:**
    ```bash
-   atest-store-ai --config /etc/atest-ai/config.yaml --validate
+   atest-ext-ai --config /etc/atest-ai/config.yaml --validate
    ```
 
 ### Issue: Environment variables not loading
@@ -267,25 +267,25 @@ failed to start plugin: address already in use
 **Solutions:**
 1. **Check for existing process:**
    ```bash
-   ps aux | grep atest-store-ai
-   sudo fuser /tmp/atest-store-ai.sock
+   ps aux | grep atest-ext-ai
+   sudo fuser /tmp/atest-ext-ai.sock
    ```
 
 2. **Kill existing process:**
    ```bash
-   sudo pkill -f atest-store-ai
+   sudo pkill -f atest-ext-ai
    # Or
-   sudo systemctl stop atest-store-ai
+   sudo systemctl stop atest-ext-ai
    ```
 
 3. **Remove stale socket:**
    ```bash
-   sudo rm -f /tmp/atest-store-ai.sock
+   sudo rm -f /tmp/atest-ext-ai.sock
    ```
 
 4. **Change socket path:**
    ```bash
-   export AI_PLUGIN_SOCKET_PATH="/tmp/atest-store-ai-$(date +%s).sock"
+   export AI_PLUGIN_SOCKET_PATH="/tmp/atest-ext-ai-$(date +%s).sock"
    ```
 
 ### Issue: High memory usage
@@ -298,8 +298,8 @@ failed to start plugin: address already in use
 **Solutions:**
 1. **Monitor memory usage:**
    ```bash
-   ps aux | grep atest-store-ai
-   cat /proc/$(pgrep atest-store-ai)/status | grep -E "(VmRSS|VmSize)"
+   ps aux | grep atest-ext-ai
+   cat /proc/$(pgrep atest-ext-ai)/status | grep -E "(VmRSS|VmSize)"
    ```
 
 2. **Adjust memory limits:**
@@ -321,7 +321,7 @@ failed to start plugin: address already in use
 4. **Restart service periodically:**
    ```bash
    # Add to crontab for daily restart
-   0 2 * * * /bin/systemctl restart atest-store-ai
+   0 2 * * * /bin/systemctl restart atest-ext-ai
    ```
 
 ### Issue: Plugin crashes on startup
@@ -334,7 +334,7 @@ panic: runtime error: invalid memory address or nil pointer dereference
 **Solutions:**
 1. **Check logs:**
    ```bash
-   journalctl -u atest-store-ai -n 50
+   journalctl -u atest-ext-ai -n 50
    # Or for Docker
    docker logs atest-ai-plugin
    ```
@@ -342,12 +342,12 @@ panic: runtime error: invalid memory address or nil pointer dereference
 2. **Run in debug mode:**
    ```bash
    export LOG_LEVEL=debug
-   atest-store-ai --config /etc/atest-ai/config.yaml
+   atest-ext-ai --config /etc/atest-ai/config.yaml
    ```
 
 3. **Check dependencies:**
    ```bash
-   ldd $(which atest-store-ai)  # Check library dependencies
+   ldd $(which atest-ext-ai)  # Check library dependencies
    ```
 
 ## Performance Problems
@@ -403,7 +403,7 @@ panic: runtime error: invalid memory address or nil pointer dereference
 
 3. **Check for busy loops:**
    ```bash
-   strace -p $(pgrep atest-store-ai) -c
+   strace -p $(pgrep atest-ext-ai) -c
    ```
 
 ## AI Provider Issues
@@ -696,7 +696,7 @@ no such host: api.openai.com
 
 3. **Command line:**
    ```bash
-   atest-store-ai --log-level debug
+   atest-ext-ai --log-level debug
    ```
 
 ### Debug Information Collection
@@ -722,7 +722,7 @@ ss -tulpn >> "$DEBUG_DIR/network.txt" 2>/dev/null
 
 # Service status
 if command -v systemctl >/dev/null 2>&1; then
-    systemctl status atest-store-ai > "$DEBUG_DIR/service-status.txt" 2>&1
+    systemctl status atest-ext-ai > "$DEBUG_DIR/service-status.txt" 2>&1
 fi
 
 # Configuration
@@ -736,7 +736,7 @@ env | grep -E "(ATEST|AI_|OLLAMA|OPENAI|CLAUDE)" | sed 's/\(.*KEY.*=\).*/\1[REDA
 
 # Logs (last 100 lines)
 if command -v journalctl >/dev/null 2>&1; then
-    journalctl -u atest-store-ai -n 100 > "$DEBUG_DIR/service-logs.txt" 2>&1
+    journalctl -u atest-ext-ai -n 100 > "$DEBUG_DIR/service-logs.txt" 2>&1
 fi
 
 # Docker logs if applicable
@@ -755,7 +755,7 @@ echo "Debug information collected: $DEBUG_DIR.tar.gz"
 
 ### Log Locations
 
-- **Systemd:** `journalctl -u atest-store-ai`
+- **Systemd:** `journalctl -u atest-ext-ai`
 - **Docker:** `docker logs atest-ai-plugin`
 - **File:** `/var/log/atest-ai/app.log`
 
@@ -784,21 +784,21 @@ echo "Debug information collected: $DEBUG_DIR.tar.gz"
 
 ```bash
 # Recent errors
-journalctl -u atest-store-ai --since "1 hour ago" | grep ERROR
+journalctl -u atest-ext-ai --since "1 hour ago" | grep ERROR
 
 # Connection attempts
-journalctl -u atest-store-ai | grep -E "(connect|connection|dial)"
+journalctl -u atest-ext-ai | grep -E "(connect|connection|dial)"
 
 # Performance issues
-journalctl -u atest-store-ai | grep -E "(timeout|slow|latency)"
+journalctl -u atest-ext-ai | grep -E "(timeout|slow|latency)"
 
 # Memory issues
-journalctl -u atest-store-ai | grep -E "(memory|oom|killed)"
+journalctl -u atest-ext-ai | grep -E "(memory|oom|killed)"
 ```
 
 ## Common Error Messages
 
-### "dial unix /tmp/atest-store-ai.sock: connect: no such file or directory"
+### "dial unix /tmp/atest-ext-ai.sock: connect: no such file or directory"
 
 **Cause:** Plugin is not running or socket file doesn't exist.
 
@@ -894,7 +894,7 @@ ai:
   ollama_endpoint: http://localhost:11434
 
 plugin:
-  socket_path: /tmp/atest-store-ai-test.sock
+  socket_path: /tmp/atest-ext-ai-test.sock
   log_level: debug
 
 logging:
@@ -904,7 +904,7 @@ logging:
 EOF
 
 # Run with minimal config
-atest-store-ai --config test-config.yaml
+atest-ext-ai --config test-config.yaml
 ```
 
 This provides a clean test environment to isolate issues from complex configurations.

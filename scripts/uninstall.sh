@@ -3,7 +3,7 @@
 set -euo pipefail
 
 # Configuration
-PLUGIN_NAME="atest-store-ai"
+PLUGIN_NAME="atest-ext-ai"
 INSTALL_DIR="/usr/local/bin"
 CONFIG_DIR="/etc/atest-ai"
 LOG_DIR="/var/log/atest-ai"
@@ -160,7 +160,7 @@ cleanup_runtime() {
 
     # Remove socket files
     local socket_patterns=(
-        "/tmp/atest-store-ai*.sock"
+        "/tmp/atest-ext-ai*.sock"
         "/var/run/atest-ai*.sock"
     )
 
@@ -176,7 +176,7 @@ cleanup_runtime() {
     # Remove PID files
     local pid_files=(
         "/var/run/atest-ai.pid"
-        "/tmp/atest-store-ai.pid"
+        "/tmp/atest-ext-ai.pid"
     )
 
     for pid_file in "${pid_files[@]}"; do

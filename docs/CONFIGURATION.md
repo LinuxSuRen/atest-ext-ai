@@ -34,9 +34,9 @@ The plugin supports YAML, JSON, and TOML configuration files:
 
 ```bash
 # Specify config file location
-atest-store-ai --config /path/to/config.yaml
-atest-store-ai --config /path/to/config.json
-atest-store-ai --config /path/to/config.toml
+atest-ext-ai --config /path/to/config.yaml
+atest-ext-ai --config /path/to/config.json
+atest-ext-ai --config /path/to/config.toml
 ```
 
 ### Environment Variables
@@ -52,7 +52,7 @@ export ATEST_AI_MODEL=codellama
 ### Command-line Flags
 
 ```bash
-atest-store-ai \
+atest-ext-ai \
   --ai-provider local \
   --ollama-endpoint http://localhost:11434 \
   --ai-model codellama \
@@ -95,7 +95,7 @@ ai:
 
 # Plugin Settings
 plugin:
-  socket_path: /tmp/atest-store-ai.sock
+  socket_path: /tmp/atest-ext-ai.sock
   socket_permissions: 0660
   health_check_interval: 30s
   graceful_shutdown_timeout: 30s
@@ -607,7 +607,7 @@ ATEST_AI_CLAUDE_API_VERSION=2023-06-01
 ATEST_AI_CLAUDE_MAX_TOKENS=1000
 
 # Plugin Settings
-ATEST_AI_SOCKET_PATH=/tmp/atest-store-ai.sock
+ATEST_AI_SOCKET_PATH=/tmp/atest-ext-ai.sock
 ATEST_AI_SOCKET_PERMISSIONS=0660
 ATEST_AI_HEALTH_CHECK_INTERVAL=30s
 ATEST_AI_METRICS_PORT=9090
@@ -732,7 +732,7 @@ ai:
     ollama_endpoint: http://localhost:11434
 
 plugin:
-  socket_path: /tmp/atest-store-ai-dev.sock
+  socket_path: /tmp/atest-ext-ai-dev.sock
   metrics_port: 9090
 
 logging:
@@ -768,7 +768,7 @@ ai:
     temperature: 0.2
 
 plugin:
-  socket_path: /tmp/atest-store-ai.sock
+  socket_path: /tmp/atest-ext-ai.sock
   socket_permissions: 0660
   metrics_port: 9090
 
@@ -822,7 +822,7 @@ ai:
     ollama_endpoint: http://ollama:11434
 
 plugin:
-  socket_path: /tmp/atest-store-ai.sock
+  socket_path: /tmp/atest-ext-ai.sock
   health_check_interval: 30s
 
 logging:
@@ -858,7 +858,7 @@ ai:
     ollama_endpoint: http://ollama-service:11434
 
 plugin:
-  socket_path: /tmp/atest-store-ai.sock
+  socket_path: /tmp/atest-ext-ai.sock
   metrics_port: 9090
 
 security:
@@ -892,7 +892,7 @@ The plugin validates configuration on startup and provides detailed error messag
 
 ```bash
 # Valid configuration check
-atest-store-ai --config config.yaml --validate
+atest-ext-ai --config config.yaml --validate
 
 # Expected output for valid config
 ✅ Configuration valid

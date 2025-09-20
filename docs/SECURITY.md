@@ -349,7 +349,7 @@ security:
 
   # Unix socket permissions
   unix_socket:
-    path: /tmp/atest-store-ai.sock
+    path: /tmp/atest-ext-ai.sock
     permissions: 0660
     owner: atest
     group: atest
@@ -379,7 +379,7 @@ ai:
 echo "your-secret-key" | gpg --symmetric --cipher-algo AES256 > config.yaml.gpg
 
 # Decrypt at runtime
-gpg --decrypt config.yaml.gpg | atest-store-ai --config -
+gpg --decrypt config.yaml.gpg | atest-ext-ai --config -
 ```
 
 #### Log Encryption
@@ -429,8 +429,8 @@ security:
 
 ```bash
 # Set restrictive permissions
-sudo chown atest:atest /tmp/atest-store-ai.sock
-sudo chmod 660 /tmp/atest-store-ai.sock
+sudo chown atest:atest /tmp/atest-ext-ai.sock
+sudo chmod 660 /tmp/atest-ext-ai.sock
 
 # Use dedicated directory with proper permissions
 sudo mkdir -p /var/run/atest

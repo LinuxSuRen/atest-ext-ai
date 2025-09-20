@@ -46,7 +46,7 @@ spec:
         - name: AI_MODEL
           value: "codellama"
         - name: AI_PLUGIN_SOCKET_PATH
-          value: "/tmp/atest-store-ai.sock"
+          value: "/tmp/atest-ext-ai.sock"
         - name: CONFIG_PATH
           value: "/etc/atest-ai/config.yaml"
         - name: LOG_LEVEL
@@ -76,7 +76,7 @@ spec:
             command:
             - test
             - -S
-            - /tmp/atest-store-ai.sock
+            - /tmp/atest-ext-ai.sock
           initialDelaySeconds: 30
           periodSeconds: 10
           timeoutSeconds: 5
@@ -86,7 +86,7 @@ spec:
             command:
             - test
             - -S
-            - /tmp/atest-store-ai.sock
+            - /tmp/atest-ext-ai.sock
           initialDelaySeconds: 10
           periodSeconds: 5
           timeoutSeconds: 3

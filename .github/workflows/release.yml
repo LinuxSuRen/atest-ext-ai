@@ -114,16 +114,16 @@ jobs:
         mkdir -p dist
         go build \
           -ldflags "-s -w -X main.version=${{ needs.release.outputs.version }} -X main.gitCommit=${{ github.sha }} -X main.buildDate=$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
-          -o dist/atest-store-ai-${{ matrix.suffix }} \
-          ./cmd/atest-store-ai
+          -o dist/atest-ext-ai-${{ matrix.suffix }} \
+          ./cmd/atest-ext-ai
 
     - name: Create archive
       run: |
         cd dist
         if [[ "${{ matrix.goos }}" == "windows" ]]; then
-          zip -r atest-store-ai-${{ matrix.suffix }}.zip atest-store-ai-${{ matrix.suffix }}
+          zip -r atest-ext-ai-${{ matrix.suffix }}.zip atest-ext-ai-${{ matrix.suffix }}
         else
-          tar -czf atest-store-ai-${{ matrix.suffix }}.tar.gz atest-store-ai-${{ matrix.suffix }}
+          tar -czf atest-ext-ai-${{ matrix.suffix }}.tar.gz atest-ext-ai-${{ matrix.suffix }}
         fi
 
     - name: Upload binary archive
@@ -132,8 +132,8 @@ jobs:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       with:
         upload_url: ${{ needs.release.outputs.upload_url }}
-        asset_path: ./dist/atest-store-ai-${{ matrix.suffix }}${{ matrix.goos == 'windows' && '.zip' || '.tar.gz' }}
-        asset_name: atest-store-ai-${{ matrix.suffix }}${{ matrix.goos == 'windows' && '.zip' || '.tar.gz' }}
+        asset_path: ./dist/atest-ext-ai-${{ matrix.suffix }}${{ matrix.goos == 'windows' && '.zip' || '.tar.gz' }}
+        asset_name: atest-ext-ai-${{ matrix.suffix }}${{ matrix.goos == 'windows' && '.zip' || '.tar.gz' }}
         asset_content_type: application/octet-stream
 
     - name: Upload raw binary
@@ -142,8 +142,8 @@ jobs:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       with:
         upload_url: ${{ needs.release.outputs.upload_url }}
-        asset_path: ./dist/atest-store-ai-${{ matrix.suffix }}
-        asset_name: atest-store-ai-${{ matrix.suffix }}
+        asset_path: ./dist/atest-ext-ai-${{ matrix.suffix }}
+        asset_name: atest-ext-ai-${{ matrix.suffix }}
         asset_content_type: application/octet-stream
 
   # Build and push Docker image with release tags
@@ -206,8 +206,8 @@ jobs:
 
     - name: Generate checksums
       run: |
-        find . -name "atest-store-ai-*" -type f -exec sha256sum {} \; > SHA256SUMS
-        find . -name "atest-store-ai-*" -type f -exec md5sum {} \; > MD5SUMS
+        find . -name "atest-ext-ai-*" -type f -exec sha256sum {} \; > SHA256SUMS
+        find . -name "atest-ext-ai-*" -type f -exec md5sum {} \; > MD5SUMS
 
     - name: Upload SHA256 checksums
       uses: actions/upload-release-asset@v1

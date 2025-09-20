@@ -108,8 +108,8 @@ site/
 _site/
 
 # Plugin binaries
-atest-store-ai
-atest-store-ai.exe
+atest-ext-ai
+atest-ext-ai.exe
 plugins/
 
 # Socket files

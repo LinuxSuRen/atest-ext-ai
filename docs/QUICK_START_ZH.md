@@ -44,7 +44,7 @@ cd atest-ext-ai
 ./scripts/install.sh
 
 # 或手动构建
-go build -o bin/atest-store-ai ./cmd/atest-store-ai
+go build -o bin/atest-ext-ai ./cmd/atest-ext-ai
 ```
 
 ### 4. 创建基础配置
@@ -91,7 +91,7 @@ EOF
 
 ```bash
 # 启动AI插件
-./bin/atest-store-ai --config config/config.yaml
+./bin/atest-ext-ai --config config/config.yaml
 
 # 看到以下输出表示成功：
 # Initializing AI plugin service...
@@ -164,7 +164,7 @@ EOF
 ### 4. 启动并测试
 
 ```bash
-./bin/atest-store-ai --config config/config.yaml
+./bin/atest-ext-ai --config config/config.yaml
 ```
 
 ## 常用示例
@@ -340,7 +340,7 @@ curl -s http://localhost:11434/api/tags  # Ollama
 tail -f /var/log/atest-ext-ai.log
 
 # 测试配置文件
-./bin/atest-store-ai --config config/config.yaml --validate
+./bin/atest-ext-ai --config config/config.yaml --validate
 ```
 
 ## 下一步

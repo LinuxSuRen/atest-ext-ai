@@ -15,7 +15,7 @@ services:
       - AI_PROVIDER=local
       - OLLAMA_ENDPOINT=http://ollama:11434
       - AI_MODEL=codellama
-      - AI_PLUGIN_SOCKET_PATH=/tmp/atest-store-ai.sock
+      - AI_PLUGIN_SOCKET_PATH=/tmp/atest-ext-ai.sock
       - LOG_LEVEL=debug
       - CONFIG_PATH=/app/config/development.yaml
     volumes:
@@ -23,7 +23,7 @@ services:
       - socket_volume:/tmp
       - go_cache:/go/pkg/mod
     working_dir: /app
-    command: ["go", "run", "./cmd/atest-store-ai"]
+    command: ["go", "run", "./cmd/atest-ext-ai"]
     networks:
       - atest-dev-network
     depends_on:

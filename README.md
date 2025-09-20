@@ -28,7 +28,7 @@ Main API Testing System
                  │
            Unix Socket Communication
                  │
-         atest-store-ai Plugin
+         atest-ext-ai Plugin
                  │
         ├─── AI Engine (Ollama/OpenAI/Claude)
         └─── SQL Generation & Execution
@@ -57,10 +57,10 @@ curl -fsSL https://raw.githubusercontent.com/linuxsuren/atest-ext-ai/main/script
 #### Download Binary
 ```bash
 # Download latest release
-wget https://github.com/linuxsuren/atest-ext-ai/releases/latest/download/atest-store-ai-linux-amd64.tar.gz
-tar -xzf atest-store-ai-linux-amd64.tar.gz
-sudo mv atest-store-ai /usr/local/bin/
-sudo chmod +x /usr/local/bin/atest-store-ai
+wget https://github.com/linuxsuren/atest-ext-ai/releases/latest/download/atest-ext-ai-linux-amd64.tar.gz
+tar -xzf atest-ext-ai-linux-amd64.tar.gz
+sudo mv atest-ext-ai /usr/local/bin/
+sudo chmod +x /usr/local/bin/atest-ext-ai
 ```
 
 #### Build from Source
@@ -125,7 +125,7 @@ export AI_PROVIDER="local"                          # local, openai, claude
 export OLLAMA_ENDPOINT="http://localhost:11434"     # For local provider
 export AI_MODEL="codellama"                         # Model name
 export AI_API_KEY="your-api-key"                   # For online providers
-export AI_PLUGIN_SOCKET_PATH="/tmp/atest-store-ai.sock"
+export AI_PLUGIN_SOCKET_PATH="/tmp/atest-ext-ai.sock"
 ```
 
 ### Configuration File
@@ -153,7 +153,7 @@ Add to your `stores.yaml`:
 stores:
   - name: "ai-assistant"
     type: "ai"
-    url: "unix:///tmp/atest-store-ai.sock"
+    url: "unix:///tmp/atest-ext-ai.sock"
     properties:
       - key: ai_provider
         value: local
@@ -176,7 +176,7 @@ stores:
 make dev
 
 # Production mode
-./bin/atest-store-ai
+./bin/atest-ext-ai
 ```
 
 ### API Examples
@@ -265,7 +265,7 @@ make security
 ```
 atest-ext-ai/
 ├── cmd/
-│   └── atest-store-ai/          # Main plugin entry point
+│   └── atest-ext-ai/          # Main plugin entry point
 ├── pkg/
 │   ├── ai/                      # AI engine implementations
 │   ├── config/                  # Configuration management
@@ -281,7 +281,7 @@ atest-ext-ai/
 This plugin integrates with the main API testing system via:
 
 1. **gRPC Protocol**: Implements the `Loader` service from `pkg/testing/remote/loader.proto`
-2. **Unix Socket**: Communicates via `/tmp/atest-store-ai.sock`
+2. **Unix Socket**: Communicates via `/tmp/atest-ext-ai.sock`
 3. **Health Monitoring**: Automatic registration and health checks
 4. **Configuration**: Follows `stores.yaml` format for seamless setup
 

@@ -867,7 +867,7 @@ Enable debug logging for troubleshooting:
 
 ```bash
 export LOG_LEVEL=debug
-atest-store-ai --config config.yaml
+atest-ext-ai --config config.yaml
 ```
 
 Debug output includes:

@@ -5,7 +5,7 @@ set -euo pipefail
 # Configuration
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PROJECT_DIR="$(cd "$SCRIPT_DIR/.." && pwd)"
-PLUGIN_NAME="atest-store-ai"
+PLUGIN_NAME="atest-ext-ai"
 
 # Default values
 ENVIRONMENT=""
@@ -306,7 +306,7 @@ verify_deployment() {
             fi
 
             # Check socket
-            if [[ -S "/tmp/atest-store-ai.sock" ]]; then
+            if [[ -S "/tmp/atest-ext-ai.sock" ]]; then
                 log "✓ Unix socket is available"
             else
                 warn "✗ Unix socket not found"

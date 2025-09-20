@@ -3,7 +3,7 @@
 set -euo pipefail
 
 # Configuration
-PLUGIN_NAME="atest-store-ai"
+PLUGIN_NAME="atest-ext-ai"
 GITHUB_REPO="linuxsuren/atest-ext-ai"
 INSTALL_DIR="/usr/local/bin"
 CONFIG_DIR="/etc/atest-ai"
@@ -150,7 +150,7 @@ ai:
   ollama_endpoint: http://localhost:11434
 
 plugin:
-  socket_path: /tmp/atest-store-ai.sock
+  socket_path: /tmp/atest-ext-ai.sock
   log_level: info
   metrics_enabled: true
   metrics_port: 9090
@@ -313,12 +313,12 @@ show_instructions() {
     info "   stores:"
     info "     - name: \"ai-assistant\""
     info "     type: \"ai\""
-    info "     url: \"unix:///tmp/atest-store-ai.sock\""
+    info "     url: \"unix:///tmp/atest-ext-ai.sock\""
     info ""
     info "For more information, see:"
     info "https://github.com/$GITHUB_REPO"
     info ""
-    info "Socket path: /tmp/atest-store-ai.sock"
+    info "Socket path: /tmp/atest-ext-ai.sock"
     info "Config path: $CONFIG_DIR/config.yaml"
     info "Log path: $LOG_DIR"
     info ""

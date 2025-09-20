@@ -199,8 +199,8 @@ jobs:
         mkdir -p dist
         GOOS=${{ matrix.goos }} GOARCH=${{ matrix.goarch }} \
         CGO_ENABLED=0 go build -ldflags "-s -w -X main.version=${{ github.ref_name }}" \
-        -o dist/atest-store-ai-${{ matrix.goos }}-${{ matrix.goarch }}${{ matrix.goos == 'windows' && '.exe' || '' }} \
-        ./cmd/atest-store-ai
+        -o dist/atest-ext-ai-${{ matrix.goos }}-${{ matrix.goarch }}${{ matrix.goos == 'windows' && '.exe' || '' }} \
+        ./cmd/atest-ext-ai
 
     - name: Upload build artifacts
       uses: actions/upload-artifact@v4

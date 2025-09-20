@@ -50,7 +50,7 @@ Wants=network.target
 Type=simple
 User=atest
 Group=atest
-ExecStart=/usr/local/bin/atest-store-ai --config /etc/atest-ai/config.yaml
+ExecStart=/usr/local/bin/atest-ext-ai --config /etc/atest-ai/config.yaml
 Restart=always
 RestartSec=5
 StandardOutput=journal
@@ -70,7 +70,7 @@ MemoryMax=2G
 CPUQuota=200%
 
 # Environment
-Environment=AI_PLUGIN_SOCKET_PATH=/tmp/atest-store-ai.sock
+Environment=AI_PLUGIN_SOCKET_PATH=/tmp/atest-ext-ai.sock
 Environment=LOG_LEVEL=info
 EnvironmentFile=-/etc/default/atest-ai-plugin
 
@@ -105,7 +105,7 @@ services:
       - ./config/production.yaml:/etc/atest-ai/config.yaml:ro
       - logs:/var/log/atest-ai
     healthcheck:
-      test: ["CMD", "test", "-S", "/tmp/atest-store-ai.sock"]
+      test: ["CMD", "test", "-S", "/tmp/atest-ext-ai.sock"]
       interval: 30s
       timeout: 10s
       retries: 3
@@ -170,10 +170,10 @@ cp config/production.yaml /etc/atest-ai/config.yaml
 
 ```bash
 # Validate configuration
-atest-store-ai --config /etc/atest-ai/config.yaml --validate
+atest-ext-ai --config /etc/atest-ai/config.yaml --validate
 
 # Test connectivity
-atest-store-ai --config /etc/atest-ai/config.yaml --test-providers
+atest-ext-ai --config /etc/atest-ai/config.yaml --test-providers
 ```
 
 #### Secrets Management
@@ -286,7 +286,7 @@ Import the dashboard from `monitoring/grafana/dashboard.json`:
 ```bash
 #!/bin/bash
 # /usr/local/bin/liveness-check.sh
-test -S /tmp/atest-store-ai.sock
+test -S /tmp/atest-ext-ai.sock
 ```
 
 #### Readiness Probe
@@ -748,7 +748,7 @@ echo "=== Security Audit ===" >> /tmp/audit-report.txt
 grep -i "authentication_failure" /var/log/atest-ai/audit.log >> /tmp/audit-report.txt
 
 # Configuration review
-atest-store-ai --config /etc/atest-ai/config.yaml --validate
+atest-ext-ai --config /etc/atest-ai/config.yaml --validate
 
 # Update AI models (for local provider)
 if [[ "$AI_PROVIDER" == "local" ]]; then
@@ -772,28 +772,28 @@ if [[ -z "$VERSION" ]]; then
 fi
 
 # Download new version
-wget "https://github.com/linuxsuren/atest-ext-ai/releases/download/v${VERSION}/atest-store-ai-linux-amd64.tar.gz"
+wget "https://github.com/linuxsuren/atest-ext-ai/releases/download/v${VERSION}/atest-ext-ai-linux-amd64.tar.gz"
 
 # Verify checksum
 wget "https://github.com/linuxsuren/atest-ext-ai/releases/download/v${VERSION}/SHA256SUMS"
 sha256sum -c SHA256SUMS
 
 # Backup current version
-sudo cp /usr/local/bin/atest-store-ai /usr/local/bin/atest-store-ai.bak
+sudo cp /usr/local/bin/atest-ext-ai /usr/local/bin/atest-ext-ai.bak
 
 # Stop service
 sudo systemctl stop atest-ai-plugin
 
 # Install new version
-tar -xzf "atest-store-ai-linux-amd64.tar.gz"
-sudo cp atest-store-ai /usr/local/bin/
-sudo chmod +x /usr/local/bin/atest-store-ai
+tar -xzf "atest-ext-ai-linux-amd64.tar.gz"
+sudo cp atest-ext-ai /usr/local/bin/
+sudo chmod +x /usr/local/bin/atest-ext-ai
 
 # Start service
 sudo systemctl start atest-ai-plugin
 
 # Verify update
-atest-store-ai --version
+atest-ext-ai --version
 sudo systemctl status atest-ai-plugin
 ```
 
@@ -827,7 +827,7 @@ BACKUP_FILE="/etc/atest-ai/config.yaml.backup"
 sudo cp "$CONFIG_FILE" "$BACKUP_FILE"
 
 # Validate new configuration
-if atest-store-ai --config "$CONFIG_FILE" --validate; then
+if atest-ext-ai --config "$CONFIG_FILE" --validate; then
     echo "Configuration valid, restarting service..."
     sudo systemctl restart atest-ai-plugin
 
@@ -964,18 +964,18 @@ spec:
 journalctl -u atest-ai-plugin -n 50
 
 # Check file permissions
-ls -la /tmp/atest-store-ai.sock
+ls -la /tmp/atest-ext-ai.sock
 ls -la /etc/atest-ai/
 
 # Check configuration
-atest-store-ai --config /etc/atest-ai/config.yaml --validate
+atest-ext-ai --config /etc/atest-ai/config.yaml --validate
 ```
 
 **Solutions:**
 ```bash
 # Fix permissions
-sudo chown atest:atest /tmp/atest-store-ai.sock
-sudo chmod 660 /tmp/atest-store-ai.sock
+sudo chown atest:atest /tmp/atest-ext-ai.sock
+sudo chmod 660 /tmp/atest-ext-ai.sock
 
 # Check user exists
 id atest || sudo useradd -r -s /bin/false atest
@@ -994,8 +994,8 @@ yamllint /etc/atest-ai/config.yaml
 **Diagnosis:**
 ```bash
 # Check memory usage
-ps aux | grep atest-store-ai
-cat /proc/$(pgrep atest-store-ai)/status | grep -E "(VmRSS|VmSize)"
+ps aux | grep atest-ext-ai
+cat /proc/$(pgrep atest-ext-ai)/status | grep -E "(VmRSS|VmSize)"
 
 # Check for memory leaks
 curl http://localhost:9090/debug/pprof/heap > heap.prof
@@ -1066,7 +1066,7 @@ curl http://localhost:9090/debug/pprof/profile > cpu.prof
 go tool pprof cpu.prof
 
 # Check system resources
-top -p $(pgrep atest-store-ai)
+top -p $(pgrep atest-ext-ai)
 iostat -x 1
 ```
 

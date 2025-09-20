@@ -18,11 +18,11 @@ Before you begin, ensure you have:
 
 ```bash
 # Download latest release for Linux
-curl -L https://github.com/linuxsuren/atest-ext-ai/releases/latest/download/atest-store-ai-linux-amd64.tar.gz | tar xz
+curl -L https://github.com/linuxsuren/atest-ext-ai/releases/latest/download/atest-ext-ai-linux-amd64.tar.gz | tar xz
 
 # Move to PATH
-sudo mv atest-store-ai /usr/local/bin/
-chmod +x /usr/local/bin/atest-store-ai
+sudo mv atest-ext-ai /usr/local/bin/
+chmod +x /usr/local/bin/atest-ext-ai
 ```
 
 #### Option B: Build from Source
@@ -51,7 +51,7 @@ ollama pull codellama
 
 ```bash
 # Start with default settings
-atest-store-ai
+atest-ext-ai
 ```
 
 You should see:
@@ -59,7 +59,7 @@ You should see:
 INFO[2024-01-01T12:00:00Z] Starting atest-ext-ai plugin
 INFO[2024-01-01T12:00:00Z] AI provider: local (ollama)
 INFO[2024-01-01T12:00:00Z] Model: codellama
-INFO[2024-01-01T12:00:00Z] Unix socket: /tmp/atest-store-ai.sock
+INFO[2024-01-01T12:00:00Z] Unix socket: /tmp/atest-ext-ai.sock
 INFO[2024-01-01T12:00:00Z] Plugin ready to accept connections
 ```
 
@@ -71,7 +71,7 @@ Create or update `stores.yaml`:
 stores:
   - name: "ai-assistant"
     type: "ai"
-    url: "unix:///tmp/atest-store-ai.sock"
+    url: "unix:///tmp/atest-ext-ai.sock"
     properties:
       - key: ai_provider
         value: local
@@ -187,7 +187,7 @@ export OLLAMA_ENDPOINT="http://localhost:11434"  # For local provider
 export AI_API_KEY="your-api-key"             # For cloud providers
 
 # Plugin Settings
-export AI_PLUGIN_SOCKET_PATH="/tmp/atest-store-ai.sock"
+export AI_PLUGIN_SOCKET_PATH="/tmp/atest-ext-ai.sock"
 export LOG_LEVEL="info"                      # debug, info, warn, error
 export AI_CONFIDENCE_THRESHOLD="0.7"        # Minimum confidence (0.0-1.0)
 ```
@@ -204,7 +204,7 @@ ai:
   ollama_endpoint: http://localhost:11434
 
 plugin:
-  socket_path: /tmp/atest-store-ai.sock
+  socket_path: /tmp/atest-ext-ai.sock
   log_level: info
   metrics_enabled: true
   metrics_port: 9090
@@ -217,7 +217,7 @@ security:
 
 Then start with:
 ```bash
-atest-store-ai --config config.yaml
+atest-ext-ai --config config.yaml
 ```
 
 ## 🔧 Troubleshooting
@@ -234,7 +234,7 @@ ERROR: failed to create unix socket: permission denied
 sudo mkdir -p /tmp
 sudo chmod 755 /tmp
 # OR change socket path
-export AI_PLUGIN_SOCKET_PATH="$HOME/atest-store-ai.sock"
+export AI_PLUGIN_SOCKET_PATH="$HOME/atest-ext-ai.sock"
 ```
 
 ### Ollama Connection Failed
@@ -296,7 +296,7 @@ curl http://localhost:11434/api/tags
 stores:
   - name: "ai-assistant"
     type: "ai"
-    url: "unix:///tmp/atest-store-ai.sock"  # Must match plugin socket_path
+    url: "unix:///tmp/atest-ext-ai.sock"  # Must match plugin socket_path
 ```
 
 ## 📊 Monitoring
@@ -305,7 +305,7 @@ stores:
 
 ```bash
 # Check if plugin is running
-test -S /tmp/atest-store-ai.sock && echo "Plugin running" || echo "Plugin not running"
+test -S /tmp/atest-ext-ai.sock && echo "Plugin running" || echo "Plugin not running"
 
 # Check metrics (if enabled)
 curl http://localhost:9090/metrics
@@ -315,10 +315,10 @@ curl http://localhost:9090/metrics
 
 ```bash
 # View plugin logs (if running in foreground)
-atest-store-ai --log-level debug
+atest-ext-ai --log-level debug
 
 # Or check system logs
-journalctl -u atest-store-ai -f
+journalctl -u atest-ext-ai -f
 ```
 
 ## 🚀 Next Steps
@@ -338,7 +338,7 @@ Now that you have the basic setup working, explore these advanced features:
 export AI_PROVIDER="openai"
 export AI_MODEL="gpt-4"
 export OPENAI_API_KEY="sk-your-key-here"
-atest-store-ai
+atest-ext-ai
 ```
 
 #### Claude Setup
@@ -346,7 +346,7 @@ atest-store-ai
 export AI_PROVIDER="claude"
 export AI_MODEL="claude-3-sonnet"
 export CLAUDE_API_KEY="sk-your-key-here"
-atest-store-ai
+atest-ext-ai
 ```
 
 ### Docker Quick Start

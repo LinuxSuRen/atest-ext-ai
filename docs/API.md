@@ -557,7 +557,7 @@ import (
 )
 
 func main() {
-    conn, err := grpc.Dial("unix:///tmp/atest-store-ai.sock", grpc.WithInsecure())
+    conn, err := grpc.Dial("unix:///tmp/atest-ext-ai.sock", grpc.WithInsecure())
     if err != nil {
         panic(err)
     }
@@ -594,7 +594,7 @@ from api_testing_pb2 import LoadRequest, Pair
 from api_testing_pb2_grpc import LoaderStub
 
 def generate_sql(query, database_type="mysql", provider="local", model="codellama"):
-    with grpc.insecure_channel('unix:///tmp/atest-store-ai.sock') as channel:
+    with grpc.insecure_channel('unix:///tmp/atest-ext-ai.sock') as channel:
         client = LoaderStub(channel)
 
         request = LoadRequest(
@@ -638,7 +638,7 @@ const packageDefinition = protoLoader.loadSync(PROTO_PATH);
 const apiTesting = grpc.loadPackageDefinition(packageDefinition);
 
 const client = new apiTesting.Loader(
-    'unix:///tmp/atest-store-ai.sock',
+    'unix:///tmp/atest-ext-ai.sock',
     grpc.credentials.createInsecure()
 );
 

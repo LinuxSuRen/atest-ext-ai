@@ -15,7 +15,7 @@ RUN go mod download
 COPY . .
 
 # Build the binary
-RUN CGO_ENABLED=0 GOOS=linux go build -ldflags "-s -w" -o bin/atest-store-ai ./cmd/atest-store-ai
+RUN CGO_ENABLED=0 GOOS=linux go build -ldflags "-s -w" -o bin/atest-ext-ai ./cmd/atest-ext-ai
 
 # Final stage
 FROM alpine:3.19
@@ -31,8 +31,8 @@ RUN mkdir -p /tmp /etc/atest-ai
 RUN chown aiuser:aiuser /etc/atest-ai
 
 # Copy binary from builder stage
-COPY --from=builder /app/bin/atest-store-ai /usr/local/bin/atest-store-ai
-RUN chmod +x /usr/local/bin/atest-store-ai
+COPY --from=builder /app/bin/atest-ext-ai /usr/local/bin/atest-ext-ai
+RUN chmod +x /usr/local/bin/atest-ext-ai
 
 # Copy configuration template if needed
 COPY --from=builder /app/config/config.example.yaml /etc/atest-ai/config.yaml.example
@@ -41,7 +41,7 @@ COPY --from=builder /app/config/config.example.yaml /etc/atest-ai/config.yaml.ex
 USER aiuser
 
 # Environment variables
-ENV AI_PLUGIN_SOCKET_PATH="/tmp/atest-store-ai.sock"
+ENV AI_PLUGIN_SOCKET_PATH="/tmp/atest-ext-ai.sock"
 ENV AI_PROVIDER="local"
 ENV OLLAMA_ENDPOINT="http://host.docker.internal:11434"
 ENV AI_MODEL="codellama"
@@ -54,7 +54,7 @@ HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
     CMD test -S ${AI_PLUGIN_SOCKET_PATH} || exit 1
 
 # Run the plugin
-ENTRYPOINT ["/usr/local/bin/atest-store-ai"]
+ENTRYPOINT ["/usr/local/bin/atest-ext-ai"]
 
 # Metadata
 LABEL org.opencontainers.image.title="atest-ext-ai"

@@ -105,7 +105,7 @@ jobs:
         kubectl get pods -n atest-system
 
         # Check plugin health
-        kubectl exec -n atest-system deployment/atest-ai-plugin -- test -S /tmp/atest-store-ai.sock
+        kubectl exec -n atest-system deployment/atest-ai-plugin -- test -S /tmp/atest-ext-ai.sock
 
         # Check Ollama health
         kubectl exec -n atest-system deployment/ollama -- curl -f http://localhost:11434/api/tags

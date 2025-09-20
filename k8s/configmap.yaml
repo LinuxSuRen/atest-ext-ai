@@ -24,7 +24,7 @@ data:
       cache_ttl: 3600s
 
     plugin:
-      socket_path: /tmp/atest-store-ai.sock
+      socket_path: /tmp/atest-ext-ai.sock
       health_check_interval: 30s
       log_level: info
       metrics_enabled: true
