@@ -274,16 +274,16 @@ jobs:
 
     - name: Set up Docker Compose
       run: |
-        docker-compose -f docker-compose.yml -f docker-compose.dev.yml up -d
+        docker compose -f docker-compose.yml -f docker-compose.dev.yml up -d
         sleep 30
 
     - name: Run integration tests
       run: |
-        docker-compose exec -T atest-ai-plugin-dev go test -v -tags=integration ./test/integration/...
+        docker compose exec -T atest-ai-plugin-dev go test -v -tags=integration ./test/integration/...
 
     - name: Cleanup
       if: always()
-      run: docker-compose down -v
+      run: docker compose down -v
 
   # Security scanning
   security:
