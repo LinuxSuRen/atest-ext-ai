@@ -272,6 +272,11 @@ jobs:
     - name: Checkout code
       uses: actions/checkout@v4
 
+    - name: Clean up any existing containers
+      run: |
+        docker compose -f docker-compose.yml -f docker-compose.dev.yml down -v || true
+        docker system prune -f || true
+
     - name: Set up Docker Compose
       run: |
         docker compose -f docker-compose.yml -f docker-compose.dev.yml up -d

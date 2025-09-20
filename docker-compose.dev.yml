@@ -94,8 +94,7 @@ services:
     image: redis:7-alpine
     container_name: atest-redis-dev
     restart: unless-stopped
-    ports:
-      - "56379:6379"
+    # No port exposure needed - only used within docker network
     networks:
       - atest-dev-network
 
