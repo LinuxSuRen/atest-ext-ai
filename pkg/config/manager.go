@@ -25,6 +25,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/mitchellh/mapstructure"
 	"github.com/spf13/viper"
 )
 
@@ -219,8 +220,20 @@ func (m *Manager) Set(key string, value interface{}) error {
 	// Set the value
 	m.loader.GetViper().Set(key, value)
 
-	// Unmarshal updated configuration
-	if err := m.loader.GetViper().Unmarshal(m.config); err != nil {
+	// Unmarshal updated configuration with proper decode hooks
+	decoder, err := mapstructure.NewDecoder(&mapstructure.DecoderConfig{
+		DecodeHook: mapstructure.ComposeDecodeHookFunc(
+			stringToDurationHookFunc(),
+			mapstructure.StringToTimeDurationHookFunc(),
+		),
+		Result:           m.config,
+		WeaklyTypedInput: true,
+	})
+	if err != nil {
+		return fmt.Errorf("failed to create decoder: %w", err)
+	}
+
+	if err := decoder.Decode(m.loader.GetViper().AllSettings()); err != nil {
 		return fmt.Errorf("failed to unmarshal updated configuration: %w", err)
 	}
 

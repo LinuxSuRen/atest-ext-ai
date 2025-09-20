@@ -17,6 +17,7 @@ limitations under the License.
 package config
 
 import (
+	"errors"
 	"os"
 	"path/filepath"
 	"testing"
@@ -186,7 +187,8 @@ ai:
 		t.Fatal("Expected validation error for invalid configuration, got nil")
 	}
 
-	if validationErrs, ok := err.(ValidationErrors); ok {
+	var validationErrs ValidationErrors
+	if errors.As(err, &validationErrs) {
 		if len(validationErrs) == 0 {
 			t.Fatal("Expected validation errors, got none")
 		}
@@ -291,8 +293,18 @@ logging:
 	}
 
 	port := manager.Get("server.port")
-	if port != 8080 {
-		t.Errorf("Expected port 8080, got %v", port)
+	// Viper may return numeric values as float64, so we need to convert for comparison
+	var portInt int
+	switch v := port.(type) {
+	case int:
+		portInt = v
+	case float64:
+		portInt = int(v)
+	default:
+		t.Fatalf("Unexpected port type: %T", port)
+	}
+	if portInt != 8080 {
+		t.Errorf("Expected port 8080, got %v", portInt)
 	}
 
 	// Test Set
@@ -302,8 +314,18 @@ logging:
 	}
 
 	newPort := manager.Get("server.port")
-	if newPort != 9090 {
-		t.Errorf("Expected port 9090 after set, got %v", newPort)
+	// Again, handle type conversion for viper values
+	var newPortInt int
+	switch v := newPort.(type) {
+	case int:
+		newPortInt = v
+	case float64:
+		newPortInt = int(v)
+	default:
+		t.Fatalf("Unexpected new port type: %T", newPort)
+	}
+	if newPortInt != 9090 {
+		t.Errorf("Expected port 9090 after set, got %v", newPortInt)
 	}
 
 	// Verify the configuration struct was also updated
@@ -436,12 +458,32 @@ logging:
 		t.Errorf("Expected callback key 'server.port', got '%s'", callbackKey)
 	}
 
-	if callbackOldValue != 8080 {
-		t.Errorf("Expected callback old value 8080, got %v", callbackOldValue)
+	// Handle type conversion for callback values too
+	var oldValueInt, newValueInt int
+	switch v := callbackOldValue.(type) {
+	case int:
+		oldValueInt = v
+	case float64:
+		oldValueInt = int(v)
+	default:
+		t.Fatalf("Unexpected callback old value type: %T", callbackOldValue)
 	}
 
-	if callbackNewValue != 9090 {
-		t.Errorf("Expected callback new value 9090, got %v", callbackNewValue)
+	switch v := callbackNewValue.(type) {
+	case int:
+		newValueInt = v
+	case float64:
+		newValueInt = int(v)
+	default:
+		t.Fatalf("Unexpected callback new value type: %T", callbackNewValue)
+	}
+
+	if oldValueInt != 8080 {
+		t.Errorf("Expected callback old value 8080, got %v", oldValueInt)
+	}
+
+	if newValueInt != 9090 {
+		t.Errorf("Expected callback new value 9090, got %v", newValueInt)
 	}
 }
 
@@ -676,6 +718,29 @@ plugin:
 ai:
   default_service: "ollama"
   timeout: "60s"
+  rate_limit:
+    enabled: true
+    requests_per_minute: 60
+    burst_size: 10
+    window_size: "1m"
+  circuit_breaker:
+    enabled: true
+    failure_threshold: 5
+    success_threshold: 3
+    timeout: "30s"
+    reset_timeout: "60s"
+  retry:
+    enabled: true
+    max_attempts: 3
+    initial_delay: "1s"
+    max_delay: "30s"
+    multiplier: 2.0
+    jitter: true
+  cache:
+    enabled: true
+    ttl: "1h"
+    max_size: 1000
+    provider: "memory"
   services:
     ollama:
       enabled: true
@@ -685,6 +750,20 @@ ai:
       max_tokens: 4096
       temperature: 0.7
       priority: 1
+
+database:
+  enabled: false
+
+logging:
+  level: "info"
+  format: "json"
+  output: "stdout"
+  rotation:
+    enabled: true
+    size: "100MB"
+    count: 5
+    age: "30d"
+    compress: true
 `
 
 	if err := os.WriteFile(yamlFile, []byte(yamlData), 0644); err != nil {
@@ -731,6 +810,33 @@ ai:
   "ai": {
     "default_service": "ollama",
     "timeout": "60s",
+    "rate_limit": {
+      "enabled": true,
+      "requests_per_minute": 60,
+      "burst_size": 10,
+      "window_size": "1m"
+    },
+    "circuit_breaker": {
+      "enabled": true,
+      "failure_threshold": 5,
+      "success_threshold": 3,
+      "timeout": "30s",
+      "reset_timeout": "60s"
+    },
+    "retry": {
+      "enabled": true,
+      "max_attempts": 3,
+      "initial_delay": "1s",
+      "max_delay": "30s",
+      "multiplier": 2.0,
+      "jitter": true
+    },
+    "cache": {
+      "enabled": true,
+      "ttl": "1h",
+      "max_size": 1000,
+      "provider": "memory"
+    },
     "services": {
       "ollama": {
         "enabled": true,
@@ -741,6 +847,21 @@ ai:
         "temperature": 0.7,
         "priority": 1
       }
+    }
+  },
+  "database": {
+    "enabled": false
+  },
+  "logging": {
+    "level": "info",
+    "format": "json",
+    "output": "stdout",
+    "rotation": {
+      "enabled": true,
+      "size": "100MB",
+      "count": 5,
+      "age": "30d",
+      "compress": true
     }
   }
 }`
@@ -779,6 +900,33 @@ environment = "development"
 default_service = "ollama"
 timeout = "60s"
 
+[ai.rate_limit]
+enabled = true
+requests_per_minute = 60
+burst_size = 10
+window_size = "1m"
+
+[ai.circuit_breaker]
+enabled = true
+failure_threshold = 5
+success_threshold = 3
+timeout = "30s"
+reset_timeout = "60s"
+
+[ai.retry]
+enabled = true
+max_attempts = 3
+initial_delay = "1s"
+max_delay = "30s"
+multiplier = 2.0
+jitter = true
+
+[ai.cache]
+enabled = true
+ttl = "1h"
+max_size = 1000
+provider = "memory"
+
 [ai.services.ollama]
 enabled = true
 provider = "ollama"
@@ -787,6 +935,21 @@ model = "codellama"
 max_tokens = 4096
 temperature = 0.7
 priority = 1
+
+[database]
+enabled = false
+
+[logging]
+level = "info"
+format = "json"
+output = "stdout"
+
+[logging.rotation]
+enabled = true
+size = "100MB"
+count = 5
+age = "30d"
+compress = true
 `
 
 	if err := os.WriteFile(tomlFile, []byte(tomlData), 0644); err != nil {

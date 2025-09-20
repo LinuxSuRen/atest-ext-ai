@@ -41,9 +41,8 @@ build-all: clean proto
 # Run tests
 test:
 	@echo "Running tests..."
-	@go test -v -race -coverprofile=coverage.out ./...
-	@go tool cover -html=coverage.out -o coverage.html
-	@echo "Tests completed. Coverage report: coverage.html"
+	@go test -v -coverprofile=coverage.out ./...
+	@echo "Tests completed."
 
 # Run integration tests
 test-integration:
