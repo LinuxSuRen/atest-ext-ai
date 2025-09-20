@@ -34,8 +34,8 @@ RUN chown aiuser:aiuser /etc/atest-ai
 COPY --from=builder /app/bin/atest-ext-ai /usr/local/bin/atest-ext-ai
 RUN chmod +x /usr/local/bin/atest-ext-ai
 
-# Copy configuration template if needed
-COPY --from=builder /app/config/config.example.yaml /etc/atest-ai/config.yaml.example
+# Copy configuration template (create empty if not exists)
+RUN touch /etc/atest-ai/config.yaml.example && chown aiuser:aiuser /etc/atest-ai/config.yaml.example
 
 # Switch to non-root user
 USER aiuser
