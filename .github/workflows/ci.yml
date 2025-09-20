@@ -238,19 +238,31 @@ jobs:
     - name: Generate sanitized Docker tag
       id: docker-tag
       run: |
+        # Debug: Show all available variables
+        echo "DEBUG: github.event_name=${{ github.event_name }}"
+        echo "DEBUG: github.ref_name=${{ github.ref_name }}"
+        echo "DEBUG: github.head_ref=${{ github.head_ref }}"
+        echo "DEBUG: github.event.number=${{ github.event.number }}"
+
         # Sanitize branch/PR name for Docker tag compatibility
         if [ "${{ github.event_name }}" = "pull_request" ]; then
           RAW_REF="pr-${{ github.event.number }}"
         else
-          RAW_REF="${{ github.ref_name }}"
+          # Use github.head_ref for PRs, github.ref_name for branches
+          RAW_REF="${{ github.head_ref || github.ref_name }}"
         fi
+
+        echo "DEBUG: RAW_REF=$RAW_REF"
 
         # Clean tag: replace invalid chars with -, remove leading/trailing -
         CLEAN_TAG=$(echo "$RAW_REF" | sed 's/[^a-zA-Z0-9_.-]/-/g' | sed 's/^-\+//' | sed 's/-\+$//')
 
-        # Ensure tag is not empty and has valid length
-        if [ -z "$CLEAN_TAG" ] || [ "$CLEAN_TAG" = "-" ]; then
+        echo "DEBUG: After sed cleaning=$CLEAN_TAG"
+
+        # Ensure tag is not empty, not just dashes, and has reasonable length
+        if [ -z "$CLEAN_TAG" ] || [ "$CLEAN_TAG" = "-" ] || [ ${#CLEAN_TAG} -lt 2 ]; then
           CLEAN_TAG="latest"
+          echo "DEBUG: Using fallback tag=latest"
         fi
 
         # Set outputs
@@ -327,18 +339,27 @@ jobs:
       id: docker-tag
       run: |
         # Use same sanitization logic as docker job
+        echo "DEBUG Security: github.event_name=${{ github.event_name }}"
+        echo "DEBUG Security: github.ref_name=${{ github.ref_name }}"
+        echo "DEBUG Security: github.head_ref=${{ github.head_ref }}"
+
         if [ "${{ github.event_name }}" = "pull_request" ]; then
           RAW_REF="pr-${{ github.event.number }}"
         else
-          RAW_REF="${{ github.ref_name }}"
+          RAW_REF="${{ github.head_ref || github.ref_name }}"
         fi
+
+        echo "DEBUG Security: RAW_REF=$RAW_REF"
 
         # Clean tag: replace invalid chars with -, remove leading/trailing -
         CLEAN_TAG=$(echo "$RAW_REF" | sed 's/[^a-zA-Z0-9_.-]/-/g' | sed 's/^-\+//' | sed 's/-\+$//')
 
-        # Ensure tag is not empty and has valid length
-        if [ -z "$CLEAN_TAG" ] || [ "$CLEAN_TAG" = "-" ]; then
+        echo "DEBUG Security: After sed cleaning=$CLEAN_TAG"
+
+        # Ensure tag is not empty, not just dashes, and has reasonable length
+        if [ -z "$CLEAN_TAG" ] || [ "$CLEAN_TAG" = "-" ] || [ ${#CLEAN_TAG} -lt 2 ]; then
           CLEAN_TAG="latest"
+          echo "DEBUG Security: Using fallback tag=latest"
         fi
 
         IMAGE="${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:$CLEAN_TAG"
