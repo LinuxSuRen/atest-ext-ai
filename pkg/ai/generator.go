@@ -58,12 +58,12 @@ type Column struct {
 
 // ForeignKey represents a foreign key relationship
 type ForeignKey struct {
-	Name           string   `json:"name"`
-	Columns        []string `json:"columns"`
-	ReferencedTable string   `json:"referenced_table"`
+	Name              string   `json:"name"`
+	Columns           []string `json:"columns"`
+	ReferencedTable   string   `json:"referenced_table"`
 	ReferencedColumns []string `json:"referenced_columns"`
-	OnDelete       string   `json:"on_delete,omitempty"`
-	OnUpdate       string   `json:"on_update,omitempty"`
+	OnDelete          string   `json:"on_delete,omitempty"`
+	OnUpdate          string   `json:"on_update,omitempty"`
 }
 
 // Index represents a table index
@@ -76,50 +76,50 @@ type Index struct {
 
 // GenerateOptions contains options for SQL generation
 type GenerateOptions struct {
-	DatabaseType     string            `json:"database_type"`
-	Schema           map[string]Table  `json:"schema,omitempty"`
-	Context          []string          `json:"context,omitempty"`
-	Temperature      float64           `json:"temperature,omitempty"`
-	MaxTokens        int               `json:"max_tokens,omitempty"`
-	ValidateSQL      bool              `json:"validate_sql"`
-	OptimizeQuery    bool              `json:"optimize_query"`
-	IncludeExplanation bool            `json:"include_explanation"`
-	SafetyMode       bool              `json:"safety_mode"`
-	CustomPrompts    map[string]string `json:"custom_prompts,omitempty"`
+	DatabaseType       string            `json:"database_type"`
+	Schema             map[string]Table  `json:"schema,omitempty"`
+	Context            []string          `json:"context,omitempty"`
+	Temperature        float64           `json:"temperature,omitempty"`
+	MaxTokens          int               `json:"max_tokens,omitempty"`
+	ValidateSQL        bool              `json:"validate_sql"`
+	OptimizeQuery      bool              `json:"optimize_query"`
+	IncludeExplanation bool              `json:"include_explanation"`
+	SafetyMode         bool              `json:"safety_mode"`
+	CustomPrompts      map[string]string `json:"custom_prompts,omitempty"`
 }
 
 // GenerationResult contains the complete result of SQL generation
 type GenerationResult struct {
-	SQL             string          `json:"sql"`
-	Explanation     string          `json:"explanation"`
-	ConfidenceScore float64         `json:"confidence_score"`
-	Warnings        []string        `json:"warnings"`
-	Suggestions     []string        `json:"suggestions"`
-	Metadata        GenerationMetadata `json:"metadata"`
+	SQL               string             `json:"sql"`
+	Explanation       string             `json:"explanation"`
+	ConfidenceScore   float64            `json:"confidence_score"`
+	Warnings          []string           `json:"warnings"`
+	Suggestions       []string           `json:"suggestions"`
+	Metadata          GenerationMetadata `json:"metadata"`
 	ValidationResults []ValidationResult `json:"validation_results,omitempty"`
 }
 
 // GenerationMetadata contains metadata about the generation process
 type GenerationMetadata struct {
-	RequestID        string        `json:"request_id"`
-	ProcessingTime   time.Duration `json:"processing_time"`
-	ModelUsed        string        `json:"model_used"`
-	DatabaseDialect  string        `json:"database_dialect"`
-	TokensUsed       TokenUsage    `json:"tokens_used"`
-	QueryType        string        `json:"query_type"`
-	TablesInvolved   []string      `json:"tables_involved,omitempty"`
-	Complexity       string        `json:"complexity"`
-	DebugInfo        []string      `json:"debug_info,omitempty"`
+	RequestID       string        `json:"request_id"`
+	ProcessingTime  time.Duration `json:"processing_time"`
+	ModelUsed       string        `json:"model_used"`
+	DatabaseDialect string        `json:"database_dialect"`
+	TokensUsed      TokenUsage    `json:"tokens_used"`
+	QueryType       string        `json:"query_type"`
+	TablesInvolved  []string      `json:"tables_involved,omitempty"`
+	Complexity      string        `json:"complexity"`
+	DebugInfo       []string      `json:"debug_info,omitempty"`
 }
 
 // ValidationResult contains SQL validation information
 type ValidationResult struct {
-	Type        string `json:"type"`
-	Level       string `json:"level"` // info, warning, error
-	Message     string `json:"message"`
-	Line        int    `json:"line,omitempty"`
-	Column      int    `json:"column,omitempty"`
-	Suggestion  string `json:"suggestion,omitempty"`
+	Type       string `json:"type"`
+	Level      string `json:"level"` // info, warning, error
+	Message    string `json:"message"`
+	Line       int    `json:"line,omitempty"`
+	Column     int    `json:"column,omitempty"`
+	Suggestion string `json:"suggestion,omitempty"`
 }
 
 // NewSQLGenerator creates a new SQL generator instance

@@ -25,10 +25,10 @@ import (
 
 func TestCircuitBreaker_NewDefaultCircuitBreaker(t *testing.T) {
 	config := CircuitBreakerConfig{
-		FailureThreshold:  3,
-		ResetTimeout:      30 * time.Second,
-		HalfOpenMaxCalls:  2,
-		SuccessThreshold:  1,
+		FailureThreshold: 3,
+		ResetTimeout:     30 * time.Second,
+		HalfOpenMaxCalls: 2,
+		SuccessThreshold: 1,
 	}
 
 	cb := NewDefaultCircuitBreaker(config)
@@ -53,10 +53,10 @@ func TestCircuitBreaker_DefaultConfig(t *testing.T) {
 
 func TestCircuitBreaker_Call_Success(t *testing.T) {
 	config := CircuitBreakerConfig{
-		FailureThreshold:  3,
-		ResetTimeout:      30 * time.Second,
-		HalfOpenMaxCalls:  2,
-		SuccessThreshold:  1,
+		FailureThreshold: 3,
+		ResetTimeout:     30 * time.Second,
+		HalfOpenMaxCalls: 2,
+		SuccessThreshold: 1,
 	}
 
 	cb := NewDefaultCircuitBreaker(config)
@@ -87,10 +87,10 @@ func TestCircuitBreaker_Call_Success(t *testing.T) {
 
 func TestCircuitBreaker_Call_Failure(t *testing.T) {
 	config := CircuitBreakerConfig{
-		FailureThreshold:  3,
-		ResetTimeout:      30 * time.Second,
-		HalfOpenMaxCalls:  2,
-		SuccessThreshold:  1,
+		FailureThreshold: 3,
+		ResetTimeout:     30 * time.Second,
+		HalfOpenMaxCalls: 2,
+		SuccessThreshold: 1,
 	}
 
 	cb := NewDefaultCircuitBreaker(config)
@@ -116,10 +116,10 @@ func TestCircuitBreaker_Call_Failure(t *testing.T) {
 
 func TestCircuitBreaker_TransitionToOpen(t *testing.T) {
 	config := CircuitBreakerConfig{
-		FailureThreshold:  2, // Low threshold for testing
-		ResetTimeout:      30 * time.Second,
-		HalfOpenMaxCalls:  2,
-		SuccessThreshold:  1,
+		FailureThreshold: 2, // Low threshold for testing
+		ResetTimeout:     30 * time.Second,
+		HalfOpenMaxCalls: 2,
+		SuccessThreshold: 1,
 	}
 
 	cb := NewDefaultCircuitBreaker(config)
@@ -152,10 +152,10 @@ func TestCircuitBreaker_TransitionToOpen(t *testing.T) {
 
 func TestCircuitBreaker_TransitionToHalfOpen(t *testing.T) {
 	config := CircuitBreakerConfig{
-		FailureThreshold:  2,
-		ResetTimeout:      10 * time.Millisecond, // Short timeout for testing
-		HalfOpenMaxCalls:  2,
-		SuccessThreshold:  1,
+		FailureThreshold: 2,
+		ResetTimeout:     10 * time.Millisecond, // Short timeout for testing
+		HalfOpenMaxCalls: 2,
+		SuccessThreshold: 1,
 	}
 
 	cb := NewDefaultCircuitBreaker(config)
@@ -194,10 +194,10 @@ func TestCircuitBreaker_TransitionToHalfOpen(t *testing.T) {
 
 func TestCircuitBreaker_HalfOpenFailure(t *testing.T) {
 	config := CircuitBreakerConfig{
-		FailureThreshold:  2,
-		ResetTimeout:      10 * time.Millisecond,
-		HalfOpenMaxCalls:  2,
-		SuccessThreshold:  1,
+		FailureThreshold: 2,
+		ResetTimeout:     10 * time.Millisecond,
+		HalfOpenMaxCalls: 2,
+		SuccessThreshold: 1,
 	}
 
 	cb := NewDefaultCircuitBreaker(config)
@@ -230,10 +230,10 @@ func TestCircuitBreaker_HalfOpenFailure(t *testing.T) {
 
 func TestCircuitBreaker_HalfOpenMaxCalls(t *testing.T) {
 	config := CircuitBreakerConfig{
-		FailureThreshold:  2,
-		ResetTimeout:      10 * time.Millisecond,
-		HalfOpenMaxCalls:  1, // Only allow one call
-		SuccessThreshold:  2, // Require 2 successes to close (more than max calls)
+		FailureThreshold: 2,
+		ResetTimeout:     10 * time.Millisecond,
+		HalfOpenMaxCalls: 1, // Only allow one call
+		SuccessThreshold: 2, // Require 2 successes to close (more than max calls)
 	}
 
 	cb := NewDefaultCircuitBreaker(config)
@@ -281,10 +281,10 @@ func TestCircuitBreaker_HalfOpenMaxCalls(t *testing.T) {
 
 func TestCircuitBreaker_Reset(t *testing.T) {
 	config := CircuitBreakerConfig{
-		FailureThreshold:  2,
-		ResetTimeout:      30 * time.Second,
-		HalfOpenMaxCalls:  2,
-		SuccessThreshold:  1,
+		FailureThreshold: 2,
+		ResetTimeout:     30 * time.Second,
+		HalfOpenMaxCalls: 2,
+		SuccessThreshold: 1,
 	}
 
 	cb := NewDefaultCircuitBreaker(config)
@@ -320,10 +320,10 @@ func TestCircuitBreaker_Reset(t *testing.T) {
 
 func TestCircuitBreaker_GetMetrics(t *testing.T) {
 	config := CircuitBreakerConfig{
-		FailureThreshold:  3,
-		ResetTimeout:      30 * time.Second,
-		HalfOpenMaxCalls:  2,
-		SuccessThreshold:  1,
+		FailureThreshold: 3,
+		ResetTimeout:     30 * time.Second,
+		HalfOpenMaxCalls: 2,
+		SuccessThreshold: 1,
 	}
 
 	cb := NewDefaultCircuitBreaker(config)
@@ -362,10 +362,10 @@ func TestCircuitBreaker_GetMetrics(t *testing.T) {
 
 func TestCircuitBreaker_GetStats(t *testing.T) {
 	config := CircuitBreakerConfig{
-		FailureThreshold:  3,
-		ResetTimeout:      30 * time.Second,
-		HalfOpenMaxCalls:  2,
-		SuccessThreshold:  1,
+		FailureThreshold: 3,
+		ResetTimeout:     30 * time.Second,
+		HalfOpenMaxCalls: 2,
+		SuccessThreshold: 1,
 	}
 
 	cb := NewDefaultCircuitBreaker(config)
@@ -408,10 +408,10 @@ func TestCircuitBreaker_GetStats(t *testing.T) {
 
 func TestCircuitBreaker_IsHealthy(t *testing.T) {
 	config := CircuitBreakerConfig{
-		FailureThreshold:  2,
-		ResetTimeout:      30 * time.Second,
-		HalfOpenMaxCalls:  2,
-		SuccessThreshold:  1,
+		FailureThreshold: 2,
+		ResetTimeout:     30 * time.Second,
+		HalfOpenMaxCalls: 2,
+		SuccessThreshold: 1,
 	}
 
 	cb := NewDefaultCircuitBreaker(config)
@@ -442,10 +442,10 @@ func TestCircuitBreaker_IsHealthy(t *testing.T) {
 
 func TestCircuitBreaker_GetFailureRate(t *testing.T) {
 	config := CircuitBreakerConfig{
-		FailureThreshold:  3,
-		ResetTimeout:      30 * time.Second,
-		HalfOpenMaxCalls:  2,
-		SuccessThreshold:  1,
+		FailureThreshold: 3,
+		ResetTimeout:     30 * time.Second,
+		HalfOpenMaxCalls: 2,
+		SuccessThreshold: 1,
 	}
 
 	cb := NewDefaultCircuitBreaker(config)

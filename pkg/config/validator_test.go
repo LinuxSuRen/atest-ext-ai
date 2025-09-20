@@ -95,8 +95,8 @@ func TestValidateValidConfiguration(t *testing.T) {
 			},
 			Security: SecurityConfig{
 				EncryptCredentials: false,
-				AllowedHosts:      []string{"localhost"},
-				TLSEnabled:        false,
+				AllowedHosts:       []string{"localhost"},
+				TLSEnabled:         false,
 			},
 		},
 		Database: DatabaseConfig{
@@ -139,11 +139,11 @@ func TestValidateInvalidServerConfiguration(t *testing.T) {
 
 	config := &Config{
 		Server: ServerConfig{
-			Host:       "", // Invalid: empty host
-			Port:       -1, // Invalid: negative port
-			Timeout:    NewDuration(0),  // Invalid: zero timeout
-			MaxConns:   -1, // Invalid: negative max connections
-			SocketPath: "", // Invalid: empty socket path
+			Host:       "",             // Invalid: empty host
+			Port:       -1,             // Invalid: negative port
+			Timeout:    NewDuration(0), // Invalid: zero timeout
+			MaxConns:   -1,             // Invalid: negative max connections
+			SocketPath: "",             // Invalid: empty socket path
 		},
 		Plugin: PluginConfig{
 			Name:        "test-plugin",
@@ -219,10 +219,10 @@ func TestValidateInvalidPluginConfiguration(t *testing.T) {
 			SocketPath: "/tmp/test.sock",
 		},
 		Plugin: PluginConfig{
-			Name:        "", // Invalid: empty name
+			Name:        "",                // Invalid: empty name
 			Version:     "invalid-version", // Invalid: not semver
-			LogLevel:    "invalid", // Invalid: not a valid log level
-			Environment: "invalid", // Invalid: not a valid environment
+			LogLevel:    "invalid",         // Invalid: not a valid log level
+			Environment: "invalid",         // Invalid: not a valid environment
 		},
 		AI: AIConfig{
 			DefaultService: "ollama",
@@ -284,7 +284,7 @@ func TestValidateInvalidAIConfiguration(t *testing.T) {
 				},
 			},
 			Fallback: []string{"nonexistent"}, // Invalid: fallback service doesn't exist
-			Timeout:  NewDuration(0),                       // Invalid: zero timeout
+			Timeout:  NewDuration(0),          // Invalid: zero timeout
 		},
 	}
 
@@ -442,8 +442,8 @@ func TestValidateRateLimitConfiguration(t *testing.T) {
 			Timeout: NewDuration(60 * time.Second),
 			RateLimit: RateLimitConfig{
 				Enabled:           true,
-				RequestsPerMinute: 0,  // Invalid: must be > 0
-				BurstSize:         0,  // Invalid: must be > 0
+				RequestsPerMinute: 0, // Invalid: must be > 0
+				BurstSize:         0, // Invalid: must be > 0
 			},
 		},
 	}
@@ -489,7 +489,7 @@ func TestValidateLoggingConfiguration(t *testing.T) {
 			Format: "invalid", // Invalid: not a valid format
 			Output: "file",    // Requires file configuration
 			File: LogFileConfig{
-				Path:    "", // Invalid: empty path when output is file
+				Path:    "",             // Invalid: empty path when output is file
 				MaxSize: "invalid-size", // Invalid: not a valid size format
 			},
 		},

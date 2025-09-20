@@ -196,31 +196,31 @@ func (c *Client) GetCapabilities(ctx context.Context) (*interfaces.Capabilities,
 		MaxTokens: c.config.MaxTokens,
 		Models: []interfaces.ModelInfo{
 			{
-				ID:               "gpt-4",
-				Name:             "GPT-4",
-				Description:      "Most capable GPT-4 model",
-				MaxTokens:        8192,
-				InputCostPer1K:   0.03,
-				OutputCostPer1K:  0.06,
-				Capabilities:     []string{"text_generation", "code_generation", "analysis"},
+				ID:              "gpt-4",
+				Name:            "GPT-4",
+				Description:     "Most capable GPT-4 model",
+				MaxTokens:       8192,
+				InputCostPer1K:  0.03,
+				OutputCostPer1K: 0.06,
+				Capabilities:    []string{"text_generation", "code_generation", "analysis"},
 			},
 			{
-				ID:               "gpt-4-turbo",
-				Name:             "GPT-4 Turbo",
-				Description:      "Latest GPT-4 model with improved performance",
-				MaxTokens:        128000,
-				InputCostPer1K:   0.01,
-				OutputCostPer1K:  0.03,
-				Capabilities:     []string{"text_generation", "code_generation", "analysis", "long_context"},
+				ID:              "gpt-4-turbo",
+				Name:            "GPT-4 Turbo",
+				Description:     "Latest GPT-4 model with improved performance",
+				MaxTokens:       128000,
+				InputCostPer1K:  0.01,
+				OutputCostPer1K: 0.03,
+				Capabilities:    []string{"text_generation", "code_generation", "analysis", "long_context"},
 			},
 			{
-				ID:               "gpt-3.5-turbo",
-				Name:             "GPT-3.5 Turbo",
-				Description:      "Fast and efficient GPT-3.5 model",
-				MaxTokens:        4096,
-				InputCostPer1K:   0.0015,
-				OutputCostPer1K:  0.002,
-				Capabilities:     []string{"text_generation", "code_generation"},
+				ID:              "gpt-3.5-turbo",
+				Name:            "GPT-3.5 Turbo",
+				Description:     "Fast and efficient GPT-3.5 model",
+				MaxTokens:       4096,
+				InputCostPer1K:  0.0015,
+				OutputCostPer1K: 0.002,
+				Capabilities:    []string{"text_generation", "code_generation"},
 			},
 		},
 		Features: []interfaces.Feature{
@@ -536,19 +536,19 @@ type ErrorResponse struct {
 
 // StreamResponse represents a streaming response from OpenAI
 type StreamResponse struct {
-	ID      string        `json:"id"`
-	Object  string        `json:"object"`
-	Created int64         `json:"created"`
-	Model   string        `json:"model"`
+	ID      string         `json:"id"`
+	Object  string         `json:"object"`
+	Created int64          `json:"created"`
+	Model   string         `json:"model"`
 	Choices []StreamChoice `json:"choices"`
-	Usage   *Usage        `json:"usage,omitempty"`
+	Usage   *Usage         `json:"usage,omitempty"`
 }
 
 // StreamChoice represents a choice in a streaming response
 type StreamChoice struct {
-	Index        int          `json:"index"`
-	Delta        StreamDelta  `json:"delta"`
-	FinishReason string       `json:"finish_reason"`
+	Index        int         `json:"index"`
+	Delta        StreamDelta `json:"delta"`
+	FinishReason string      `json:"finish_reason"`
 }
 
 // StreamDelta represents the delta content in a streaming response

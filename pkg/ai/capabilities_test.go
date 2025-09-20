@@ -309,10 +309,10 @@ func TestCapabilityDetector_CheckCacheHealth(t *testing.T) {
 
 func TestCapabilityDetector_CheckConfigHealth(t *testing.T) {
 	tests := []struct {
-		name         string
-		config       config.AIConfig
+		name          string
+		config        config.AIConfig
 		expectHealthy bool
-		expectErrors bool
+		expectErrors  bool
 	}{
 		{
 			name: "valid config",

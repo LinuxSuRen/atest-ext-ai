@@ -40,14 +40,14 @@ type Client struct {
 
 // Config holds local model configuration
 type Config struct {
-	BaseURL       string        `json:"base_url"`
-	Timeout       time.Duration `json:"timeout"`
-	MaxTokens     int           `json:"max_tokens"`
-	Model         string        `json:"model"`
-	UserAgent     string        `json:"user_agent,omitempty"`
-	Temperature   float64       `json:"temperature"`
-	MaxIdleConns  int           `json:"max_idle_conns,omitempty"`
-	MaxConnsPerHost int         `json:"max_conns_per_host,omitempty"`
+	BaseURL         string        `json:"base_url"`
+	Timeout         time.Duration `json:"timeout"`
+	MaxTokens       int           `json:"max_tokens"`
+	Model           string        `json:"model"`
+	UserAgent       string        `json:"user_agent,omitempty"`
+	Temperature     float64       `json:"temperature"`
+	MaxIdleConns    int           `json:"max_idle_conns,omitempty"`
+	MaxConnsPerHost int           `json:"max_conns_per_host,omitempty"`
 	IdleConnTimeout time.Duration `json:"idle_conn_timeout,omitempty"`
 }
 
@@ -157,12 +157,12 @@ func (c *Client) Generate(ctx context.Context, req *interfaces.GenerateRequest) 
 			TotalTokens:      response.PromptEvalCount + response.EvalCount,
 		},
 		Metadata: map[string]any{
-			"done":             response.Done,
-			"total_duration":   response.TotalDuration,
-			"load_duration":    response.LoadDuration,
+			"done":                 response.Done,
+			"total_duration":       response.TotalDuration,
+			"load_duration":        response.LoadDuration,
 			"prompt_eval_duration": response.PromptEvalDuration,
-			"eval_duration":    response.EvalDuration,
-			"streaming":        false,
+			"eval_duration":        response.EvalDuration,
+			"streaming":            false,
 		},
 	}
 
@@ -497,16 +497,16 @@ type GenerateRequest struct {
 
 // GenerateResponse represents a generation response from Ollama
 type GenerateResponse struct {
-	Model               string `json:"model"`
-	CreatedAt           string `json:"created_at"`
-	Response            string `json:"response"`
-	Done                bool   `json:"done"`
-	TotalDuration       int64  `json:"total_duration"`
-	LoadDuration        int64  `json:"load_duration"`
-	PromptEvalCount     int    `json:"prompt_eval_count"`
-	PromptEvalDuration  int64  `json:"prompt_eval_duration"`
-	EvalCount           int    `json:"eval_count"`
-	EvalDuration        int64  `json:"eval_duration"`
+	Model              string `json:"model"`
+	CreatedAt          string `json:"created_at"`
+	Response           string `json:"response"`
+	Done               bool   `json:"done"`
+	TotalDuration      int64  `json:"total_duration"`
+	LoadDuration       int64  `json:"load_duration"`
+	PromptEvalCount    int    `json:"prompt_eval_count"`
+	PromptEvalDuration int64  `json:"prompt_eval_duration"`
+	EvalCount          int    `json:"eval_count"`
+	EvalDuration       int64  `json:"eval_duration"`
 }
 
 // TagsResponse represents the response from the tags endpoint

@@ -591,11 +591,11 @@ func (m *Manager) GetStats() map[string]interface{} {
 	defer m.mu.RUnlock()
 
 	stats := map[string]interface{}{
-		"config_loaded": m.config != nil,
-		"is_watching":   m.isWatching,
-		"watch_paths":   m.watchPaths,
+		"config_loaded":  m.config != nil,
+		"is_watching":    m.isWatching,
+		"watch_paths":    m.watchPaths,
 		"callback_count": len(m.callbacks),
-		"options":       m.options,
+		"options":        m.options,
 	}
 
 	if m.config != nil {

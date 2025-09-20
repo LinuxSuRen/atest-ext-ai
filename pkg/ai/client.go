@@ -49,8 +49,8 @@ var (
 
 // Client provides a simplified interface for AI interactions
 type Client struct {
-	manager       *ClientManager
-	primaryClient interfaces.AIClient
+	manager        *ClientManager
+	primaryClient  interfaces.AIClient
 	defaultService string
 }
 
@@ -138,24 +138,25 @@ func (c *Client) GetAllClients() map[string]interfaces.AIClient {
 
 	return clients
 }
+
 // convertAIConfigToServiceConfig converts the new config format to the service config format
 func convertAIConfigToServiceConfig(cfg config.AIConfig) *AIServiceConfig {
 	serviceConfig := &AIServiceConfig{
 		Providers: make([]ProviderConfig, 0, len(cfg.Services)),
 		LoadBalancer: LoadBalancerConfig{
-			Strategy:             "failover",
-			HealthCheckInterval:  30 * time.Second,
-			HealthCheckTimeout:   10 * time.Second,
+			Strategy:            "failover",
+			HealthCheckInterval: 30 * time.Second,
+			HealthCheckTimeout:  10 * time.Second,
 		},
 		Retry: RetryConfig{
 			MaxAttempts:       3,
-			BaseDelay:        100 * time.Millisecond,
-			MaxDelay:         5 * time.Second,
+			BaseDelay:         100 * time.Millisecond,
+			MaxDelay:          5 * time.Second,
 			BackoffMultiplier: 2.0,
-			Jitter:           true,
+			Jitter:            true,
 		},
 		CircuitBreaker: CircuitBreakerConfig{
-			FailureThreshold:  5,
+			FailureThreshold: 5,
 			ResetTimeout:     30 * time.Second,
 			HalfOpenMaxCalls: 3,
 			SuccessThreshold: 2,
@@ -190,16 +191,17 @@ func convertAIConfigToServiceConfig(cfg config.AIConfig) *AIServiceConfig {
 
 	return serviceConfig
 }
+
 // ClientManager manages multiple AI clients and provides unified access
 type ClientManager struct {
-	clients       map[string]interfaces.AIClient
-	factory       ClientFactory
-	loadBalancer  LoadBalancer
-	retryManager  RetryManager
+	clients        map[string]interfaces.AIClient
+	factory        ClientFactory
+	loadBalancer   LoadBalancer
+	retryManager   RetryManager
 	circuitBreaker CircuitBreaker
-	config        *AIServiceConfig
-	mu            sync.RWMutex
-	healthChecker *HealthChecker
+	config         *AIServiceConfig
+	mu             sync.RWMutex
+	healthChecker  *HealthChecker
 }
 
 // NewClientManager creates a new client manager with the given configuration
@@ -551,13 +553,13 @@ func (f *defaultClientFactory) createLocalClient(config map[string]any) (interfa
 
 // HealthChecker monitors the health of AI clients
 type HealthChecker struct {
-	interval      time.Duration
-	clients       map[string]interfaces.AIClient
-	healthStatus  map[string]*HealthStatus
-	loadBalancer  LoadBalancer
-	mu            sync.RWMutex
-	stopCh        chan struct{}
-	stopped       bool
+	interval     time.Duration
+	clients      map[string]interfaces.AIClient
+	healthStatus map[string]*HealthStatus
+	loadBalancer LoadBalancer
+	mu           sync.RWMutex
+	stopCh       chan struct{}
+	stopped      bool
 }
 
 // NewHealthChecker creates a new health checker

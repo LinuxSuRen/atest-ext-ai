@@ -50,15 +50,15 @@ type PluginConfig struct {
 
 // AIConfig contains AI service configuration
 type AIConfig struct {
-	DefaultService string                    `mapstructure:"default_service" yaml:"default_service" json:"default_service" toml:"default_service" validate:"required,oneof=ollama openai claude"`
-	Services       map[string]AIService      `mapstructure:"services" yaml:"services" json:"services" toml:"services" validate:"required,dive"`
-	Fallback       []string                  `mapstructure:"fallback_order" yaml:"fallback_order" json:"fallback_order" toml:"fallback_order"`
-	Timeout        Duration                  `mapstructure:"timeout" yaml:"timeout" json:"timeout" toml:"timeout" validate:"required"`
-	RateLimit      RateLimitConfig           `mapstructure:"rate_limit" yaml:"rate_limit" json:"rate_limit" toml:"rate_limit"`
-	CircuitBreaker CircuitBreakerConfig      `mapstructure:"circuit_breaker" yaml:"circuit_breaker" json:"circuit_breaker" toml:"circuit_breaker"`
-	Retry          RetryConfig               `mapstructure:"retry" yaml:"retry" json:"retry" toml:"retry"`
-	Cache          CacheConfig               `mapstructure:"cache" yaml:"cache" json:"cache" toml:"cache"`
-	Security       SecurityConfig            `mapstructure:"security" yaml:"security" json:"security" toml:"security"`
+	DefaultService string               `mapstructure:"default_service" yaml:"default_service" json:"default_service" toml:"default_service" validate:"required,oneof=ollama openai claude"`
+	Services       map[string]AIService `mapstructure:"services" yaml:"services" json:"services" toml:"services" validate:"required,dive"`
+	Fallback       []string             `mapstructure:"fallback_order" yaml:"fallback_order" json:"fallback_order" toml:"fallback_order"`
+	Timeout        Duration             `mapstructure:"timeout" yaml:"timeout" json:"timeout" toml:"timeout" validate:"required"`
+	RateLimit      RateLimitConfig      `mapstructure:"rate_limit" yaml:"rate_limit" json:"rate_limit" toml:"rate_limit"`
+	CircuitBreaker CircuitBreakerConfig `mapstructure:"circuit_breaker" yaml:"circuit_breaker" json:"circuit_breaker" toml:"circuit_breaker"`
+	Retry          RetryConfig          `mapstructure:"retry" yaml:"retry" json:"retry" toml:"retry"`
+	Cache          CacheConfig          `mapstructure:"cache" yaml:"cache" json:"cache" toml:"cache"`
+	Security       SecurityConfig       `mapstructure:"security" yaml:"security" json:"security" toml:"security"`
 }
 
 // AIService represents configuration for a specific AI service
@@ -79,67 +79,67 @@ type AIService struct {
 
 // RateLimitConfig contains rate limiting configuration
 type RateLimitConfig struct {
-	Enabled     bool          `mapstructure:"enabled" yaml:"enabled" json:"enabled" toml:"enabled"`
-	RequestsPerMinute int     `mapstructure:"requests_per_minute" yaml:"requests_per_minute" json:"requests_per_minute" toml:"requests_per_minute" validate:"min=1"`
-	BurstSize   int           `mapstructure:"burst_size" yaml:"burst_size" json:"burst_size" toml:"burst_size" validate:"min=1"`
-	WindowSize  Duration `mapstructure:"window_size" yaml:"window_size" json:"window_size" toml:"window_size"`
+	Enabled           bool     `mapstructure:"enabled" yaml:"enabled" json:"enabled" toml:"enabled"`
+	RequestsPerMinute int      `mapstructure:"requests_per_minute" yaml:"requests_per_minute" json:"requests_per_minute" toml:"requests_per_minute" validate:"min=1"`
+	BurstSize         int      `mapstructure:"burst_size" yaml:"burst_size" json:"burst_size" toml:"burst_size" validate:"min=1"`
+	WindowSize        Duration `mapstructure:"window_size" yaml:"window_size" json:"window_size" toml:"window_size"`
 }
 
 // CircuitBreakerConfig contains circuit breaker configuration
 type CircuitBreakerConfig struct {
-	Enabled         bool          `mapstructure:"enabled" yaml:"enabled" json:"enabled" toml:"enabled"`
-	FailureThreshold int          `mapstructure:"failure_threshold" yaml:"failure_threshold" json:"failure_threshold" toml:"failure_threshold" validate:"min=1"`
-	SuccessThreshold int          `mapstructure:"success_threshold" yaml:"success_threshold" json:"success_threshold" toml:"success_threshold" validate:"min=1"`
-	Timeout         Duration `mapstructure:"timeout" yaml:"timeout" json:"timeout" toml:"timeout"`
-	ResetTimeout    Duration `mapstructure:"reset_timeout" yaml:"reset_timeout" json:"reset_timeout" toml:"reset_timeout"`
+	Enabled          bool     `mapstructure:"enabled" yaml:"enabled" json:"enabled" toml:"enabled"`
+	FailureThreshold int      `mapstructure:"failure_threshold" yaml:"failure_threshold" json:"failure_threshold" toml:"failure_threshold" validate:"min=1"`
+	SuccessThreshold int      `mapstructure:"success_threshold" yaml:"success_threshold" json:"success_threshold" toml:"success_threshold" validate:"min=1"`
+	Timeout          Duration `mapstructure:"timeout" yaml:"timeout" json:"timeout" toml:"timeout"`
+	ResetTimeout     Duration `mapstructure:"reset_timeout" yaml:"reset_timeout" json:"reset_timeout" toml:"reset_timeout"`
 }
 
 // RetryConfig contains retry configuration
 type RetryConfig struct {
-	Enabled     bool          `mapstructure:"enabled" yaml:"enabled" json:"enabled" toml:"enabled"`
-	MaxAttempts int           `mapstructure:"max_attempts" yaml:"max_attempts" json:"max_attempts" toml:"max_attempts" validate:"min=1,max=10"`
+	Enabled      bool     `mapstructure:"enabled" yaml:"enabled" json:"enabled" toml:"enabled"`
+	MaxAttempts  int      `mapstructure:"max_attempts" yaml:"max_attempts" json:"max_attempts" toml:"max_attempts" validate:"min=1,max=10"`
 	InitialDelay Duration `mapstructure:"initial_delay" yaml:"initial_delay" json:"initial_delay" toml:"initial_delay"`
-	MaxDelay    Duration `mapstructure:"max_delay" yaml:"max_delay" json:"max_delay" toml:"max_delay"`
-	Multiplier  float32       `mapstructure:"multiplier" yaml:"multiplier" json:"multiplier" toml:"multiplier" validate:"min=1"`
-	Jitter      bool          `mapstructure:"jitter" yaml:"jitter" json:"jitter" toml:"jitter"`
+	MaxDelay     Duration `mapstructure:"max_delay" yaml:"max_delay" json:"max_delay" toml:"max_delay"`
+	Multiplier   float32  `mapstructure:"multiplier" yaml:"multiplier" json:"multiplier" toml:"multiplier" validate:"min=1"`
+	Jitter       bool     `mapstructure:"jitter" yaml:"jitter" json:"jitter" toml:"jitter"`
 }
 
 // CacheConfig contains caching configuration
 type CacheConfig struct {
-	Enabled    bool          `mapstructure:"enabled" yaml:"enabled" json:"enabled" toml:"enabled"`
-	TTL        Duration `mapstructure:"ttl" yaml:"ttl" json:"ttl" toml:"ttl"`
-	MaxSize    int           `mapstructure:"max_size" yaml:"max_size" json:"max_size" toml:"max_size" validate:"min=1"`
-	Provider   string        `mapstructure:"provider" yaml:"provider" json:"provider" toml:"provider" validate:"oneof=memory redis"`
-	RedisURL   string        `mapstructure:"redis_url" yaml:"redis_url" json:"redis_url" toml:"redis_url"`
+	Enabled  bool     `mapstructure:"enabled" yaml:"enabled" json:"enabled" toml:"enabled"`
+	TTL      Duration `mapstructure:"ttl" yaml:"ttl" json:"ttl" toml:"ttl"`
+	MaxSize  int      `mapstructure:"max_size" yaml:"max_size" json:"max_size" toml:"max_size" validate:"min=1"`
+	Provider string   `mapstructure:"provider" yaml:"provider" json:"provider" toml:"provider" validate:"oneof=memory redis"`
+	RedisURL string   `mapstructure:"redis_url" yaml:"redis_url" json:"redis_url" toml:"redis_url"`
 }
 
 // SecurityConfig contains security-related configuration
 type SecurityConfig struct {
 	EncryptCredentials bool     `mapstructure:"encrypt_credentials" yaml:"encrypt_credentials" json:"encrypt_credentials" toml:"encrypt_credentials"`
-	AllowedHosts      []string `mapstructure:"allowed_hosts" yaml:"allowed_hosts" json:"allowed_hosts" toml:"allowed_hosts"`
-	TLSEnabled        bool     `mapstructure:"tls_enabled" yaml:"tls_enabled" json:"tls_enabled" toml:"tls_enabled"`
-	CertFile          string   `mapstructure:"cert_file" yaml:"cert_file" json:"cert_file" toml:"cert_file"`
-	KeyFile           string   `mapstructure:"key_file" yaml:"key_file" json:"key_file" toml:"key_file"`
+	AllowedHosts       []string `mapstructure:"allowed_hosts" yaml:"allowed_hosts" json:"allowed_hosts" toml:"allowed_hosts"`
+	TLSEnabled         bool     `mapstructure:"tls_enabled" yaml:"tls_enabled" json:"tls_enabled" toml:"tls_enabled"`
+	CertFile           string   `mapstructure:"cert_file" yaml:"cert_file" json:"cert_file" toml:"cert_file"`
+	KeyFile            string   `mapstructure:"key_file" yaml:"key_file" json:"key_file" toml:"key_file"`
 }
 
 // DatabaseConfig contains database configuration (optional)
 type DatabaseConfig struct {
-	Enabled     bool          `mapstructure:"enabled" yaml:"enabled" json:"enabled" toml:"enabled"`
-	Driver      string        `mapstructure:"driver" yaml:"driver" json:"driver" toml:"driver" validate:"oneof=sqlite mysql postgres"`
-	DSN         string        `mapstructure:"dsn" yaml:"dsn" json:"dsn" toml:"dsn"`
-	MaxConns    int           `mapstructure:"max_connections" yaml:"max_connections" json:"max_connections" toml:"max_connections" validate:"min=1"`
-	MaxIdle     int           `mapstructure:"max_idle" yaml:"max_idle" json:"max_idle" toml:"max_idle" validate:"min=1"`
+	Enabled     bool     `mapstructure:"enabled" yaml:"enabled" json:"enabled" toml:"enabled"`
+	Driver      string   `mapstructure:"driver" yaml:"driver" json:"driver" toml:"driver" validate:"oneof=sqlite mysql postgres"`
+	DSN         string   `mapstructure:"dsn" yaml:"dsn" json:"dsn" toml:"dsn"`
+	MaxConns    int      `mapstructure:"max_connections" yaml:"max_connections" json:"max_connections" toml:"max_connections" validate:"min=1"`
+	MaxIdle     int      `mapstructure:"max_idle" yaml:"max_idle" json:"max_idle" toml:"max_idle" validate:"min=1"`
 	MaxLifetime Duration `mapstructure:"max_lifetime" yaml:"max_lifetime" json:"max_lifetime" toml:"max_lifetime"`
 }
 
 // LoggingConfig contains logging configuration
 type LoggingConfig struct {
-	Level     string         `mapstructure:"level" yaml:"level" json:"level" toml:"level" validate:"oneof=debug info warn error"`
-	Format    string         `mapstructure:"format" yaml:"format" json:"format" toml:"format" validate:"oneof=json text"`
-	Output    string         `mapstructure:"output" yaml:"output" json:"output" toml:"output" validate:"oneof=stdout stderr file"`
-	File      LogFileConfig  `mapstructure:"file" yaml:"file" json:"file" toml:"file"`
-	Rotation  LogRotationConfig `mapstructure:"rotation" yaml:"rotation" json:"rotation" toml:"rotation"`
-	Filters   []LogFilter    `mapstructure:"filters" yaml:"filters" json:"filters" toml:"filters"`
+	Level    string            `mapstructure:"level" yaml:"level" json:"level" toml:"level" validate:"oneof=debug info warn error"`
+	Format   string            `mapstructure:"format" yaml:"format" json:"format" toml:"format" validate:"oneof=json text"`
+	Output   string            `mapstructure:"output" yaml:"output" json:"output" toml:"output" validate:"oneof=stdout stderr file"`
+	File     LogFileConfig     `mapstructure:"file" yaml:"file" json:"file" toml:"file"`
+	Rotation LogRotationConfig `mapstructure:"rotation" yaml:"rotation" json:"rotation" toml:"rotation"`
+	Filters  []LogFilter       `mapstructure:"filters" yaml:"filters" json:"filters" toml:"filters"`
 }
 
 // LogFileConfig contains log file configuration
@@ -153,11 +153,11 @@ type LogFileConfig struct {
 
 // LogRotationConfig contains log rotation configuration
 type LogRotationConfig struct {
-	Enabled   bool   `mapstructure:"enabled" yaml:"enabled" json:"enabled" toml:"enabled"`
-	Size      string `mapstructure:"size" yaml:"size" json:"size" toml:"size"`
-	Count     int    `mapstructure:"count" yaml:"count" json:"count" toml:"count" validate:"min=1"`
-	Age       string `mapstructure:"age" yaml:"age" json:"age" toml:"age"`
-	Compress  bool   `mapstructure:"compress" yaml:"compress" json:"compress" toml:"compress"`
+	Enabled  bool   `mapstructure:"enabled" yaml:"enabled" json:"enabled" toml:"enabled"`
+	Size     string `mapstructure:"size" yaml:"size" json:"size" toml:"size"`
+	Count    int    `mapstructure:"count" yaml:"count" json:"count" toml:"count" validate:"min=1"`
+	Age      string `mapstructure:"age" yaml:"age" json:"age" toml:"age"`
+	Compress bool   `mapstructure:"compress" yaml:"compress" json:"compress" toml:"compress"`
 }
 
 // LogFilter represents a log filter configuration

@@ -23,10 +23,10 @@ import (
 	"log"
 	"strings"
 
-	"github.com/linuxsuren/atest-ext-ai/pkg/ai"
-	"github.com/linuxsuren/atest-ext-ai/pkg/config"
 	"github.com/linuxsuren/api-testing/pkg/server"
 	"github.com/linuxsuren/api-testing/pkg/testing/remote"
+	"github.com/linuxsuren/atest-ext-ai/pkg/ai"
+	"github.com/linuxsuren/atest-ext-ai/pkg/config"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 )
@@ -342,6 +342,7 @@ func (s *AIPluginService) handleMetadataQuery(ctx context.Context) (*server.Data
 
 	return result, nil
 }
+
 // Verify returns the plugin status for health checks
 func (s *AIPluginService) Verify(ctx context.Context, req *server.Empty) (*server.ExtensionStatus, error) {
 	log.Printf("Health check requested")
@@ -371,7 +372,6 @@ func (s *AIPluginService) Verify(ctx context.Context, req *server.Empty) (*serve
 
 	return status, nil
 }
-
 
 // Shutdown gracefully stops the AI plugin service
 func (s *AIPluginService) Shutdown() {

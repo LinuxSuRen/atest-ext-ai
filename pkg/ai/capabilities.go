@@ -77,20 +77,20 @@ type DatabaseCapability struct {
 
 // FeatureCapability represents a specific feature and its status
 type FeatureCapability struct {
-	Name        string            `json:"name"`
-	Enabled     bool              `json:"enabled"`
-	Description string            `json:"description"`
-	Version     string            `json:"version"`
-	Parameters  map[string]string `json:"parameters,omitempty"`
-	Dependencies []string         `json:"dependencies,omitempty"`
+	Name         string            `json:"name"`
+	Enabled      bool              `json:"enabled"`
+	Description  string            `json:"description"`
+	Version      string            `json:"version"`
+	Parameters   map[string]string `json:"parameters,omitempty"`
+	Dependencies []string          `json:"dependencies,omitempty"`
 }
 
 // HealthStatusReport provides detailed health information
 type HealthStatusReport struct {
-	Overall   bool                    `json:"overall"`
-	Components map[string]HealthInfo  `json:"components"`
-	Providers  map[string]HealthInfo  `json:"providers"`
-	Timestamp time.Time               `json:"timestamp"`
+	Overall    bool                  `json:"overall"`
+	Components map[string]HealthInfo `json:"components"`
+	Providers  map[string]HealthInfo `json:"providers"`
+	Timestamp  time.Time             `json:"timestamp"`
 }
 
 // HealthInfo represents health information for a component
@@ -105,10 +105,10 @@ type HealthInfo struct {
 
 // ResourceLimits defines the resource constraints and limits
 type ResourceLimits struct {
-	MaxConcurrentRequests int           `json:"max_concurrent_requests"`
-	RateLimit            RateLimitInfo `json:"rate_limit"`
-	Memory               MemoryLimits  `json:"memory"`
-	Processing           ProcessingLimits `json:"processing"`
+	MaxConcurrentRequests int              `json:"max_concurrent_requests"`
+	RateLimit             RateLimitInfo    `json:"rate_limit"`
+	Memory                MemoryLimits     `json:"memory"`
+	Processing            ProcessingLimits `json:"processing"`
 }
 
 // RateLimitInfo describes rate limiting constraints
@@ -121,16 +121,16 @@ type RateLimitInfo struct {
 
 // MemoryLimits describes memory usage constraints
 type MemoryLimits struct {
-	MaxMemoryMB    int `json:"max_memory_mb"`
-	CacheSizeMB    int `json:"cache_size_mb"`
-	BufferSizeMB   int `json:"buffer_size_mb"`
+	MaxMemoryMB  int `json:"max_memory_mb"`
+	CacheSizeMB  int `json:"cache_size_mb"`
+	BufferSizeMB int `json:"buffer_size_mb"`
 }
 
 // ProcessingLimits describes processing constraints
 type ProcessingLimits struct {
 	MaxProcessingTimeSeconds int `json:"max_processing_time_seconds"`
-	MaxQueueSize            int `json:"max_queue_size"`
-	MaxRetryAttempts        int `json:"max_retry_attempts"`
+	MaxQueueSize             int `json:"max_queue_size"`
+	MaxRetryAttempts         int `json:"max_retry_attempts"`
 }
 
 // CapabilityDetector handles dynamic capability detection and reporting
@@ -337,17 +337,17 @@ func (d *CapabilityDetector) detectDatabaseCapabilities() []DatabaseCapability {
 			Supported: true,
 		},
 		{
-			Type:      "oracle",
-			Versions:  []string{"11g", "12c", "19c", "21c"},
-			Features:  []string{"joins", "subqueries", "cte", "window-functions", "stored-procedures", "pl-sql"},
-			Supported: false,
+			Type:        "oracle",
+			Versions:    []string{"11g", "12c", "19c", "21c"},
+			Features:    []string{"joins", "subqueries", "cte", "window-functions", "stored-procedures", "pl-sql"},
+			Supported:   false,
 			Limitations: []string{"not-implemented"},
 		},
 		{
-			Type:      "sqlserver",
-			Versions:  []string{"2016", "2017", "2019", "2022"},
-			Features:  []string{"joins", "subqueries", "cte", "window-functions", "stored-procedures", "t-sql"},
-			Supported: false,
+			Type:        "sqlserver",
+			Versions:    []string{"2016", "2017", "2019", "2022"},
+			Features:    []string{"joins", "subqueries", "cte", "window-functions", "stored-procedures", "t-sql"},
+			Supported:   false,
 			Limitations: []string{"not-implemented"},
 		},
 	}
@@ -368,10 +368,10 @@ func (d *CapabilityDetector) detectFeatureCapabilities() []FeatureCapability {
 			},
 		},
 		{
-			Name:        "sql-optimization",
-			Enabled:     false,
-			Description: "Optimize existing SQL queries for better performance",
-			Version:     "0.9.0",
+			Name:         "sql-optimization",
+			Enabled:      false,
+			Description:  "Optimize existing SQL queries for better performance",
+			Version:      "0.9.0",
 			Dependencies: []string{"sql-generation"},
 		},
 		{
@@ -384,10 +384,10 @@ func (d *CapabilityDetector) detectFeatureCapabilities() []FeatureCapability {
 			},
 		},
 		{
-			Name:        "schema-analysis",
-			Enabled:     false,
-			Description: "Analyze database schema and suggest improvements",
-			Version:     "0.8.0",
+			Name:         "schema-analysis",
+			Enabled:      false,
+			Description:  "Analyze database schema and suggest improvements",
+			Version:      "0.8.0",
 			Dependencies: []string{"sql-generation", "sql-validation"},
 		},
 		{
@@ -606,8 +606,8 @@ func (d *CapabilityDetector) getResourceLimits() ResourceLimits {
 		},
 		Processing: ProcessingLimits{
 			MaxProcessingTimeSeconds: 30,
-			MaxQueueSize:            100,
-			MaxRetryAttempts:        3,
+			MaxQueueSize:             100,
+			MaxRetryAttempts:         3,
 		},
 	}
 }

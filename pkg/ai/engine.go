@@ -68,17 +68,17 @@ type SQLFeature struct {
 
 // basicEngine is a basic implementation for testing
 type basicEngine struct {
-	config      config.AIConfig
-	generator   *SQLGenerator
-	aiClient    interfaces.AIClient
+	config    config.AIConfig
+	generator *SQLGenerator
+	aiClient  interfaces.AIClient
 }
 
 // aiEngine is a full-featured implementation using AI clients
 type aiEngine struct {
-	config      config.AIConfig
-	generator   *SQLGenerator
-	aiClient    interfaces.AIClient
-	client      *Client
+	config    config.AIConfig
+	generator *SQLGenerator
+	aiClient  interfaces.AIClient
+	client    *Client
 }
 
 // NewEngine creates a new AI engine based on configuration
@@ -185,6 +185,7 @@ func (e *aiEngine) GenerateSQL(ctx context.Context, req *GenerateSQLRequest) (*G
 		DebugInfo:       append(result.Metadata.DebugInfo, fmt.Sprintf("Query complexity: %s", result.Metadata.Complexity)),
 	}, nil
 }
+
 // GetCapabilities implements Engine.GetCapabilities
 func (e *basicEngine) GetCapabilities() *SQLCapabilities {
 	return &SQLCapabilities{
@@ -216,6 +217,7 @@ func (e *aiEngine) GetCapabilities() *SQLCapabilities {
 		},
 	}
 }
+
 // IsHealthy implements Engine.IsHealthy
 func (e *basicEngine) IsHealthy() bool {
 	return true

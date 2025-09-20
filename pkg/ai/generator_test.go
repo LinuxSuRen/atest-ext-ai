@@ -27,10 +27,10 @@ import (
 
 // mockGeneratorAIClient is a mock implementation of interfaces.AIClient for generator testing
 type mockGeneratorAIClient struct {
-	generateFunc      func(ctx context.Context, req *interfaces.GenerateRequest) (*interfaces.GenerateResponse, error)
-	capabilitiesFunc  func(ctx context.Context) (*interfaces.Capabilities, error)
-	healthCheckFunc   func(ctx context.Context) (*interfaces.HealthStatus, error)
-	closeFunc         func() error
+	generateFunc     func(ctx context.Context, req *interfaces.GenerateRequest) (*interfaces.GenerateResponse, error)
+	capabilitiesFunc func(ctx context.Context) (*interfaces.Capabilities, error)
+	healthCheckFunc  func(ctx context.Context) (*interfaces.HealthStatus, error)
+	closeFunc        func() error
 }
 
 func (m *mockGeneratorAIClient) Generate(ctx context.Context, req *interfaces.GenerateRequest) (*interfaces.GenerateResponse, error) {
@@ -171,12 +171,12 @@ func TestSQLGenerator_Generate(t *testing.T) {
 	}
 
 	tests := []struct {
-		name           string
-		naturalLang    string
-		options        *GenerateOptions
-		wantError      bool
-		expectedSQL    string
-		expectedConf   float64
+		name         string
+		naturalLang  string
+		options      *GenerateOptions
+		wantError    bool
+		expectedSQL  string
+		expectedConf float64
 	}{
 		{
 			name:        "basic query",

@@ -29,13 +29,13 @@ import (
 
 // FileWatcher handles file system watching for configuration hot reload
 type FileWatcher struct {
-	watcher     *fsnotify.Watcher
-	callbacks   map[string][]ConfigChangeCallback
-	mu          sync.RWMutex
-	ctx         context.Context
-	cancel      context.CancelFunc
-	debounce    time.Duration
-	lastChange  time.Time
+	watcher      *fsnotify.Watcher
+	callbacks    map[string][]ConfigChangeCallback
+	mu           sync.RWMutex
+	ctx          context.Context
+	cancel       context.CancelFunc
+	debounce     time.Duration
+	lastChange   time.Time
 	lastChangeMu sync.RWMutex
 }
 

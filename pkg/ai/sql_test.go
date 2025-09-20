@@ -104,10 +104,10 @@ func TestMySQLDialect_OptimizeSQL(t *testing.T) {
 	dialect := &MySQLDialect{}
 
 	tests := []struct {
-		name            string
-		sql             string
-		expectedSQL     string
-		minSuggestions  int
+		name           string
+		sql            string
+		expectedSQL    string
+		minSuggestions int
 	}{
 		{
 			name:           "SELECT without LIMIT or WHERE",
@@ -210,11 +210,11 @@ func TestMySQLDialect_TransformSQL(t *testing.T) {
 	dialect := &MySQLDialect{}
 
 	tests := []struct {
-		name         string
-		sql          string
+		name          string
+		sql           string
 		targetDialect string
-		expectedSQL  string
-		expectError  bool
+		expectedSQL   string
+		expectError   bool
 	}{
 		{
 			name:          "MySQL to PostgreSQL - backticks",

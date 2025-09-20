@@ -181,12 +181,12 @@ func TestClientManager_Generate(t *testing.T) {
 
 	// Create client manager
 	manager := &ClientManager{
-		clients:       map[string]interfaces.AIClient{"mock1": mockClient},
-		factory:       factory,
-		loadBalancer:  loadBalancer,
-		retryManager:  NewDefaultRetryManager(RetryConfig{MaxAttempts: 3}),
+		clients:        map[string]interfaces.AIClient{"mock1": mockClient},
+		factory:        factory,
+		loadBalancer:   loadBalancer,
+		retryManager:   NewDefaultRetryManager(RetryConfig{MaxAttempts: 3}),
 		circuitBreaker: NewDefaultCircuitBreaker(CircuitBreakerConfig{FailureThreshold: 5}),
-		healthChecker: NewHealthChecker(30 * time.Second),
+		healthChecker:  NewHealthChecker(30 * time.Second),
 	}
 
 	req := &GenerateRequest{
@@ -237,12 +237,12 @@ func TestClientManager_Generate_WithError(t *testing.T) {
 
 	// Create client manager
 	manager := &ClientManager{
-		clients:       map[string]interfaces.AIClient{"mock1": mockClient},
-		factory:       factory,
-		loadBalancer:  loadBalancer,
-		retryManager:  NewDefaultRetryManager(RetryConfig{MaxAttempts: 1}), // Don't retry
+		clients:        map[string]interfaces.AIClient{"mock1": mockClient},
+		factory:        factory,
+		loadBalancer:   loadBalancer,
+		retryManager:   NewDefaultRetryManager(RetryConfig{MaxAttempts: 1}), // Don't retry
 		circuitBreaker: NewDefaultCircuitBreaker(CircuitBreakerConfig{FailureThreshold: 5}),
-		healthChecker: NewHealthChecker(30 * time.Second),
+		healthChecker:  NewHealthChecker(30 * time.Second),
 	}
 
 	req := &GenerateRequest{
@@ -321,13 +321,13 @@ func TestClientManager_AddRemoveClient(t *testing.T) {
 	}
 
 	manager := &ClientManager{
-		clients:       make(map[string]AIClient),
-		factory:       factory,
-		loadBalancer:  NewDefaultLoadBalancer(config.LoadBalancer),
-		retryManager:  NewDefaultRetryManager(config.Retry),
+		clients:        make(map[string]AIClient),
+		factory:        factory,
+		loadBalancer:   NewDefaultLoadBalancer(config.LoadBalancer),
+		retryManager:   NewDefaultRetryManager(config.Retry),
 		circuitBreaker: NewDefaultCircuitBreaker(config.CircuitBreaker),
-		config:        config,
-		healthChecker: NewHealthChecker(config.LoadBalancer.HealthCheckInterval),
+		config:         config,
+		healthChecker:  NewHealthChecker(config.LoadBalancer.HealthCheckInterval),
 	}
 
 	// Add client

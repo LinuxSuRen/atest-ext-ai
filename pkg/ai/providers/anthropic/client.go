@@ -206,31 +206,31 @@ func (c *Client) GetCapabilities(ctx context.Context) (*interfaces.Capabilities,
 		MaxTokens: c.config.MaxTokens,
 		Models: []interfaces.ModelInfo{
 			{
-				ID:               "claude-3-opus-20240229",
-				Name:             "Claude 3 Opus",
-				Description:      "Most powerful Claude 3 model for complex tasks",
-				MaxTokens:        200000,
-				InputCostPer1K:   15.0,
-				OutputCostPer1K:  75.0,
-				Capabilities:     []string{"text_generation", "code_generation", "analysis", "long_context", "multimodal"},
+				ID:              "claude-3-opus-20240229",
+				Name:            "Claude 3 Opus",
+				Description:     "Most powerful Claude 3 model for complex tasks",
+				MaxTokens:       200000,
+				InputCostPer1K:  15.0,
+				OutputCostPer1K: 75.0,
+				Capabilities:    []string{"text_generation", "code_generation", "analysis", "long_context", "multimodal"},
 			},
 			{
-				ID:               "claude-3-sonnet-20240229",
-				Name:             "Claude 3 Sonnet",
-				Description:      "Balanced Claude 3 model for general use",
-				MaxTokens:        200000,
-				InputCostPer1K:   3.0,
-				OutputCostPer1K:  15.0,
-				Capabilities:     []string{"text_generation", "code_generation", "analysis", "long_context"},
+				ID:              "claude-3-sonnet-20240229",
+				Name:            "Claude 3 Sonnet",
+				Description:     "Balanced Claude 3 model for general use",
+				MaxTokens:       200000,
+				InputCostPer1K:  3.0,
+				OutputCostPer1K: 15.0,
+				Capabilities:    []string{"text_generation", "code_generation", "analysis", "long_context"},
 			},
 			{
-				ID:               "claude-3-haiku-20240307",
-				Name:             "Claude 3 Haiku",
-				Description:      "Fast and efficient Claude 3 model",
-				MaxTokens:        200000,
-				InputCostPer1K:   0.25,
-				OutputCostPer1K:  1.25,
-				Capabilities:     []string{"text_generation", "code_generation", "long_context"},
+				ID:              "claude-3-haiku-20240307",
+				Name:            "Claude 3 Haiku",
+				Description:     "Fast and efficient Claude 3 model",
+				MaxTokens:       200000,
+				InputCostPer1K:  0.25,
+				OutputCostPer1K: 1.25,
+				Capabilities:    []string{"text_generation", "code_generation", "long_context"},
 			},
 		},
 		Features: []interfaces.Feature{
@@ -490,12 +490,12 @@ func (c *Client) makeRequest(ctx context.Context, endpoint string, body interfac
 
 // MessagesRequest represents a messages request
 type MessagesRequest struct {
-	Model       string     `json:"model"`
-	MaxTokens   int        `json:"max_tokens"`
-	Messages    []Message  `json:"messages"`
-	System      string     `json:"system,omitempty"`
-	Temperature *float64   `json:"temperature,omitempty"`
-	Stream      bool       `json:"stream,omitempty"`
+	Model       string    `json:"model"`
+	MaxTokens   int       `json:"max_tokens"`
+	Messages    []Message `json:"messages"`
+	System      string    `json:"system,omitempty"`
+	Temperature *float64  `json:"temperature,omitempty"`
+	Stream      bool      `json:"stream,omitempty"`
 }
 
 // Message represents a conversation message
@@ -506,13 +506,13 @@ type Message struct {
 
 // MessagesResponse represents a messages response
 type MessagesResponse struct {
-	ID         string           `json:"id"`
-	Type       string           `json:"type"`
-	Role       string           `json:"role"`
-	Content    []ContentBlock   `json:"content"`
-	Model      string           `json:"model"`
-	StopReason string           `json:"stop_reason"`
-	Usage      UsageInfo        `json:"usage"`
+	ID         string         `json:"id"`
+	Type       string         `json:"type"`
+	Role       string         `json:"role"`
+	Content    []ContentBlock `json:"content"`
+	Model      string         `json:"model"`
+	StopReason string         `json:"stop_reason"`
+	Usage      UsageInfo      `json:"usage"`
 }
 
 // ContentBlock represents a piece of content in the response
@@ -538,10 +538,10 @@ type ErrorResponse struct {
 
 // StreamEvent represents a streaming event from Anthropic
 type StreamEvent struct {
-	Type    string                 `json:"type"`
-	Message *MessagesResponse      `json:"message,omitempty"`
-	Delta   *StreamDelta          `json:"delta,omitempty"`
-	Usage   *UsageInfo            `json:"usage,omitempty"`
+	Type    string            `json:"type"`
+	Message *MessagesResponse `json:"message,omitempty"`
+	Delta   *StreamDelta      `json:"delta,omitempty"`
+	Usage   *UsageInfo        `json:"usage,omitempty"`
 }
 
 // StreamDelta represents the delta content in a streaming response
