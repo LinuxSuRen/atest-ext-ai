@@ -312,6 +312,8 @@ jobs:
 
     - name: Set up Docker Compose
       run: |
+        # Set memory limits for CI environment
+        export COMPOSE_MEMORY_LIMIT=512m
         docker compose -f docker-compose.yml -f docker-compose.dev.yml up -d
         sleep 30
 

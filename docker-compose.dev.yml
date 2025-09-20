@@ -7,15 +7,25 @@ services:
     image: golang:1.24-alpine
     container_name: atest-ai-plugin-dev
     restart: unless-stopped
+    mem_limit: 512m
+    memswap_limit: 512m
+    deploy:
+      resources:
+        limits:
+          memory: 512M
+        reservations:
+          memory: 128M
     environment:
       - AI_PROVIDER=local
       - OLLAMA_ENDPOINT=http://ollama:11434
       - AI_MODEL=codellama
       - AI_PLUGIN_SOCKET_PATH=/tmp/atest-ext-ai.sock
-      - LOG_LEVEL=debug
+      - LOG_LEVEL=info
       - CONFIG_PATH=/app/config/development.yaml
       - AI_API_KEY=${AI_API_KEY:-}
       - CGO_ENABLED=0
+      - GOGC=50
+      - GOMEMLIMIT=400MiB
     volumes:
       - .:/app
       - socket_volume:/tmp
@@ -39,6 +49,14 @@ services:
     image: ollama/ollama:latest
     container_name: atest-ollama-dev
     restart: unless-stopped
+    mem_limit: 1g
+    memswap_limit: 1g
+    deploy:
+      resources:
+        limits:
+          memory: 1G
+        reservations:
+          memory: 512M
     environment:
       - OLLAMA_ORIGINS=*
       - OLLAMA_HOST=0.0.0.0
@@ -60,6 +78,8 @@ services:
     image: postgres:16-alpine
     container_name: atest-postgres-dev
     restart: unless-stopped
+    mem_limit: 256m
+    memswap_limit: 256m
     environment:
       - POSTGRES_DB=testdb
       - POSTGRES_USER=testuser
@@ -77,6 +97,8 @@ services:
     image: mysql:8.0
     container_name: atest-mysql-dev
     restart: unless-stopped
+    mem_limit: 256m
+    memswap_limit: 256m
     environment:
       - MYSQL_ROOT_PASSWORD=rootpass
       - MYSQL_DATABASE=testdb
@@ -96,6 +118,8 @@ services:
     image: redis:7-alpine
     container_name: atest-redis-dev
     restart: unless-stopped
+    mem_limit: 128m
+    memswap_limit: 128m
     # No port exposure needed - only used within docker network
     networks:
       - atest-dev-network
@@ -105,6 +129,8 @@ services:
     image: adminer:latest
     container_name: atest-adminer
     restart: unless-stopped
+    mem_limit: 128m
+    memswap_limit: 128m
     ports:
       - "8081:8080"
     networks:

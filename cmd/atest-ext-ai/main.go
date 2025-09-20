@@ -23,6 +23,8 @@ import (
 	"net"
 	"os"
 	"os/signal"
+	"runtime"
+	"runtime/debug"
 	"syscall"
 	"time"
 
@@ -38,6 +40,9 @@ const (
 )
 
 func main() {
+	// Configure memory optimization
+	configureMemorySettings()
+
 	// Setup structured logging
 	log.SetFlags(log.LstdFlags | log.Lshortfile)
 	log.Printf("Starting atest-ext-ai plugin v1.0.0")
@@ -157,6 +162,22 @@ func createSocketListener(path string) (net.Listener, error) {
 	}
 
 	return listener, nil
+}
+
+// configureMemorySettings optimizes Go runtime for limited memory environments
+func configureMemorySettings() {
+	// Set aggressive garbage collection for memory-constrained environments
+	debug.SetGCPercent(50) // More frequent GC cycles
+
+	// Set memory limit from environment variable if available
+	if memLimit := os.Getenv("GOMEMLIMIT"); memLimit != "" {
+		log.Printf("Go memory limit set to: %s", memLimit)
+	}
+
+	// Limit number of OS threads to reduce memory overhead
+	runtime.GOMAXPROCS(2) // Limit to 2 cores max for CI environments
+
+	log.Printf("Memory optimization configured: GOGC=50, GOMAXPROCS=%d", runtime.GOMAXPROCS(0))
 }
 
 // createGRPCServer creates a gRPC server with appropriate configuration
