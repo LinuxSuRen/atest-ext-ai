@@ -18,14 +18,27 @@ package ai
 
 import (
 	"context"
+	"crypto/rand"
+	"encoding/binary"
 	"errors"
 	"fmt"
 	"math"
-	"math/rand"
 	"net"
 	"syscall"
 	"time"
 )
+
+// secureRandFloat64 generates a cryptographically secure random float64 between 0 and 1
+func secureRandFloat64() float64 {
+	var b [8]byte
+	if _, err := rand.Read(b[:]); err != nil {
+		// Fallback to 0.05 if crypto/rand fails (very unlikely)
+		return 0.05
+	}
+	// Convert to uint64 and then to float64 in range [0, 1)
+	val := binary.BigEndian.Uint64(b[:])
+	return float64(val) / float64(^uint64(0))
+}
 
 // retryableError is an error that can be retried
 type retryableError struct {
@@ -182,7 +195,7 @@ func (rm *defaultRetryManager) GetRetryDelay(attempt int) time.Duration {
 
 	// Apply jitter if enabled
 	if rm.config.Jitter {
-		jitter := rand.Float64() * 0.1 // 10% jitter
+		jitter := secureRandFloat64() * 0.1 // 10% jitter
 		delay = delay * (1 + jitter)
 	}
 

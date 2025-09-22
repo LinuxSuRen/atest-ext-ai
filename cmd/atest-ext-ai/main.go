@@ -156,7 +156,8 @@ func createSocketListener(path string) (net.Listener, error) {
 	}
 
 	// Set appropriate permissions for the socket file
-	if err := os.Chmod(path, 0660); err != nil {
+	// 0660 is required to allow group access for main project integration
+	if err := os.Chmod(path, 0660); err != nil { //nolint:gosec // G302: Unix socket needs group access
 		_ = listener.Close()
 		return nil, fmt.Errorf("failed to set socket permissions: %w", err)
 	}
