@@ -76,6 +76,16 @@ fmt:
 	@echo "Formatting code..."
 	@go fmt ./...
 
+# Verify Go modules
+mod-verify:
+	@echo "Verifying Go modules..."
+	@go mod verify
+
+# Run benchmark tests
+benchmark:
+	@echo "Running benchmark tests..."
+	@go test -bench=. -benchmem ./...
+
 # Docker build
 docker-build:
 	@echo "Building Docker image..."
