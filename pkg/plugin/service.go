@@ -94,75 +94,16 @@ func (s *AIPluginService) Query(ctx context.Context, req *server.DataQuery) (*se
 		return nil, status.Errorf(codes.InvalidArgument, "unsupported query type: %s", req.Type)
 	}
 
-	// Handle capabilities query
-	if req.Key == "capabilities" || strings.HasPrefix(req.Key, "ai.capabilities") {
-		return s.handleCapabilitiesQuery(ctx, req)
+	// Handle new AI interface standard
+	switch req.Key {
+	case "generate":
+		return s.handleAIGenerate(ctx, req)
+	case "capabilities":
+		return s.handleAICapabilities(ctx, req)
+	default:
+		// Backward compatibility: support legacy natural language queries
+		return s.handleLegacyQuery(ctx, req)
 	}
-
-	// For AI queries, we use the 'key' field as the natural language input
-	// and 'sql' field for any additional context or existing SQL
-	if req.Key == "" {
-		log.Printf("Missing key field (natural language query) in request")
-		return nil, status.Errorf(codes.InvalidArgument, "key field is required for AI queries (natural language input)")
-	}
-
-	// Generate SQL using AI engine
-	queryPreview := req.Key
-	if len(queryPreview) > 100 {
-		queryPreview = queryPreview[:100] + "..."
-	}
-	log.Printf("Generating SQL for natural language query: %s", queryPreview)
-
-	// Create context map from available information
-	contextMap := make(map[string]string)
-	if req.Sql != "" {
-		contextMap["existing_sql"] = req.Sql
-	}
-
-	sqlResult, err := s.aiEngine.GenerateSQL(ctx, &ai.GenerateSQLRequest{
-		NaturalLanguage: req.Key,
-		DatabaseType:    "mysql", // Default database type
-		Context:         contextMap,
-	})
-	if err != nil {
-		log.Printf("Failed to generate SQL: %v", err)
-		return nil, status.Errorf(codes.Internal, "failed to generate SQL: %v", err)
-	}
-
-	// Create response with basic data structure
-	result := &server.DataQueryResult{
-		Data: []*server.Pair{
-			{
-				Key:   "generated_sql",
-				Value: sqlResult.SQL,
-			},
-			{
-				Key:   "explanation",
-				Value: sqlResult.Explanation,
-			},
-			{
-				Key:   "confidence_score",
-				Value: fmt.Sprintf("%.2f", sqlResult.ConfidenceScore),
-			},
-			{
-				Key:   "request_id",
-				Value: sqlResult.RequestID,
-			},
-			{
-				Key:   "processing_time_ms",
-				Value: fmt.Sprintf("%d", sqlResult.ProcessingTime.Milliseconds()),
-			},
-			{
-				Key:   "model_used",
-				Value: sqlResult.ModelUsed,
-			},
-		},
-	}
-
-	log.Printf("AI query completed successfully: request_id=%s, confidence=%.2f, processing_time=%dms",
-		sqlResult.RequestID, sqlResult.ConfidenceScore, sqlResult.ProcessingTime.Milliseconds())
-
-	return result, nil
 }
 
 // handleCapabilitiesQuery handles requests for AI plugin capabilities
@@ -384,4 +325,171 @@ func (s *AIPluginService) Shutdown() {
 	}
 
 	log.Println("AI plugin service shutdown complete")
+}
+
+// handleAIGenerate handles ai.generate calls
+func (s *AIPluginService) handleAIGenerate(ctx context.Context, req *server.DataQuery) (*server.DataQueryResult, error) {
+	// Parse parameters from SQL field
+	var params struct {
+		Model  string `json:"model"`
+		Prompt string `json:"prompt"`
+		Config string `json:"config"`
+	}
+
+	if req.Sql != "" {
+		if err := json.Unmarshal([]byte(req.Sql), &params); err != nil {
+			return nil, status.Errorf(codes.InvalidArgument, "invalid AI parameters: %v", err)
+		}
+	}
+
+	if params.Prompt == "" {
+		return nil, status.Errorf(codes.InvalidArgument, "prompt is required for ai.generate")
+	}
+
+	// Parse optional config
+	var configMap map[string]interface{}
+	if params.Config != "" {
+		json.Unmarshal([]byte(params.Config), &configMap)
+	}
+
+	log.Printf("Generating SQL with AI interface standard: model=%s, prompt_length=%d", params.Model, len(params.Prompt))
+
+	// Generate using AI engine
+	context := map[string]string{}
+	if params.Model != "" {
+		context["preferred_model"] = params.Model
+	}
+	if params.Config != "" {
+		context["config"] = params.Config
+	}
+
+	sqlResult, err := s.aiEngine.GenerateSQL(ctx, &ai.GenerateSQLRequest{
+		NaturalLanguage: params.Prompt,
+		DatabaseType:    "mysql", // TODO: Make configurable
+		Context:         context,
+	})
+	if err != nil {
+		return &server.DataQueryResult{
+			Data: []*server.Pair{
+				{Key: "error", Value: err.Error()},
+				{Key: "success", Value: "false"},
+			},
+		}, nil
+	}
+
+	// Return in AI interface standard format
+	return &server.DataQueryResult{
+		Data: []*server.Pair{
+			{Key: "content", Value: sqlResult.SQL},
+			{Key: "success", Value: "true"},
+			{Key: "meta", Value: fmt.Sprintf(`{"confidence": %f, "model": "%s"}`,
+				sqlResult.ConfidenceScore, sqlResult.ModelUsed)},
+		},
+	}, nil
+}
+
+// handleAICapabilities handles ai.capabilities calls
+func (s *AIPluginService) handleAICapabilities(ctx context.Context, req *server.DataQuery) (*server.DataQueryResult, error) {
+	capabilities, err := s.capabilityDetector.GetCapabilities(ctx, &ai.CapabilitiesRequest{
+		IncludeModels:   true,
+		IncludeFeatures: true,
+		CheckHealth:     false,
+	})
+	if err != nil {
+		return &server.DataQueryResult{
+			Data: []*server.Pair{
+				{Key: "error", Value: err.Error()},
+				{Key: "success", Value: "false"},
+			},
+		}, nil
+	}
+
+	// Convert to JSON strings for AI interface standard
+	capabilitiesJSON, _ := json.Marshal(capabilities)
+	modelsJSON, _ := json.Marshal(capabilities.Models)
+	featuresJSON, _ := json.Marshal(capabilities.Features)
+
+	return &server.DataQueryResult{
+		Data: []*server.Pair{
+			{Key: "capabilities", Value: string(capabilitiesJSON)},
+			{Key: "models", Value: string(modelsJSON)},
+			{Key: "features", Value: string(featuresJSON)},
+			{Key: "description", Value: "AI Extension Plugin for intelligent SQL generation"},
+			{Key: "version", Value: "1.0.0"},
+			{Key: "success", Value: "true"},
+		},
+	}, nil
+}
+
+// handleLegacyQuery maintains backward compatibility with the original implementation
+func (s *AIPluginService) handleLegacyQuery(ctx context.Context, req *server.DataQuery) (*server.DataQueryResult, error) {
+	// Handle legacy capabilities query
+	if req.Key == "capabilities" || strings.HasPrefix(req.Key, "ai.capabilities") {
+		return s.handleCapabilitiesQuery(ctx, req)
+	}
+
+	// For AI queries, we use the 'key' field as the natural language input
+	// and 'sql' field for any additional context or existing SQL
+	if req.Key == "" {
+		log.Printf("Missing key field (natural language query) in request")
+		return nil, status.Errorf(codes.InvalidArgument, "key field is required for AI queries (natural language input)")
+	}
+
+	// Generate SQL using AI engine
+	queryPreview := req.Key
+	if len(queryPreview) > 100 {
+		queryPreview = queryPreview[:100] + "..."
+	}
+	log.Printf("Generating SQL for natural language query: %s", queryPreview)
+
+	// Create context map from available information
+	contextMap := make(map[string]string)
+	if req.Sql != "" {
+		contextMap["existing_sql"] = req.Sql
+	}
+
+	sqlResult, err := s.aiEngine.GenerateSQL(ctx, &ai.GenerateSQLRequest{
+		NaturalLanguage: req.Key,
+		DatabaseType:    "mysql", // Default database type
+		Context:         contextMap,
+	})
+	if err != nil {
+		log.Printf("Failed to generate SQL: %v", err)
+		return nil, status.Errorf(codes.Internal, "failed to generate SQL: %v", err)
+	}
+
+	// Create response with basic data structure
+	result := &server.DataQueryResult{
+		Data: []*server.Pair{
+			{
+				Key:   "generated_sql",
+				Value: sqlResult.SQL,
+			},
+			{
+				Key:   "explanation",
+				Value: sqlResult.Explanation,
+			},
+			{
+				Key:   "confidence_score",
+				Value: fmt.Sprintf("%.2f", sqlResult.ConfidenceScore),
+			},
+			{
+				Key:   "request_id",
+				Value: sqlResult.RequestID,
+			},
+			{
+				Key:   "processing_time_ms",
+				Value: fmt.Sprintf("%d", sqlResult.ProcessingTime.Milliseconds()),
+			},
+			{
+				Key:   "model_used",
+				Value: sqlResult.ModelUsed,
+			},
+		},
+	}
+
+	log.Printf("AI query completed successfully: request_id=%s, confidence=%.2f, processing_time=%dms",
+		sqlResult.RequestID, sqlResult.ConfidenceScore, sqlResult.ProcessingTime.Milliseconds())
+
+	return result, nil
 }
