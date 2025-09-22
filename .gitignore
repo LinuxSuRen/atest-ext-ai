@@ -128,10 +128,6 @@ test-results/
 # Docker artifacts
 .dockerignore
 
-# Kubernetes secrets (keep templates)
-k8s/*secret*.yaml
-!k8s/secret-template.yaml
-!k8s/secret.yaml
 
 # Runtime data
 pids/

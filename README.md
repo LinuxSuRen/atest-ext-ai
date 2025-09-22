@@ -43,5 +43,3 @@ make build      # Build binary
 ```
 
 ---
-
-For more details, see `docs/QUICK_START.md`

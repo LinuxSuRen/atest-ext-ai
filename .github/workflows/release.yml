@@ -100,24 +100,6 @@ jobs:
           GIT_COMMIT=${{ github.sha }}
           BUILD_DATE=${{ github.event.head_commit.timestamp }}
 
-  # Deploy to staging environment (optional)
-  deploy-staging:
-    name: Deploy to Staging
-    runs-on: ubuntu-latest
-    needs: [goreleaser, docker-release]
-    if: contains(github.ref, 'rc') == false
-    environment: staging
-    steps:
-    - name: Checkout code
-      uses: actions/checkout@v4
-
-    - name: Deploy to Kubernetes
-      run: |
-        echo "Deploying ${{ needs.goreleaser.outputs.tag_name }} to staging"
-        # Add your Kubernetes deployment commands here
-        # kubectl apply -f k8s/ --namespace=atest-staging
-        # kubectl set image deployment/atest-ai-plugin atest-ai-plugin=${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ needs.goreleaser.outputs.version }} --namespace=atest-staging
-
   # Notify on release completion
   notify:
     name: Notify Release
