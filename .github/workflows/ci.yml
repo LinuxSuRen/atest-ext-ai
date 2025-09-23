@@ -261,11 +261,18 @@ jobs:
         echo "tag=$TAG" >> $GITHUB_OUTPUT
         echo "Generated Docker tag: $TAG"
 
+    - name: Generate lowercase image name
+      id: image-name
+      run: |
+        IMAGE_NAME_LOWER=$(echo "${{ env.IMAGE_NAME }}" | tr '[:upper:]' '[:lower:]')
+        echo "name=$IMAGE_NAME_LOWER" >> $GITHUB_OUTPUT
+        echo "Generated lowercase image name: $IMAGE_NAME_LOWER"
+
     - name: Extract metadata
       id: meta
       uses: docker/metadata-action@v5
       with:
-        images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
+        images: ${{ env.REGISTRY }}/${{ steps.image-name.outputs.name }}
         tags: |
           type=raw,value=${{ steps.docker-tag.outputs.tag }}
           type=raw,value=latest,enable={{is_default_branch}}
@@ -296,15 +303,51 @@ jobs:
     - name: Checkout code
       uses: actions/checkout@v4
 
+    - name: Generate Docker tag for scanning
+      id: scan-tag
+      run: |
+        if [ "${{ github.event_name }}" = "pull_request" ]; then
+          TAG="pr-${{ github.event.number }}"
+        else
+          TAG="${{ github.ref_name }}"
+          # Sanitize tag name
+          TAG=$(echo "$TAG" | sed 's/[^a-zA-Z0-9_.-]/-/g')
+        fi
+        echo "tag=$TAG" >> $GITHUB_OUTPUT
+
+    - name: Generate lowercase image name for scanning
+      id: scan-image-name
+      run: |
+        IMAGE_NAME_LOWER=$(echo "${{ env.IMAGE_NAME }}" | tr '[:upper:]' '[:lower:]')
+        IMAGE_REF="${{ env.REGISTRY }}/${IMAGE_NAME_LOWER}:${{ steps.scan-tag.outputs.tag }}"
+        echo "image_ref=$IMAGE_REF" >> $GITHUB_OUTPUT
+        echo "Scanning Docker image: $IMAGE_REF"
+
+    - name: Wait for image availability
+      run: |
+        IMAGE_REF="${{ steps.scan-image-name.outputs.image_ref }}"
+        echo "Checking if image exists: $IMAGE_REF"
+
+        # Try to pull the image to verify it exists
+        if docker manifest inspect "$IMAGE_REF" >/dev/null 2>&1; then
+          echo "✅ Image found: $IMAGE_REF"
+          echo "SCAN_IMAGE=true" >> $GITHUB_ENV
+        else
+          echo "⚠️ Image not found: $IMAGE_REF"
+          echo "SCAN_IMAGE=false" >> $GITHUB_ENV
+          echo "Skipping Trivy scan - image not available"
+        fi
+
     - name: Run Trivy vulnerability scanner
+      if: env.SCAN_IMAGE == 'true'
       uses: aquasecurity/trivy-action@master
       with:
-        image-ref: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:latest
+        image-ref: ${{ steps.scan-image-name.outputs.image_ref }}
         format: 'sarif'
         output: 'trivy-results.sarif'
 
     - name: Upload Trivy scan results to GitHub Security tab
-      if: always()
+      if: env.SCAN_IMAGE == 'true' && always()
       uses: github/codeql-action/upload-sarif@v3
       with:
         sarif_file: 'trivy-results.sarif'
