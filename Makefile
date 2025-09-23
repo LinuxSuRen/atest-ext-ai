@@ -36,10 +36,10 @@ test:
 	@go test -v -coverprofile=coverage.out ./...
 	@echo "Tests completed."
 
-# Run integration tests
+# Run integration tests (disabled - integration tests removed during simplification)
 test-integration:
-	@echo "Running integration tests..."
-	@go test -v -tags=integration ./test/integration/...
+	@echo "Integration tests have been removed during architecture simplification"
+	@echo "Use 'make test' to run unit tests instead"
 
 # Install dependencies
 deps:
@@ -91,14 +91,14 @@ docker-build:
 	@echo "Building Docker image..."
 	@docker build -t $(DOCKER_IMAGE):latest .
 
-# Docker development environment
+# Docker development environment (disabled - docker-compose.dev.yml removed during simplification)
 dev-up:
-	@echo "Starting development environment..."
-	@docker-compose -f docker-compose.dev.yml up -d
+	@echo "Development Docker environment has been removed during architecture simplification"
+	@echo "Use 'make dev' to run the plugin directly instead"
 
 dev-down:
-	@echo "Stopping development environment..."
-	@docker-compose -f docker-compose.dev.yml down -v
+	@echo "Development Docker environment has been removed during architecture simplification"
+	@echo "Use Ctrl+C to stop the plugin running with 'make dev'"
 
 # Show help
 help:
