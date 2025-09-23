@@ -282,7 +282,9 @@ func (s *AIPluginService) handleAIGenerate(ctx context.Context, req *server.Data
 	// Parse optional config
 	var configMap map[string]interface{}
 	if params.Config != "" {
-		json.Unmarshal([]byte(params.Config), &configMap)
+		if err := json.Unmarshal([]byte(params.Config), &configMap); err != nil {
+			log.Printf("Warning: failed to parse config JSON: %v", err)
+		}
 	}
 
 	log.Printf("Generating SQL with AI interface standard: model=%s, prompt_length=%d", params.Model, len(params.Prompt))

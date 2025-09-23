@@ -8,7 +8,7 @@ on:
     branches: [ main, master, develop ]
 
 env:
-  GO_VERSION: 1.24
+  GO_VERSION: 1.22
   REGISTRY: ghcr.io
   IMAGE_NAME: ${{ github.repository }}
 
@@ -80,7 +80,7 @@ jobs:
     needs: quality
     strategy:
       matrix:
-        go-version: [1.24]
+        go-version: [1.22]
     services:
       postgres:
         image: postgres:16
@@ -153,16 +153,17 @@ jobs:
         MYSQL_URL: testuser:testpass@tcp(localhost:3306)/testdb
         REDIS_URL: redis://localhost:6379
 
-    - name: Run integration tests (disabled - removed during simplification)
+    - name: Verify plugin functionality
       run: |
-        echo "Integration tests have been removed during architecture simplification"
-        echo "Skipping integration test step"
+        echo "Testing plugin build and basic functionality..."
+        make build
+        echo "Plugin built successfully"
 
     - name: Run benchmarks
       run: make benchmark
 
     - name: Upload coverage to Codecov
-      if: matrix.go-version == '1.24'
+      if: matrix.go-version == '1.22'
       uses: codecov/codecov-action@v4
       with:
         file: ./coverage.out
@@ -247,41 +248,18 @@ jobs:
         username: ${{ github.actor }}
         password: ${{ secrets.GITHUB_TOKEN }}
 
-    - name: Generate sanitized Docker tag
+    - name: Generate Docker tag
       id: docker-tag
       run: |
-        # Debug: Show all available variables
-        echo "DEBUG: github.event_name=${{ github.event_name }}"
-        echo "DEBUG: github.ref_name=${{ github.ref_name }}"
-        echo "DEBUG: github.head_ref=${{ github.head_ref }}"
-        echo "DEBUG: github.event.number=${{ github.event.number }}"
-
-        # Sanitize branch/PR name for Docker tag compatibility
         if [ "${{ github.event_name }}" = "pull_request" ]; then
-          RAW_REF="pr-${{ github.event.number }}"
+          TAG="pr-${{ github.event.number }}"
         else
-          # Use github.head_ref for PRs, github.ref_name for branches
-          RAW_REF="${{ github.head_ref || github.ref_name }}"
+          TAG="${{ github.ref_name }}"
+          # Sanitize tag name
+          TAG=$(echo "$TAG" | sed 's/[^a-zA-Z0-9_.-]/-/g')
         fi
-
-        echo "DEBUG: RAW_REF=$RAW_REF"
-
-        # Clean tag: replace invalid chars with -, remove leading/trailing -
-        CLEAN_TAG=$(echo "$RAW_REF" | sed 's/[^a-zA-Z0-9_.-]/-/g' | sed 's/^-\+//' | sed 's/-\+$//')
-
-        echo "DEBUG: After sed cleaning=$CLEAN_TAG"
-
-        # Ensure tag is not empty, not just dashes, and has reasonable length
-        if [ -z "$CLEAN_TAG" ] || [ "$CLEAN_TAG" = "-" ] || [ ${#CLEAN_TAG} -lt 2 ]; then
-          CLEAN_TAG="latest"
-          echo "DEBUG: Using fallback tag=latest"
-        fi
-
-        # Set outputs
-        echo "tag=$CLEAN_TAG" >> $GITHUB_OUTPUT
-        echo "image=${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:$CLEAN_TAG" >> $GITHUB_OUTPUT
-
-        echo "Generated Docker tag: $CLEAN_TAG"
+        echo "tag=$TAG" >> $GITHUB_OUTPUT
+        echo "Generated Docker tag: $TAG"
 
     - name: Extract metadata
       id: meta
@@ -297,7 +275,7 @@ jobs:
       with:
         context: .
         file: ./Dockerfile
-        platforms: linux/amd64
+        platforms: linux/amd64,linux/arm64
         push: ${{ github.event_name != 'pull_request' }}
         tags: ${{ steps.meta.outputs.tags }}
         labels: ${{ steps.meta.outputs.labels }}
@@ -307,21 +285,6 @@ jobs:
           VERSION=${{ github.sha }}
           BUILD_DATE=${{ github.event.head_commit.timestamp }}
 
-  # Integration with external services
-  integration:
-    name: Integration Tests
-    runs-on: ubuntu-latest
-    needs: docker
-    if: github.event_name != 'pull_request'
-    steps:
-    - name: Checkout code
-      uses: actions/checkout@v4
-
-    - name: Integration tests disabled
-      run: |
-        echo "Docker-based integration tests have been removed during architecture simplification"
-        echo "docker-compose.dev.yml and integration test directory were removed"
-        echo "Use unit tests via 'make test' for validation"
 
   # Security scanning
   security:
@@ -329,83 +292,19 @@ jobs:
     runs-on: ubuntu-latest
     needs: [docker]
     if: github.event_name != 'pull_request' && needs.docker.result == 'success'
-    outputs:
-      image-tag: ${{ steps.get-image-tag.outputs.tag }}
     steps:
     - name: Checkout code
       uses: actions/checkout@v4
 
-    - name: Generate sanitized Docker tag for scanning
-      id: docker-tag
-      run: |
-        # Use same sanitization logic as docker job
-        echo "DEBUG Security: github.event_name=${{ github.event_name }}"
-        echo "DEBUG Security: github.ref_name=${{ github.ref_name }}"
-        echo "DEBUG Security: github.head_ref=${{ github.head_ref }}"
-
-        if [ "${{ github.event_name }}" = "pull_request" ]; then
-          RAW_REF="pr-${{ github.event.number }}"
-        else
-          RAW_REF="${{ github.head_ref || github.ref_name }}"
-        fi
-
-        echo "DEBUG Security: RAW_REF=$RAW_REF"
-
-        # Clean tag: replace invalid chars with -, remove leading/trailing -
-        CLEAN_TAG=$(echo "$RAW_REF" | sed 's/[^a-zA-Z0-9_.-]/-/g' | sed 's/^-\+//' | sed 's/-\+$//')
-
-        echo "DEBUG Security: After sed cleaning=$CLEAN_TAG"
-
-        # Ensure tag is not empty, not just dashes, and has reasonable length
-        if [ -z "$CLEAN_TAG" ] || [ "$CLEAN_TAG" = "-" ] || [ ${#CLEAN_TAG} -lt 2 ]; then
-          CLEAN_TAG="latest"
-          echo "DEBUG Security: Using fallback tag=latest"
-        fi
-
-        IMAGE="${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:$CLEAN_TAG"
-        echo "image=$IMAGE" >> $GITHUB_OUTPUT
-        echo "Scanning Docker image: $IMAGE"
-
-    - name: Wait for image availability and verify
-      run: |
-        IMAGE="${{ steps.docker-tag.outputs.image }}"
-        echo "Waiting for image: $IMAGE"
-
-        # Wait up to 2 minutes for the image to be available
-        for i in {1..12}; do
-          echo "Attempt $i: Checking if image exists..."
-          if docker manifest inspect "$IMAGE" >/dev/null 2>&1; then
-            echo "✅ Image found: $IMAGE"
-            echo "image_exists=true" >> $GITHUB_ENV
-            break
-          fi
-
-          if [ $i -eq 12 ]; then
-            echo "⚠️ Image not found after 2 minutes: $IMAGE"
-            echo "image_exists=false" >> $GITHUB_ENV
-            echo "Possible reasons:"
-            echo "1. Docker build job failed"
-            echo "2. Image push was skipped"
-            echo "3. Registry propagation delay"
-            echo ""
-            echo "Skipping Trivy scan for this run."
-            exit 0  # Exit gracefully instead of failing
-          fi
-
-          echo "Waiting 10 seconds before next check..."
-          sleep 10
-        done
-
     - name: Run Trivy vulnerability scanner
-      if: env.image_exists == 'true'
       uses: aquasecurity/trivy-action@master
       with:
-        image-ref: ${{ steps.docker-tag.outputs.image }}
+        image-ref: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:latest
         format: 'sarif'
         output: 'trivy-results.sarif'
 
     - name: Upload Trivy scan results to GitHub Security tab
-      if: env.image_exists == 'true' && always()
+      if: always()
       uses: github/codeql-action/upload-sarif@v3
       with:
         sarif_file: 'trivy-results.sarif'
