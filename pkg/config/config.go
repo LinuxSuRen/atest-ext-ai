@@ -38,7 +38,6 @@ type LegacyAIConfig struct {
 	ConfidenceThreshold float32           `yaml:"confidence_threshold" json:"confidence_threshold"`
 	SupportedDatabases  []string          `yaml:"supported_databases" json:"supported_databases"`
 	EnableSQLExecution  bool              `yaml:"enable_sql_execution" json:"enable_sql_execution"`
-	Metadata            map[string]string `yaml:"metadata" json:"metadata"`
 }
 
 // LoadConfig loads configuration using simplified loader
@@ -65,7 +64,6 @@ func LoadLegacyConfig() (*LegacyConfig, error) {
 			ConfidenceThreshold: 0.7,
 			SupportedDatabases:  []string{"mysql", "postgresql", "sqlite"},
 			EnableSQLExecution:  true,
-			Metadata:            make(map[string]string),
 		},
 	}
 
@@ -152,7 +150,6 @@ func ConvertNewToLegacy(config *Config) *LegacyConfig {
 			ConfidenceThreshold: 0.7,
 			SupportedDatabases:  []string{"mysql", "postgresql", "sqlite"},
 			EnableSQLExecution:  true,
-			Metadata:            make(map[string]string),
 		},
 	}
 

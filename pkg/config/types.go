@@ -45,7 +45,6 @@ type PluginConfig struct {
 	Debug       bool              `mapstructure:"debug" yaml:"debug" json:"debug" toml:"debug"`
 	LogLevel    string            `mapstructure:"log_level" yaml:"log_level" json:"log_level" toml:"log_level" validate:"oneof=debug info warn error"`
 	Environment string            `mapstructure:"environment" yaml:"environment" json:"environment" toml:"environment" validate:"oneof=development staging production"`
-	Metadata    map[string]string `mapstructure:"metadata" yaml:"metadata" json:"metadata" toml:"metadata"`
 }
 
 // AIConfig contains AI service configuration
@@ -55,7 +54,6 @@ type AIConfig struct {
 	Fallback       []string             `mapstructure:"fallback_order" yaml:"fallback_order" json:"fallback_order" toml:"fallback_order"`
 	Timeout        Duration             `mapstructure:"timeout" yaml:"timeout" json:"timeout" toml:"timeout" validate:"required"`
 	RateLimit      RateLimitConfig      `mapstructure:"rate_limit" yaml:"rate_limit" json:"rate_limit" toml:"rate_limit"`
-	CircuitBreaker CircuitBreakerConfig `mapstructure:"circuit_breaker" yaml:"circuit_breaker" json:"circuit_breaker" toml:"circuit_breaker"`
 	Retry          RetryConfig          `mapstructure:"retry" yaml:"retry" json:"retry" toml:"retry"`
 	Cache          CacheConfig          `mapstructure:"cache" yaml:"cache" json:"cache" toml:"cache"`
 	Security       SecurityConfig       `mapstructure:"security" yaml:"security" json:"security" toml:"security"`
@@ -85,14 +83,6 @@ type RateLimitConfig struct {
 	WindowSize        Duration `mapstructure:"window_size" yaml:"window_size" json:"window_size" toml:"window_size"`
 }
 
-// CircuitBreakerConfig contains circuit breaker configuration
-type CircuitBreakerConfig struct {
-	Enabled          bool     `mapstructure:"enabled" yaml:"enabled" json:"enabled" toml:"enabled"`
-	FailureThreshold int      `mapstructure:"failure_threshold" yaml:"failure_threshold" json:"failure_threshold" toml:"failure_threshold" validate:"min=1"`
-	SuccessThreshold int      `mapstructure:"success_threshold" yaml:"success_threshold" json:"success_threshold" toml:"success_threshold" validate:"min=1"`
-	Timeout          Duration `mapstructure:"timeout" yaml:"timeout" json:"timeout" toml:"timeout"`
-	ResetTimeout     Duration `mapstructure:"reset_timeout" yaml:"reset_timeout" json:"reset_timeout" toml:"reset_timeout"`
-}
 
 // RetryConfig contains retry configuration
 type RetryConfig struct {

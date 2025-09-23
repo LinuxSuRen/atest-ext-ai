@@ -42,9 +42,6 @@ var (
 
 	// ErrInvalidConfig is returned when the configuration is invalid
 	ErrInvalidConfig = errors.New("invalid configuration")
-
-	// ErrCircuitBreakerOpen is returned when the circuit breaker is open
-	ErrCircuitBreakerOpen = errors.New("circuit breaker is open")
 )
 
 // Client provides a simplified interface for AI interactions

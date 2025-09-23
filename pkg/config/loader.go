@@ -552,15 +552,6 @@ func (l *Loader) mergeConfigs(dst, src *Config) *Config {
 	// Debug is a bool, so we need special handling
 	result.Plugin.Debug = src.Plugin.Debug || dst.Plugin.Debug
 
-	// Merge metadata maps
-	if result.Plugin.Metadata == nil {
-		result.Plugin.Metadata = make(map[string]string)
-	}
-	for k, v := range src.Plugin.Metadata {
-		if v != "" {
-			result.Plugin.Metadata[k] = v
-		}
-	}
 
 	// Merge AI config
 	if src.AI.DefaultService != "" {

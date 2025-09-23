@@ -214,11 +214,6 @@ func (rm *defaultRetryManager) isRetryableError(err error) bool {
 		return false
 	}
 
-	// Circuit breaker errors are not retryable
-	if errors.Is(err, ErrCircuitBreakerOpen) {
-		return false
-	}
-
 	// Network errors are generally retryable
 	var netErr net.Error
 	if errors.As(err, &netErr) {
