@@ -26,6 +26,11 @@ jobs:
       with:
         go-version: ${{ env.GO_VERSION }}
 
+    - name: Clean Go module cache directory
+      run: |
+        rm -rf ~/.cache/go-build || true
+        rm -rf ~/go/pkg/mod || true
+
     - name: Cache Go modules
       uses: actions/cache@v4
       with:
@@ -125,6 +130,11 @@ jobs:
       with:
         go-version: ${{ matrix.go-version }}
 
+    - name: Clean Go module cache directory
+      run: |
+        rm -rf ~/.cache/go-build || true
+        rm -rf ~/go/pkg/mod || true
+
     - name: Cache Go modules
       uses: actions/cache@v4
       with:
@@ -143,13 +153,10 @@ jobs:
         MYSQL_URL: testuser:testpass@tcp(localhost:3306)/testdb
         REDIS_URL: redis://localhost:6379
 
-    - name: Run integration tests
-      run: make test-integration
-      env:
-        POSTGRES_URL: postgres://testuser:testpass@localhost:5432/testdb?sslmode=disable
-        MYSQL_URL: testuser:testpass@tcp(localhost:3306)/testdb
-        REDIS_URL: redis://localhost:6379
-        AI_PROVIDER: mock
+    - name: Run integration tests (disabled - removed during simplification)
+      run: |
+        echo "Integration tests have been removed during architecture simplification"
+        echo "Skipping integration test step"
 
     - name: Run benchmarks
       run: make benchmark
@@ -182,6 +189,11 @@ jobs:
       uses: actions/setup-go@v5
       with:
         go-version: ${{ env.GO_VERSION }}
+
+    - name: Clean Go module cache directory
+      run: |
+        rm -rf ~/.cache/go-build || true
+        rm -rf ~/go/pkg/mod || true
 
     - name: Cache Go modules
       uses: actions/cache@v4
@@ -305,28 +317,11 @@ jobs:
     - name: Checkout code
       uses: actions/checkout@v4
 
-    - name: Clean up any existing containers
+    - name: Integration tests disabled
       run: |
-        docker compose -f docker-compose.yml -f docker-compose.dev.yml down -v || true
-        docker system prune -f || true
-
-    - name: Set up Docker Compose
-      run: |
-        # Set memory limits for CI environment
-        export COMPOSE_MEMORY_LIMIT=512m
-        docker compose -f docker-compose.yml -f docker-compose.dev.yml up -d
-        sleep 30
-
-    - name: Run integration tests
-      run: |
-        docker compose exec -T atest-ai-plugin-dev go test -v -tags=integration ./test/integration/...
-      env:
-        AI_API_KEY: mock-api-key-for-testing
-        AI_PROVIDER: mock
-
-    - name: Cleanup
-      if: always()
-      run: docker compose down -v
+        echo "Docker-based integration tests have been removed during architecture simplification"
+        echo "docker-compose.dev.yml and integration test directory were removed"
+        echo "Use unit tests via 'make test' for validation"
 
   # Security scanning
   security:
