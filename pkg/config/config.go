@@ -41,24 +41,17 @@ type LegacyAIConfig struct {
 	Metadata            map[string]string `yaml:"metadata" json:"metadata"`
 }
 
-// LoadConfig loads configuration using the new configuration system with backward compatibility
-// This function provides backward compatibility for existing code
+// LoadConfig loads configuration using simplified loader
 func LoadConfig() (*Config, error) {
-	// Create a new manager with backward compatibility options
-	manager, err := NewManager(ManagerOptions{
-		EnableHotReload: false, // Disable for legacy compatibility
-		ValidateOnLoad:  true,
-	})
-	if err != nil {
-		return nil, fmt.Errorf("failed to create config manager: %w", err)
-	}
+	// Create a new loader
+	loader := NewLoader()
 
-	// Load configuration using the new system
-	if err := manager.Load(); err != nil {
+	// Load configuration from default paths
+	if err := loader.Load(); err != nil {
 		return nil, fmt.Errorf("failed to load configuration: %w", err)
 	}
 
-	return manager.GetConfig(), nil
+	return loader.GetConfig(), nil
 }
 
 // LoadLegacyConfig loads configuration using the old format for backward compatibility

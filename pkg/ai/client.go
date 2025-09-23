@@ -143,23 +143,12 @@ func (c *Client) GetAllClients() map[string]interfaces.AIClient {
 func convertAIConfigToServiceConfig(cfg config.AIConfig) *AIServiceConfig {
 	serviceConfig := &AIServiceConfig{
 		Providers: make([]ProviderConfig, 0, len(cfg.Services)),
-		LoadBalancer: LoadBalancerConfig{
-			Strategy:            "failover",
-			HealthCheckInterval: 30 * time.Second,
-			HealthCheckTimeout:  10 * time.Second,
-		},
 		Retry: RetryConfig{
 			MaxAttempts:       3,
 			BaseDelay:         100 * time.Millisecond,
 			MaxDelay:          5 * time.Second,
 			BackoffMultiplier: 2.0,
 			Jitter:            true,
-		},
-		CircuitBreaker: CircuitBreakerConfig{
-			FailureThreshold: 5,
-			ResetTimeout:     30 * time.Second,
-			HalfOpenMaxCalls: 3,
-			SuccessThreshold: 2,
 		},
 	}
 
@@ -194,14 +183,12 @@ func convertAIConfigToServiceConfig(cfg config.AIConfig) *AIServiceConfig {
 
 // ClientManager manages multiple AI clients and provides unified access
 type ClientManager struct {
-	clients        map[string]interfaces.AIClient
-	factory        ClientFactory
-	loadBalancer   LoadBalancer
-	retryManager   RetryManager
-	circuitBreaker CircuitBreaker
-	config         *AIServiceConfig
-	mu             sync.RWMutex
-	healthChecker  *HealthChecker
+	clients       map[string]interfaces.AIClient
+	factory       ClientFactory
+	retryManager  RetryManager
+	config        *AIServiceConfig
+	mu            sync.RWMutex
+	healthChecker *HealthChecker
 }
 
 // NewClientManager creates a new client manager with the given configuration
@@ -222,32 +209,19 @@ func NewClientManager(config *AIServiceConfig) (*ClientManager, error) {
 	}
 	manager.factory = factory
 
-	// Initialize load balancer
-	manager.loadBalancer = NewDefaultLoadBalancer(config.LoadBalancer)
-
 	// Initialize retry manager
 	manager.retryManager = NewDefaultRetryManager(config.Retry)
 
-	// Initialize circuit breaker
-	manager.circuitBreaker = NewDefaultCircuitBreaker(config.CircuitBreaker)
-
 	// Initialize health checker
-	manager.healthChecker = NewHealthChecker(config.LoadBalancer.HealthCheckInterval)
+	manager.healthChecker = NewHealthChecker(30 * time.Second)
 
 	// Create clients for enabled providers
 	if err := manager.initializeClients(); err != nil {
 		return nil, fmt.Errorf("failed to initialize clients: %w", err)
 	}
 
-	// Register clients with load balancer
-	for name, client := range manager.clients {
-		if lb, ok := manager.loadBalancer.(*defaultLoadBalancer); ok {
-			lb.RegisterClient(name, client)
-		}
-	}
-
 	// Start health checking
-	manager.healthChecker.Start(manager.clients, manager.loadBalancer)
+	manager.healthChecker.Start(manager.clients)
 
 	return manager, nil
 }
@@ -273,25 +247,23 @@ func (cm *ClientManager) initializeClients() error {
 	return nil
 }
 
-// Generate executes an AI generation request with load balancing and retry logic
+// Generate executes an AI generation request with retry logic
 func (cm *ClientManager) Generate(ctx context.Context, req *GenerateRequest) (*GenerateResponse, error) {
 	var result *GenerateResponse
 
 	err := cm.retryManager.Execute(ctx, func() error {
-		return cm.circuitBreaker.Call(ctx, func() error {
-			client, err := cm.loadBalancer.SelectClient(req)
-			if err != nil {
-				return err
-			}
+		client, err := cm.selectFirstHealthyClient()
+		if err != nil {
+			return err
+		}
 
-			response, err := client.Generate(ctx, req)
-			if err != nil {
-				return err
-			}
+		response, err := client.Generate(ctx, req)
+		if err != nil {
+			return err
+		}
 
-			result = response
-			return nil
-		})
+		result = response
+		return nil
 	})
 
 	if err != nil {
@@ -299,6 +271,28 @@ func (cm *ClientManager) Generate(ctx context.Context, req *GenerateRequest) (*G
 	}
 
 	return result, nil
+}
+
+// selectFirstHealthyClient selects the first available healthy client
+func (cm *ClientManager) selectFirstHealthyClient() (interfaces.AIClient, error) {
+	cm.mu.RLock()
+	defer cm.mu.RUnlock()
+
+	// Check health status and return first healthy client
+	healthStatus := cm.healthChecker.GetHealthStatus()
+
+	for name, client := range cm.clients {
+		if health, exists := healthStatus[name]; exists && health.Healthy {
+			return client, nil
+		}
+	}
+
+	// If no healthy clients, return first available client as fallback
+	for _, client := range cm.clients {
+		return client, nil
+	}
+
+	return nil, ErrNoHealthyClients
 }
 
 // GetCapabilities returns the capabilities of all available clients
@@ -373,10 +367,6 @@ func (cm *ClientManager) RemoveClient(name string) error {
 	return nil
 }
 
-// GetStats returns statistics for all clients
-func (cm *ClientManager) GetStats() *LoadBalancerStats {
-	return cm.loadBalancer.GetStats()
-}
 
 // GetHealthStatus returns the health status of all clients
 func (cm *ClientManager) GetHealthStatus() map[string]*HealthStatus {
@@ -556,7 +546,6 @@ type HealthChecker struct {
 	interval     time.Duration
 	clients      map[string]interfaces.AIClient
 	healthStatus map[string]*HealthStatus
-	loadBalancer LoadBalancer
 	mu           sync.RWMutex
 	stopCh       chan struct{}
 	stopped      bool
@@ -572,10 +561,9 @@ func NewHealthChecker(interval time.Duration) *HealthChecker {
 }
 
 // Start begins health checking for the given clients
-func (hc *HealthChecker) Start(clients map[string]interfaces.AIClient, loadBalancer LoadBalancer) {
+func (hc *HealthChecker) Start(clients map[string]interfaces.AIClient) {
 	hc.mu.Lock()
 	hc.clients = clients
-	hc.loadBalancer = loadBalancer
 	hc.stopped = false
 	hc.mu.Unlock()
 
@@ -657,9 +645,7 @@ func (hc *HealthChecker) checkClientHealth(name string, client AIClient) {
 			LastChecked:  time.Now(),
 			Errors:       []string{err.Error()},
 		}
-		hc.loadBalancer.UpdateHealth(name, false)
 	} else {
 		hc.healthStatus[name] = health
-		hc.loadBalancer.UpdateHealth(name, health.Healthy)
 	}
 }

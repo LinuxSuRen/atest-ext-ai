@@ -37,7 +37,6 @@ type AIPluginService struct {
 	aiEngine           ai.Engine
 	config             *config.Config
 	capabilityDetector *ai.CapabilityDetector
-	metadataProvider   *ai.MetadataProvider
 }
 
 // NewAIPluginService creates a new AI plugin service instance
@@ -70,15 +69,10 @@ func NewAIPluginService() (*AIPluginService, error) {
 	capabilityDetector := ai.NewCapabilityDetector(cfg.AI, aiClient)
 	log.Printf("Capability detector initialized")
 
-	// Initialize metadata provider
-	metadataProvider := ai.NewMetadataProvider(*cfg)
-	log.Printf("Metadata provider initialized")
-
 	service := &AIPluginService{
 		aiEngine:           aiEngine,
 		config:             cfg,
 		capabilityDetector: capabilityDetector,
-		metadataProvider:   metadataProvider,
 	}
 
 	log.Println("AI plugin service creation completed")
@@ -146,7 +140,7 @@ func (s *AIPluginService) handleCapabilitiesQuery(ctx context.Context, req *serv
 			subQuery := parts[len(parts)-1]
 			switch subQuery {
 			case "metadata":
-				return s.handleMetadataQuery(ctx)
+				return nil, status.Errorf(codes.Unimplemented, "metadata query not supported")
 			case "models":
 				capReq.IncludeModels = true
 				capReq.IncludeDatabases = false
@@ -223,66 +217,6 @@ func (s *AIPluginService) handleCapabilitiesQuery(ctx context.Context, req *serv
 	return result, nil
 }
 
-// handleMetadataQuery handles requests for plugin metadata
-func (s *AIPluginService) handleMetadataQuery(ctx context.Context) (*server.DataQueryResult, error) {
-	log.Printf("Handling metadata query")
-
-	if s.metadataProvider == nil {
-		return nil, status.Errorf(codes.Internal, "metadata provider not initialized")
-	}
-
-	// Get plugin metadata
-	metadata := s.metadataProvider.GetMetadata()
-
-	// Convert metadata to JSON
-	metadataJSON, err := json.Marshal(metadata)
-	if err != nil {
-		log.Printf("Failed to marshal metadata: %v", err)
-		return nil, status.Errorf(codes.Internal, "failed to serialize metadata: %v", err)
-	}
-
-	// Get runtime summary for quick overview
-	summary := s.metadataProvider.GetSummary()
-	summaryJSON, _ := json.Marshal(summary)
-
-	// Create response
-	result := &server.DataQueryResult{
-		Data: []*server.Pair{
-			{
-				Key:   "metadata",
-				Value: string(metadataJSON),
-			},
-			{
-				Key:   "summary",
-				Value: string(summaryJSON),
-			},
-			{
-				Key:   "name",
-				Value: metadata.Name,
-			},
-			{
-				Key:   "version",
-				Value: metadata.Version,
-			},
-			{
-				Key:   "uptime",
-				Value: metadata.Runtime.Uptime.String(),
-			},
-			{
-				Key:   "go_version",
-				Value: metadata.Runtime.GoVersion,
-			},
-			{
-				Key:   "platform",
-				Value: metadata.Runtime.GOOS + "/" + metadata.Runtime.GOARCH,
-			},
-		},
-	}
-
-	log.Printf("Metadata query completed successfully: name=%s, version=%s", metadata.Name, metadata.Version)
-
-	return result, nil
-}
 
 // Verify returns the plugin status for health checks
 func (s *AIPluginService) Verify(ctx context.Context, req *server.Empty) (*server.ExtensionStatus, error) {
