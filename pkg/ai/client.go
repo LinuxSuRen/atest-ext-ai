@@ -364,7 +364,6 @@ func (cm *ClientManager) RemoveClient(name string) error {
 	return nil
 }
 
-
 // GetHealthStatus returns the health status of all clients
 func (cm *ClientManager) GetHealthStatus() map[string]*HealthStatus {
 	return cm.healthChecker.GetHealthStatus()

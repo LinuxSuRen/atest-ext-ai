@@ -217,7 +217,6 @@ func (s *AIPluginService) handleCapabilitiesQuery(ctx context.Context, req *serv
 	return result, nil
 }
 
-
 // Verify returns the plugin status for health checks
 func (s *AIPluginService) Verify(ctx context.Context, req *server.Empty) (*server.ExtensionStatus, error) {
 	log.Printf("Health check requested")

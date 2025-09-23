@@ -46,7 +46,6 @@ type ClientFactory interface {
 	ValidateConfig(provider string, config map[string]any) error
 }
 
-
 // RetryManager handles retry logic for failed requests
 type RetryManager interface {
 	// Execute executes a function with retry logic
@@ -58,7 +57,6 @@ type RetryManager interface {
 	// GetRetryDelay calculates the delay before the next retry attempt
 	GetRetryDelay(attempt int) time.Duration
 }
-
 
 // ProviderConfig represents configuration for a specific AI provider
 type ProviderConfig struct {
@@ -89,13 +87,9 @@ type AIServiceConfig struct {
 	// Providers lists all configured AI providers
 	Providers []ProviderConfig `json:"providers"`
 
-
 	// Retry configures the retry behavior
 	Retry RetryConfig `json:"retry"`
-
-
 }
-
 
 // RetryConfig configures retry behavior
 type RetryConfig struct {
@@ -114,5 +108,3 @@ type RetryConfig struct {
 	// Jitter enables random jitter in retry delays
 	Jitter bool `json:"jitter"`
 }
-
-

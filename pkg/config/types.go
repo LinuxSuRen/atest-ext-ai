@@ -40,11 +40,11 @@ type ServerConfig struct {
 
 // PluginConfig contains plugin-specific configuration
 type PluginConfig struct {
-	Name        string            `mapstructure:"name" yaml:"name" json:"name" toml:"name" validate:"required,min=1"`
-	Version     string            `mapstructure:"version" yaml:"version" json:"version" toml:"version" validate:"required,semver"`
-	Debug       bool              `mapstructure:"debug" yaml:"debug" json:"debug" toml:"debug"`
-	LogLevel    string            `mapstructure:"log_level" yaml:"log_level" json:"log_level" toml:"log_level" validate:"oneof=debug info warn error"`
-	Environment string            `mapstructure:"environment" yaml:"environment" json:"environment" toml:"environment" validate:"oneof=development staging production"`
+	Name        string `mapstructure:"name" yaml:"name" json:"name" toml:"name" validate:"required,min=1"`
+	Version     string `mapstructure:"version" yaml:"version" json:"version" toml:"version" validate:"required,semver"`
+	Debug       bool   `mapstructure:"debug" yaml:"debug" json:"debug" toml:"debug"`
+	LogLevel    string `mapstructure:"log_level" yaml:"log_level" json:"log_level" toml:"log_level" validate:"oneof=debug info warn error"`
+	Environment string `mapstructure:"environment" yaml:"environment" json:"environment" toml:"environment" validate:"oneof=development staging production"`
 }
 
 // AIConfig contains AI service configuration
@@ -82,7 +82,6 @@ type RateLimitConfig struct {
 	BurstSize         int      `mapstructure:"burst_size" yaml:"burst_size" json:"burst_size" toml:"burst_size" validate:"min=1"`
 	WindowSize        Duration `mapstructure:"window_size" yaml:"window_size" json:"window_size" toml:"window_size"`
 }
-
 
 // RetryConfig contains retry configuration
 type RetryConfig struct {

@@ -31,13 +31,13 @@ type LegacyConfig struct {
 
 // LegacyAIConfig contains legacy AI-specific configuration
 type LegacyAIConfig struct {
-	Provider            string            `yaml:"provider" json:"provider"` // local, openai, claude
-	OllamaEndpoint      string            `yaml:"ollama_endpoint" json:"ollama_endpoint"`
-	Model               string            `yaml:"model" json:"model"`
-	APIKey              string            `yaml:"api_key" json:"api_key"`
-	ConfidenceThreshold float32           `yaml:"confidence_threshold" json:"confidence_threshold"`
-	SupportedDatabases  []string          `yaml:"supported_databases" json:"supported_databases"`
-	EnableSQLExecution  bool              `yaml:"enable_sql_execution" json:"enable_sql_execution"`
+	Provider            string   `yaml:"provider" json:"provider"` // local, openai, claude
+	OllamaEndpoint      string   `yaml:"ollama_endpoint" json:"ollama_endpoint"`
+	Model               string   `yaml:"model" json:"model"`
+	APIKey              string   `yaml:"api_key" json:"api_key"`
+	ConfidenceThreshold float32  `yaml:"confidence_threshold" json:"confidence_threshold"`
+	SupportedDatabases  []string `yaml:"supported_databases" json:"supported_databases"`
+	EnableSQLExecution  bool     `yaml:"enable_sql_execution" json:"enable_sql_execution"`
 }
 
 // LoadConfig loads configuration using simplified loader

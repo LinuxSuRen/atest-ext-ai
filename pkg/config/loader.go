@@ -552,7 +552,6 @@ func (l *Loader) mergeConfigs(dst, src *Config) *Config {
 	// Debug is a bool, so we need special handling
 	result.Plugin.Debug = src.Plugin.Debug || dst.Plugin.Debug
 
-
 	// Merge AI config
 	if src.AI.DefaultService != "" {
 		result.AI.DefaultService = src.AI.DefaultService
