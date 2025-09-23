@@ -356,6 +356,463 @@ func (s *AIPluginService) handleAICapabilities(ctx context.Context, req *server.
 	}, nil
 }
 
+// GetMenus returns the menu entries for AI plugin UI
+func (s *AIPluginService) GetMenus(ctx context.Context, req *server.Empty) (*server.MenuList, error) {
+	log.Printf("🎯🎯🎯 AI PLUGIN GetMenus CALLED 🎯🎯🎯")
+	fmt.Printf("🎯🎯🎯 AI PLUGIN GetMenus CALLED 🎯🎯🎯\n")
+
+	return &server.MenuList{
+		Data: []*server.Menu{
+			{
+				Name:    "AI Assistant",
+				Index:   "ai-chat",
+				Icon:    "ChatDotRound",
+				Version: 1,
+			},
+		},
+	}, nil
+}
+
+// GetPageOfJS returns the JavaScript code for AI plugin UI
+func (s *AIPluginService) GetPageOfJS(ctx context.Context, req *server.SimpleName) (*server.CommonResult, error) {
+	log.Printf("Serving JavaScript for AI plugin: %s", req.Name)
+
+	if req.Name != "ai-chat" {
+		return &server.CommonResult{
+			Success: false,
+			Message: "Unknown AI plugin page",
+		}, nil
+	}
+
+	// Embedded JavaScript for AI Chat UI (using simple string concatenation)
+	jsCode := "(function() {\n" +
+		"    console.log('Loading AI Chat Plugin...');\n" +
+		"    \n" +
+		"    function createAIChatInterface() {\n" +
+		"        const container = document.createElement('div');\n" +
+		"        container.className = 'ai-chat-container';\n" +
+		"        container.innerHTML = '<div class=\"ai-chat-header\">' +\n" +
+		"            '<h2><i class=\"el-icon-chat-dot-round\"></i> AI Assistant</h2>' +\n" +
+		"            '<p>Natural language to SQL query generator</p>' +\n" +
+		"            '</div>' +\n" +
+		"            '<div class=\"ai-chat-messages\" id=\"ai-chat-messages\">' +\n" +
+		"            '<div class=\"ai-message\">' +\n" +
+		"            '<div class=\"ai-message-content\">' +\n" +
+		"            'Hello! I\\\\'m your AI assistant. I can help you generate SQL queries from natural language descriptions.' +\n" +
+		"            '<br><br><strong>Examples:</strong>' +\n" +
+		"            '<ul><li>\"Show all users created in the last 30 days\"</li>' +\n" +
+		"            '<li>\"Find products with price greater than 100\"</li>' +\n" +
+		"            '<li>\"Count orders by status\"</li></ul>' +\n" +
+		"            '</div></div></div>' +\n" +
+		"            '<div class=\"ai-chat-input-area\">' +\n" +
+		"            '<div class=\"ai-input-container\">' +\n" +
+		"            '<textarea id=\"ai-input\" placeholder=\"Describe what you want to query in natural language...\" rows=\"3\"></textarea>' +\n" +
+		"            '<button id=\"ai-send-btn\" class=\"ai-send-button\">' +\n" +
+		"            '<i class=\"el-icon-promotion\"></i> Generate SQL</button>' +\n" +
+		"            '</div>' +\n" +
+		"            '<div class=\"ai-options\">' +\n" +
+		"            '<label><input type=\"checkbox\" id=\"ai-explain-checkbox\" checked> Include explanation</label>' +\n" +
+		"            '</div></div>';\n" +
+		"        return container;\n" +
+		"    }\n" +
+		"    \n" +
+		"    function copyToClipboard(button) {\n" +
+		"        const sqlCode = button.parentElement.nextElementSibling.textContent;\n" +
+		"        navigator.clipboard.writeText(sqlCode).then(function() {\n" +
+		"            const originalText = button.textContent;\n" +
+		"            button.textContent = 'Copied!';\n" +
+		"            setTimeout(function() { button.textContent = originalText; }, 2000);\n" +
+		"        });\n" +
+		"    }\n" +
+		"    \n" +
+		"    async function handleAIQuery() {\n" +
+		"        const input = document.getElementById('ai-input');\n" +
+		"        const messagesContainer = document.getElementById('ai-chat-messages');\n" +
+		"        const sendBtn = document.getElementById('ai-send-btn');\n" +
+		"        const includeExplanation = document.getElementById('ai-explain-checkbox').checked;\n" +
+		"        \n" +
+		"        const query = input.value.trim();\n" +
+		"        if (!query) return;\n" +
+		"        \n" +
+		"        const userMessage = document.createElement('div');\n" +
+		"        userMessage.className = 'user-message';\n" +
+		"        userMessage.innerHTML = '<div class=\"user-message-content\">' + query + '</div>';\n" +
+		"        messagesContainer.appendChild(userMessage);\n" +
+		"        \n" +
+		"        const loadingMessage = document.createElement('div');\n" +
+		"        loadingMessage.className = 'ai-message loading';\n" +
+		"        loadingMessage.innerHTML = '<div class=\"ai-message-content\"><i class=\"el-icon-loading\"></i> Generating SQL query...</div>';\n" +
+		"        messagesContainer.appendChild(loadingMessage);\n" +
+		"        \n" +
+		"        input.value = '';\n" +
+		"        sendBtn.disabled = true;\n" +
+		"        sendBtn.innerHTML = '<i class=\"el-icon-loading\"></i> Generating...';\n" +
+		"        messagesContainer.scrollTop = messagesContainer.scrollHeight;\n" +
+		"        \n" +
+		"        try {\n" +
+		"            const response = await fetch('/api/v1/data/query', {\n" +
+		"                method: 'POST',\n" +
+		"                headers: {\n" +
+		"                    'Content-Type': 'application/json',\n" +
+		"                    'X-Store-Name': 'ai'\n" +
+		"                },\n" +
+		"                body: JSON.stringify({\n" +
+		"                    type: 'ai',\n" +
+		"                    key: 'generate',\n" +
+		"                    sql: JSON.stringify({\n" +
+		"                        prompt: query,\n" +
+		"                        config: JSON.stringify({ include_explanation: includeExplanation })\n" +
+		"                    })\n" +
+		"                })\n" +
+		"            });\n" +
+		"            \n" +
+		"            const result = await response.json();\n" +
+		"            messagesContainer.removeChild(loadingMessage);\n" +
+		"            \n" +
+		"            if (result.success !== false) {\n" +
+		"                let sql = '', meta = '', success = false;\n" +
+		"                if (result.data) {\n" +
+		"                    for (const pair of result.data) {\n" +
+		"                        if (pair.key === 'content') sql = pair.value;\n" +
+		"                        if (pair.key === 'meta') meta = pair.value;\n" +
+		"                        if (pair.key === 'success') success = pair.value === 'true';\n" +
+		"                    }\n" +
+		"                }\n" +
+		"                \n" +
+		"                if (success && sql) {\n" +
+		"                    let metaObj = {};\n" +
+		"                    try { metaObj = JSON.parse(meta); } catch (e) {}\n" +
+		"                    \n" +
+		"                    const aiMessage = document.createElement('div');\n" +
+		"                    aiMessage.className = 'ai-message';\n" +
+		"                    aiMessage.innerHTML = '<div class=\"ai-message-content\">' +\n" +
+		"                        '<div class=\"sql-result\">' +\n" +
+		"                        '<div class=\"sql-header\">' +\n" +
+		"                        '<strong>Generated SQL:</strong>' +\n" +
+		"                        '<button class=\"copy-btn\" onclick=\"copyToClipboard(this)\">Copy</button>' +\n" +
+		"                        '</div>' +\n" +
+		"                        '<pre class=\"sql-code\">' + sql + '</pre>' +\n" +
+		"                        (metaObj.confidence ? '<div class=\"confidence\">Confidence: ' + (metaObj.confidence * 100).toFixed(1) + '%</div>' : '') +\n" +
+		"                        (metaObj.model ? '<div class=\"model\">Model: ' + metaObj.model + '</div>' : '') +\n" +
+		"                        '</div></div>';\n" +
+		"                    messagesContainer.appendChild(aiMessage);\n" +
+		"                } else {\n" +
+		"                    throw new Error('Failed to generate SQL query');\n" +
+		"                }\n" +
+		"            } else {\n" +
+		"                throw new Error(result.message || 'Unknown error occurred');\n" +
+		"            }\n" +
+		"        } catch (error) {\n" +
+		"            console.error('AI Query Error:', error);\n" +
+		"            if (messagesContainer.contains(loadingMessage)) {\n" +
+		"                messagesContainer.removeChild(loadingMessage);\n" +
+		"            }\n" +
+		"            const errorMessage = document.createElement('div');\n" +
+		"            errorMessage.className = 'ai-message error';\n" +
+		"            errorMessage.innerHTML = '<div class=\"ai-message-content\">' +\n" +
+		"                '<i class=\"el-icon-warning\"></i> Error: ' + error.message +\n" +
+		"                '<br><small>Please try rephrasing your query or check your AI service configuration.</small></div>';\n" +
+		"            messagesContainer.appendChild(errorMessage);\n" +
+		"        } finally {\n" +
+		"            sendBtn.disabled = false;\n" +
+		"            sendBtn.innerHTML = '<i class=\"el-icon-promotion\"></i> Generate SQL';\n" +
+		"            messagesContainer.scrollTop = messagesContainer.scrollHeight;\n" +
+		"        }\n" +
+		"    }\n" +
+		"    \n" +
+		"    window.ATestPlugin = {\n" +
+		"        mount: function(container) {\n" +
+		"            console.log('Mounting AI Chat Plugin');\n" +
+		"            const chatInterface = createAIChatInterface();\n" +
+		"            container.appendChild(chatInterface);\n" +
+		"            \n" +
+		"            const sendBtn = document.getElementById('ai-send-btn');\n" +
+		"            const input = document.getElementById('ai-input');\n" +
+		"            \n" +
+		"            sendBtn.addEventListener('click', handleAIQuery);\n" +
+		"            input.addEventListener('keydown', function(e) {\n" +
+		"                if (e.key === 'Enter' && e.ctrlKey) {\n" +
+		"                    e.preventDefault();\n" +
+		"                    handleAIQuery();\n" +
+		"                }\n" +
+		"            });\n" +
+		"            input.focus();\n" +
+		"        }\n" +
+		"    };\n" +
+		"    \n" +
+		"    console.log('AI Chat Plugin loaded successfully');\n" +
+		"})();"
+
+	return &server.CommonResult{
+		Success: true,
+		Message: jsCode,
+	}, nil
+}
+
+// GetPageOfCSS returns the CSS styles for AI plugin UI
+func (s *AIPluginService) GetPageOfCSS(ctx context.Context, req *server.SimpleName) (*server.CommonResult, error) {
+	log.Printf("Serving CSS for AI plugin: %s", req.Name)
+
+	if req.Name != "ai-chat" {
+		return &server.CommonResult{
+			Success: false,
+			Message: "Unknown AI plugin page",
+		}, nil
+	}
+
+	// Embedded CSS for AI Chat UI
+	cssCode := `
+.ai-chat-container {
+    height: 100vh;
+    display: flex;
+    flex-direction: column;
+    background: var(--el-bg-color);
+    font-family: var(--el-font-family);
+}
+
+.ai-chat-header {
+    padding: 20px;
+    border-bottom: 1px solid var(--el-border-color);
+    background: var(--el-bg-color-page);
+}
+
+.ai-chat-header h2 {
+    margin: 0 0 8px 0;
+    color: var(--el-text-color-primary);
+    font-size: 20px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.ai-chat-header p {
+    margin: 0;
+    color: var(--el-text-color-regular);
+    font-size: 14px;
+}
+
+.ai-chat-messages {
+    flex: 1;
+    overflow-y: auto;
+    padding: 20px;
+    background: var(--el-bg-color);
+}
+
+.ai-message, .user-message {
+    margin-bottom: 16px;
+    max-width: 80%;
+}
+
+.user-message {
+    margin-left: auto;
+}
+
+.ai-message-content, .user-message-content {
+    padding: 12px 16px;
+    border-radius: 8px;
+    font-size: 14px;
+    line-height: 1.5;
+}
+
+.ai-message-content {
+    background: var(--el-bg-color-page);
+    border: 1px solid var(--el-border-color);
+    color: var(--el-text-color-primary);
+}
+
+.user-message-content {
+    background: var(--el-color-primary);
+    color: white;
+    text-align: right;
+}
+
+.ai-message.loading .ai-message-content {
+    background: var(--el-color-info-light-9);
+    border-color: var(--el-color-info-light-7);
+}
+
+.ai-message.error .ai-message-content {
+    background: var(--el-color-danger-light-9);
+    border-color: var(--el-color-danger-light-7);
+    color: var(--el-color-danger);
+}
+
+.sql-result {
+    margin-top: 8px;
+}
+
+.sql-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 8px;
+}
+
+.copy-btn {
+    background: var(--el-color-primary);
+    color: white;
+    border: none;
+    padding: 4px 8px;
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 12px;
+    display: flex;
+    align-items: center;
+    gap: 4px;
+}
+
+.copy-btn:hover {
+    background: var(--el-color-primary-light-3);
+}
+
+.sql-code {
+    background: var(--el-fill-color-darker);
+    padding: 12px;
+    border-radius: 4px;
+    font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
+    font-size: 13px;
+    line-height: 1.4;
+    overflow-x: auto;
+    border: 1px solid var(--el-border-color);
+    color: var(--el-text-color-primary);
+    white-space: pre-wrap;
+    word-break: break-all;
+}
+
+.confidence, .model {
+    font-size: 12px;
+    color: var(--el-text-color-regular);
+    margin-top: 4px;
+}
+
+.ai-chat-input-area {
+    padding: 20px;
+    border-top: 1px solid var(--el-border-color);
+    background: var(--el-bg-color-page);
+}
+
+.ai-input-container {
+    display: flex;
+    gap: 12px;
+    align-items: flex-end;
+}
+
+.ai-input-container textarea {
+    flex: 1;
+    padding: 12px;
+    border: 1px solid var(--el-border-color);
+    border-radius: 6px;
+    font-size: 14px;
+    font-family: inherit;
+    resize: vertical;
+    min-height: 60px;
+    background: var(--el-bg-color);
+    color: var(--el-text-color-primary);
+}
+
+.ai-input-container textarea:focus {
+    outline: none;
+    border-color: var(--el-color-primary);
+    box-shadow: 0 0 0 2px var(--el-color-primary-light-9);
+}
+
+.ai-send-button {
+    background: var(--el-color-primary);
+    color: white;
+    border: none;
+    padding: 12px 20px;
+    border-radius: 6px;
+    cursor: pointer;
+    font-size: 14px;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    white-space: nowrap;
+    min-height: 44px;
+}
+
+.ai-send-button:hover:not(:disabled) {
+    background: var(--el-color-primary-light-3);
+}
+
+.ai-send-button:disabled {
+    background: var(--el-color-info);
+    cursor: not-allowed;
+}
+
+.ai-options {
+    margin-top: 12px;
+    display: flex;
+    align-items: center;
+    gap: 16px;
+}
+
+.ai-options label {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 14px;
+    color: var(--el-text-color-regular);
+    cursor: pointer;
+}
+
+.ai-options input[type="checkbox"] {
+    margin: 0;
+}
+
+/* Scrollbar styling */
+.ai-chat-messages::-webkit-scrollbar {
+    width: 6px;
+}
+
+.ai-chat-messages::-webkit-scrollbar-track {
+    background: var(--el-fill-color-lighter);
+}
+
+.ai-chat-messages::-webkit-scrollbar-thumb {
+    background: var(--el-border-color-darker);
+    border-radius: 3px;
+}
+
+.ai-chat-messages::-webkit-scrollbar-thumb:hover {
+    background: var(--el-border-color-extra-light);
+}
+
+/* Animation for loading */
+@keyframes spin {
+    from { transform: rotate(0deg); }
+    to { transform: rotate(360deg); }
+}
+
+.el-icon-loading {
+    animation: spin 1s linear infinite;
+}
+
+/* Dark mode adjustments */
+html.dark .ai-chat-container {
+    background: var(--el-bg-color);
+}
+
+html.dark .sql-code {
+    background: var(--el-fill-color-dark);
+    color: var(--el-text-color-primary);
+}
+`
+
+	return &server.CommonResult{
+		Success: true,
+		Message: cssCode,
+	}, nil
+}
+
+// GetPageOfStatic returns static files for AI plugin UI (not implemented)
+func (s *AIPluginService) GetPageOfStatic(ctx context.Context, req *server.SimpleName) (*server.CommonResult, error) {
+	return &server.CommonResult{
+		Success: false,
+		Message: "Static files not supported",
+	}, nil
+}
+
 // handleLegacyQuery maintains backward compatibility with the original implementation
 func (s *AIPluginService) handleLegacyQuery(ctx context.Context, req *server.DataQuery) (*server.DataQueryResult, error) {
 	// Handle legacy capabilities query
