@@ -20,15 +20,14 @@
         initialMessage.className = 'ai-message';
         const messageContent = document.createElement('div');
         messageContent.className = 'ai-message-content';
-        messageContent.innerHTML = `
-            Hello! I am your AI assistant. I can help you generate SQL queries from natural language descriptions.
-            <br><br><strong>Examples:</strong>
-            <ul>
-                <li>"Show all users created in the last 30 days"</li>
-                <li>"Find products with price greater than 100"</li>
-                <li>"Count orders by status"</li>
-            </ul>
-        `;
+        messageContent.innerHTML =
+            'Hello! I am your AI assistant. I can help you generate SQL queries from natural language descriptions.' +
+            '<br><br><strong>Examples:</strong>' +
+            '<ul>' +
+                '<li>"Show all users created in the last 30 days"</li>' +
+                '<li>"Find products with price greater than 100"</li>' +
+                '<li>"Count orders by status"</li>' +
+            '</ul>';
         initialMessage.appendChild(messageContent);
         messages.appendChild(initialMessage);
 
@@ -182,14 +181,14 @@
                     if (metaObj.confidence) {
                         const confidence = document.createElement('div');
                         confidence.className = 'confidence';
-                        confidence.textContent = `Confidence: ${(metaObj.confidence * 100).toFixed(1)}%`;
+                        confidence.textContent = 'Confidence: ' + (metaObj.confidence * 100).toFixed(1) + '%';
                         sqlResult.appendChild(confidence);
                     }
 
                     if (metaObj.model) {
                         const model = document.createElement('div');
                         model.className = 'model';
-                        model.textContent = `Model: ${metaObj.model}`;
+                        model.textContent = 'Model: ' + metaObj.model;
                         sqlResult.appendChild(model);
                     }
 
@@ -212,7 +211,7 @@
             errorMessage.className = 'ai-message error';
             const errorContent = document.createElement('div');
             errorContent.className = 'ai-message-content';
-            errorContent.innerHTML = `<i class="el-icon-warning"></i> Error: ${error.message}<br><small>Please try rephrasing your query or check your AI service configuration.</small>`;
+            errorContent.innerHTML = '<i class="el-icon-warning"></i> Error: ' + error.message + '<br><small>Please try rephrasing your query or check your AI service configuration.</small>';
             errorMessage.appendChild(errorContent);
             messagesContainer.appendChild(errorMessage);
         } finally {

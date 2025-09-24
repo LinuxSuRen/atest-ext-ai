@@ -90,7 +90,9 @@ func NewAIPluginService() (*AIPluginService, error) {
 func (s *AIPluginService) Query(ctx context.Context, req *server.DataQuery) (*server.DataQueryResult, error) {
 	log.Printf("Received query request: type=%s, key=%s, sql_length=%d", req.Type, req.Key, len(req.Sql))
 
-	if req.Type != "ai" {
+	// Accept both empty type (for backward compatibility) and explicit "ai" type
+	// The main project doesn't always send the type field
+	if req.Type != "" && req.Type != "ai" {
 		log.Printf("Unsupported query type: %s", req.Type)
 		return nil, status.Errorf(codes.InvalidArgument, "unsupported query type: %s", req.Type)
 	}
