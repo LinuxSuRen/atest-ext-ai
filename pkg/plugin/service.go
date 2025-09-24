@@ -18,6 +18,7 @@ package plugin
 
 import (
 	"context"
+	_ "embed"
 	"encoding/json"
 	"fmt"
 	"log"
@@ -30,6 +31,12 @@ import (
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 )
+
+//go:embed assets/ai-chat.js
+var aiChatJS string
+
+//go:embed assets/ai-chat.css
+var aiChatCSS string
 
 // AIPluginService implements the Loader gRPC service for AI functionality
 type AIPluginService struct {
@@ -385,164 +392,8 @@ func (s *AIPluginService) GetPageOfJS(ctx context.Context, req *server.SimpleNam
 		}, nil
 	}
 
-	// Embedded JavaScript for AI Chat UI (using simple string concatenation)
-	jsCode := "(function() {\n" +
-		"    console.log('Loading AI Chat Plugin...');\n" +
-		"    \n" +
-		"    function createAIChatInterface() {\n" +
-		"        const container = document.createElement('div');\n" +
-		"        container.className = 'ai-chat-container';\n" +
-		"        container.innerHTML = '<div class=\"ai-chat-header\">' +\n" +
-		"            '<h2><i class=\"el-icon-chat-dot-round\"></i> AI Assistant</h2>' +\n" +
-		"            '<p>Natural language to SQL query generator</p>' +\n" +
-		"            '</div>' +\n" +
-		"            '<div class=\"ai-chat-messages\" id=\"ai-chat-messages\">' +\n" +
-		"            '<div class=\"ai-message\">' +\n" +
-		"            '<div class=\"ai-message-content\">' +\n" +
-		"            'Hello! I am your AI assistant. I can help you generate SQL queries from natural language descriptions.' +\n" +
-		"            '<br><br><strong>Examples:</strong>' +\n" +
-		"            '<ul><li>\"Show all users created in the last 30 days\"</li>' +\n" +
-		"            '<li>\"Find products with price greater than 100\"</li>' +\n" +
-		"            '<li>\"Count orders by status\"</li></ul>' +\n" +
-		"            '</div></div></div>' +\n" +
-		"            '<div class=\"ai-chat-input-area\">' +\n" +
-		"            '<div class=\"ai-input-container\">' +\n" +
-		"            '<textarea id=\"ai-input\" placeholder=\"Describe what you want to query in natural language...\" rows=\"3\"></textarea>' +\n" +
-		"            '<button id=\"ai-send-btn\" class=\"ai-send-button\">' +\n" +
-		"            '<i class=\"el-icon-promotion\"></i> Generate SQL</button>' +\n" +
-		"            '</div>' +\n" +
-		"            '<div class=\"ai-options\">' +\n" +
-		"            '<label><input type=\"checkbox\" id=\"ai-explain-checkbox\" checked> Include explanation</label>' +\n" +
-		"            '</div></div>';\n" +
-		"        return container;\n" +
-		"    }\n" +
-		"    \n" +
-		"    function copyToClipboard(button) {\n" +
-		"        const sqlCode = button.parentElement.nextElementSibling.textContent;\n" +
-		"        navigator.clipboard.writeText(sqlCode).then(function() {\n" +
-		"            const originalText = button.textContent;\n" +
-		"            button.textContent = 'Copied!';\n" +
-		"            setTimeout(function() { button.textContent = originalText; }, 2000);\n" +
-		"        });\n" +
-		"    }\n" +
-		"    \n" +
-		"    async function handleAIQuery() {\n" +
-		"        const input = document.getElementById('ai-input');\n" +
-		"        const messagesContainer = document.getElementById('ai-chat-messages');\n" +
-		"        const sendBtn = document.getElementById('ai-send-btn');\n" +
-		"        const includeExplanation = document.getElementById('ai-explain-checkbox').checked;\n" +
-		"        \n" +
-		"        const query = input.value.trim();\n" +
-		"        if (!query) return;\n" +
-		"        \n" +
-		"        const userMessage = document.createElement('div');\n" +
-		"        userMessage.className = 'user-message';\n" +
-		"        userMessage.innerHTML = '<div class=\"user-message-content\">' + query + '</div>';\n" +
-		"        messagesContainer.appendChild(userMessage);\n" +
-		"        \n" +
-		"        const loadingMessage = document.createElement('div');\n" +
-		"        loadingMessage.className = 'ai-message loading';\n" +
-		"        loadingMessage.innerHTML = '<div class=\"ai-message-content\"><i class=\"el-icon-loading\"></i> Generating SQL query...</div>';\n" +
-		"        messagesContainer.appendChild(loadingMessage);\n" +
-		"        \n" +
-		"        input.value = '';\n" +
-		"        sendBtn.disabled = true;\n" +
-		"        sendBtn.innerHTML = '<i class=\"el-icon-loading\"></i> Generating...';\n" +
-		"        messagesContainer.scrollTop = messagesContainer.scrollHeight;\n" +
-		"        \n" +
-		"        try {\n" +
-		"            const response = await fetch('/api/v1/data/query', {\n" +
-		"                method: 'POST',\n" +
-		"                headers: {\n" +
-		"                    'Content-Type': 'application/json',\n" +
-		"                    'X-Store-Name': 'ai'\n" +
-		"                },\n" +
-		"                body: JSON.stringify({\n" +
-		"                    type: 'ai',\n" +
-		"                    key: 'generate',\n" +
-		"                    sql: JSON.stringify({\n" +
-		"                        prompt: query,\n" +
-		"                        config: JSON.stringify({ include_explanation: includeExplanation })\n" +
-		"                    })\n" +
-		"                })\n" +
-		"            });\n" +
-		"            \n" +
-		"            const result = await response.json();\n" +
-		"            messagesContainer.removeChild(loadingMessage);\n" +
-		"            \n" +
-		"            if (result.success !== false) {\n" +
-		"                let sql = '', meta = '', success = false;\n" +
-		"                if (result.data) {\n" +
-		"                    for (const pair of result.data) {\n" +
-		"                        if (pair.key === 'content') sql = pair.value;\n" +
-		"                        if (pair.key === 'meta') meta = pair.value;\n" +
-		"                        if (pair.key === 'success') success = pair.value === 'true';\n" +
-		"                    }\n" +
-		"                }\n" +
-		"                \n" +
-		"                if (success && sql) {\n" +
-		"                    let metaObj = {};\n" +
-		"                    try { metaObj = JSON.parse(meta); } catch (e) {}\n" +
-		"                    \n" +
-		"                    const aiMessage = document.createElement('div');\n" +
-		"                    aiMessage.className = 'ai-message';\n" +
-		"                    aiMessage.innerHTML = '<div class=\"ai-message-content\">' +\n" +
-		"                        '<div class=\"sql-result\">' +\n" +
-		"                        '<div class=\"sql-header\">' +\n" +
-		"                        '<strong>Generated SQL:</strong>' +\n" +
-		"                        '<button class=\"copy-btn\" onclick=\"copyToClipboard(this)\">Copy</button>' +\n" +
-		"                        '</div>' +\n" +
-		"                        '<pre class=\"sql-code\">' + sql + '</pre>' +\n" +
-		"                        (metaObj.confidence ? '<div class=\"confidence\">Confidence: ' + (metaObj.confidence * 100).toFixed(1) + '%</div>' : '') +\n" +
-		"                        (metaObj.model ? '<div class=\"model\">Model: ' + metaObj.model + '</div>' : '') +\n" +
-		"                        '</div></div>';\n" +
-		"                    messagesContainer.appendChild(aiMessage);\n" +
-		"                } else {\n" +
-		"                    throw new Error('Failed to generate SQL query');\n" +
-		"                }\n" +
-		"            } else {\n" +
-		"                throw new Error(result.message || 'Unknown error occurred');\n" +
-		"            }\n" +
-		"        } catch (error) {\n" +
-		"            console.error('AI Query Error:', error);\n" +
-		"            if (messagesContainer.contains(loadingMessage)) {\n" +
-		"                messagesContainer.removeChild(loadingMessage);\n" +
-		"            }\n" +
-		"            const errorMessage = document.createElement('div');\n" +
-		"            errorMessage.className = 'ai-message error';\n" +
-		"            errorMessage.innerHTML = '<div class=\"ai-message-content\">' +\n" +
-		"                '<i class=\"el-icon-warning\"></i> Error: ' + error.message +\n" +
-		"                '<br><small>Please try rephrasing your query or check your AI service configuration.</small></div>';\n" +
-		"            messagesContainer.appendChild(errorMessage);\n" +
-		"        } finally {\n" +
-		"            sendBtn.disabled = false;\n" +
-		"            sendBtn.innerHTML = '<i class=\"el-icon-promotion\"></i> Generate SQL';\n" +
-		"            messagesContainer.scrollTop = messagesContainer.scrollHeight;\n" +
-		"        }\n" +
-		"    }\n" +
-		"    \n" +
-		"    window.ATestPlugin = {\n" +
-		"        mount: function(container) {\n" +
-		"            console.log('Mounting AI Chat Plugin');\n" +
-		"            const chatInterface = createAIChatInterface();\n" +
-		"            container.appendChild(chatInterface);\n" +
-		"            \n" +
-		"            const sendBtn = document.getElementById('ai-send-btn');\n" +
-		"            const input = document.getElementById('ai-input');\n" +
-		"            \n" +
-		"            sendBtn.addEventListener('click', handleAIQuery);\n" +
-		"            input.addEventListener('keydown', function(e) {\n" +
-		"                if (e.key === 'Enter' && e.ctrlKey) {\n" +
-		"                    e.preventDefault();\n" +
-		"                    handleAIQuery();\n" +
-		"                }\n" +
-		"            });\n" +
-		"            input.focus();\n" +
-		"        }\n" +
-		"    };\n" +
-		"    \n" +
-		"    console.log('AI Chat Plugin loaded successfully');\n" +
-		"})();"
+	// Use embedded JavaScript file for clean separation of concerns
+	jsCode := aiChatJS
 
 	return &server.CommonResult{
 		Success: true,
@@ -562,7 +413,10 @@ func (s *AIPluginService) GetPageOfCSS(ctx context.Context, req *server.SimpleNa
 	}
 
 	// Embedded CSS for AI Chat UI
-	cssCode := `
+	cssCode := aiChatCSS
+
+	// Old embedded CSS replaced with external file:
+	_ = `
 .ai-chat-container {
     height: 100vh;
     display: flex;
