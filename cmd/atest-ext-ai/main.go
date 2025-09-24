@@ -23,6 +23,7 @@ import (
 	"net"
 	"os"
 	"os/signal"
+	"path/filepath"
 	"runtime"
 	"runtime/debug"
 	"syscall"
@@ -31,12 +32,12 @@ import (
 	"github.com/linuxsuren/api-testing/pkg/testing/remote"
 	"github.com/linuxsuren/atest-ext-ai/pkg/plugin"
 	"google.golang.org/grpc"
-	"google.golang.org/grpc/keepalive"
+	"google.golang.org/grpc/peer"
 )
 
 const (
-	// DefaultSocketPath is the standard Unix socket path for AI plugin
-	DefaultSocketPath = "/tmp/atest-ext-ai.sock"
+	// SocketFileName is the socket file name for AI plugin
+	SocketFileName = "atest-ext-ai.sock"
 )
 
 func main() {
@@ -81,6 +82,9 @@ func main() {
 	grpcServer := createGRPCServer()
 	remote.RegisterLoaderServer(grpcServer, aiPlugin)
 	log.Println("gRPC server configured with LoaderServer")
+
+	// Add debug logging for all gRPC calls
+	log.Println("🎯 gRPC server registered and ready to accept calls")
 
 	// Handle graceful shutdown
 	ctx, cancel := context.WithCancel(context.Background())
@@ -132,9 +136,14 @@ func main() {
 // getSocketPath returns the socket path from environment or default
 func getSocketPath() string {
 	if path := os.Getenv("AI_PLUGIN_SOCKET_PATH"); path != "" {
+		log.Printf("Using socket path from environment: %s", path)
 		return path
 	}
-	return DefaultSocketPath
+
+	// Use /tmp path to match main server's expectation: unix:///tmp/atest-ext-ai.sock
+	socketPath := "/tmp/" + SocketFileName
+	log.Printf("Using default socket path: %s", socketPath)
+	return socketPath
 }
 
 // cleanupSocketFile removes existing socket file if it exists
@@ -150,6 +159,12 @@ func cleanupSocketFile(path string) error {
 
 // createSocketListener creates and configures Unix socket listener
 func createSocketListener(path string) (net.Listener, error) {
+	// Ensure the parent directory exists
+	dir := filepath.Dir(path)
+	if err := os.MkdirAll(dir, 0755); err != nil {
+		return nil, fmt.Errorf("failed to create socket directory %s: %w", dir, err)
+	}
+
 	listener, err := net.Listen("unix", path)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create Unix socket listener: %w", err)
@@ -181,24 +196,28 @@ func configureMemorySettings() {
 	log.Printf("Memory optimization configured: GOGC=50, GOMAXPROCS=%d", runtime.GOMAXPROCS(0))
 }
 
-// createGRPCServer creates a gRPC server with appropriate configuration
+// createGRPCServer creates a simple gRPC server for compatibility with older clients
 func createGRPCServer() *grpc.Server {
-	// Configure gRPC server with keepalive and timeouts
-	kaep := keepalive.EnforcementPolicy{
-		MinTime:             5 * time.Second,
-		PermitWithoutStream: true,
+	// Debug interceptor to log all incoming gRPC calls and connection info
+	unaryInterceptor := func(ctx context.Context, req interface{}, info *grpc.UnaryServerInfo, handler grpc.UnaryHandler) (interface{}, error) {
+		log.Printf("🔍 gRPC Call received: %s", info.FullMethod)
+
+		// Log connection info from context
+		if peer, ok := peer.FromContext(ctx); ok {
+			log.Printf("🔍 Connection from: %s", peer.Addr)
+		}
+
+		resp, err := handler(ctx, req)
+		if err != nil {
+			log.Printf("🔍 gRPC Call %s failed: %v", info.FullMethod, err)
+		} else {
+			log.Printf("🔍 gRPC Call %s succeeded", info.FullMethod)
+		}
+		return resp, err
 	}
 
-	kasp := keepalive.ServerParameters{
-		MaxConnectionIdle:     15 * time.Second,
-		MaxConnectionAge:      30 * time.Second,
-		MaxConnectionAgeGrace: 5 * time.Second,
-		Time:                  5 * time.Second,
-		Timeout:               1 * time.Second,
-	}
-
+	// Use simple gRPC server configuration for maximum compatibility
 	return grpc.NewServer(
-		grpc.KeepaliveEnforcementPolicy(kaep),
-		grpc.KeepaliveParams(kasp),
+		grpc.UnaryInterceptor(unaryInterceptor),
 	)
 }

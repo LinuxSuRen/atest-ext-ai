@@ -64,8 +64,7 @@ install: build
 # Run development mode
 dev:
 	@echo "Running $(BINARY_NAME) in development mode..."
-	@AI_PLUGIN_SOCKET_PATH="/tmp/atest-ext-ai.sock" \
-	 AI_PROVIDER="local" \
+	@AI_PROVIDER="local" \
 	 OLLAMA_ENDPOINT="http://localhost:11434" \
 	 AI_MODEL="codellama" \
 	 LOG_LEVEL="debug" \

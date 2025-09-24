@@ -25,9 +25,15 @@ func main() {
 		model = v
 	}
 
+	// Get Ollama server URL from environment variable
+	serverURL := os.Getenv("OLLAMA_SERVER_URL")
+	if serverURL == "" {
+		serverURL = "http://localhost:11434"
+	}
+
 	llm, err := ollama.New(
 		ollama.WithModel(model),
-		ollama.WithServerURL("http://192.168.123.58:11434"),
+		ollama.WithServerURL(serverURL),
 		ollama.WithFormat("json"),
 	)
 	if err != nil {
@@ -123,21 +129,48 @@ func dispatchCall(c *Call) (llms.MessageContent, bool) {
 		return llms.MessageContent{}, false
 	case "getAllTables":
 		fmt.Println("try to getAllTables")
+
+		// Get database configuration from environment variables
+		dbHost := os.Getenv("DB_HOST")
+		if dbHost == "" {
+			dbHost = "localhost:3306"
+		}
+
+		dbUser := os.Getenv("DB_USER")
+		if dbUser == "" {
+			dbUser = "root"
+		}
+
+		dbPassword := os.Getenv("DB_PASSWORD")
+		if dbPassword == "" {
+			log.Println("Warning: DB_PASSWORD not set, using empty password")
+		}
+
+		dbName := os.Getenv("DB_NAME")
+		if dbName == "" {
+			dbName = "test"
+		}
+
+		grpcURL := os.Getenv("GRPC_URL")
+		if grpcURL == "" {
+			grpcURL = "127.0.0.1:7071"
+		}
+
 		store := testing.Store{
-			URL:      "192.168.10.107:33060",
-			Username: "root",
-			Password: "AIUMSDB@123456",
+			URL:      dbHost,
+			Username: dbUser,
+			Password: dbPassword,
 			Kind: testing.StoreKind{
-				Name: "atest-store-orm",
-				// URL:  `unix:///root/.config/atest/atest-store-orm.sock`,
-				URL:     `127.0.0.1:7071`,
+				Name:    "atest-store-orm",
+				URL:     grpcURL,
 				Enabled: true,
 			},
 			Properties: map[string]string{
 				"driver":   "mysql",
-				"database": "ai_ums",
+				"database": dbName,
 			},
 		}
+
 		data, err := query(context.Background(), store, "")
 		tables := map[string]string{}
 		if err == nil {
@@ -173,7 +206,7 @@ func systemMessage() string {
 
 %s
 
-To use a tool, respond with a JSON object with the following structure: 
+To use a tool, respond with a JSON object with the following structure:
 {
 	"tool": <name of the called tool>,
 	"tool_input": <parameters for the tool matching the above JSON schema>
@@ -204,11 +237,11 @@ var functions = []llms.FunctionDefinition{
 		Name:        "getCurrentWeather",
 		Description: "Get the current weather in a given location",
 		Parameters: json.RawMessage(`{
-			"type": "object", 
+			"type": "object",
 			"properties": {
-				"location": {"type": "string", "description": "The city and state, e.g. San Francisco, CA"}, 
+				"location": {"type": "string", "description": "The city and state, e.g. San Francisco, CA"},
 				"unit": {"type": "string", "enum": ["celsius", "fahrenheit"]}
-			}, 
+			},
 			"required": ["location", "unit"]
 		}`),
 	},
@@ -218,10 +251,10 @@ var functions = []llms.FunctionDefinition{
 		Name:        "finalResponse",
 		Description: "Provide the final response to the user query",
 		Parameters: json.RawMessage(`{
-			"type": "object", 
+			"type": "object",
 			"properties": {
 				"response": {"type": "string", "description": "The final response to the user query"}
-			}, 
+			},
 			"required": ["response"]
 		}`),
 	},
@@ -231,10 +264,10 @@ var functions = []llms.FunctionDefinition{
 		Name:        "getAllTables",
 		Description: "Get all database tables",
 		Parameters: json.RawMessage(`{
-			"type": "object", 
+			"type": "object",
 			"properties": {
 				"response": {"type": "string", "description": "The final response to the user query"}
-			}, 
+			},
 			"required": ["response"]
 		}`),
 	},

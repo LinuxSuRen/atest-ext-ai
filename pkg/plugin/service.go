@@ -375,7 +375,8 @@ func (s *AIPluginService) GetMenus(ctx context.Context, req *server.Empty) (*ser
 
 // GetPageOfJS returns the JavaScript code for AI plugin UI
 func (s *AIPluginService) GetPageOfJS(ctx context.Context, req *server.SimpleName) (*server.CommonResult, error) {
-	log.Printf("Serving JavaScript for AI plugin: %s", req.Name)
+	log.Printf("🎯🎯🎯 AI PLUGIN GetPageOfJS CALLED FOR: %s 🎯🎯🎯", req.Name)
+	fmt.Printf("🎯🎯🎯 AI PLUGIN GetPageOfJS CALLED FOR: %s 🎯🎯🎯\n", req.Name)
 
 	if req.Name != "ai-chat" {
 		return &server.CommonResult{
@@ -398,7 +399,7 @@ func (s *AIPluginService) GetPageOfJS(ctx context.Context, req *server.SimpleNam
 		"            '<div class=\"ai-chat-messages\" id=\"ai-chat-messages\">' +\n" +
 		"            '<div class=\"ai-message\">' +\n" +
 		"            '<div class=\"ai-message-content\">' +\n" +
-		"            'Hello! I\\\\'m your AI assistant. I can help you generate SQL queries from natural language descriptions.' +\n" +
+		"            'Hello! I am your AI assistant. I can help you generate SQL queries from natural language descriptions.' +\n" +
 		"            '<br><br><strong>Examples:</strong>' +\n" +
 		"            '<ul><li>\"Show all users created in the last 30 days\"</li>' +\n" +
 		"            '<li>\"Find products with price greater than 100\"</li>' +\n" +

@@ -414,6 +414,8 @@ func (f *defaultClientFactory) registerProviders() {
 	f.providers["openai"] = f.createOpenAIClient
 	f.providers["anthropic"] = f.createAnthropicClient
 	f.providers["local"] = f.createLocalClient
+	// Register ollama as an alias for local provider for backward compatibility
+	f.providers["ollama"] = f.createLocalClient
 }
 
 // CreateClient creates a new AI client for the specified provider
