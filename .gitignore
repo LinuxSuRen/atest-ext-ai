@@ -124,6 +124,10 @@ AI_PLUGIN_DEVELOPMENT.md
 testdata/output/
 test-results/
 .nyc_output/
+test_*.html
+test_*.go
+preview.html
+integration.test
 
 # Docker artifacts
 .dockerignore
