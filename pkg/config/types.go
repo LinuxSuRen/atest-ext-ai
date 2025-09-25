@@ -116,6 +116,7 @@ type DatabaseConfig struct {
 	Enabled     bool     `mapstructure:"enabled" yaml:"enabled" json:"enabled" toml:"enabled"`
 	Driver      string   `mapstructure:"driver" yaml:"driver" json:"driver" toml:"driver"`
 	DSN         string   `mapstructure:"dsn" yaml:"dsn" json:"dsn" toml:"dsn"`
+	DefaultType string   `mapstructure:"default_type" yaml:"default_type" json:"default_type" toml:"default_type" validate:"oneof=mysql postgresql sqlite oracle sqlserver"`
 	MaxConns    int      `mapstructure:"max_connections" yaml:"max_connections" json:"max_connections" toml:"max_connections"`
 	MaxIdle     int      `mapstructure:"max_idle" yaml:"max_idle" json:"max_idle" toml:"max_idle"`
 	MaxLifetime Duration `mapstructure:"max_lifetime" yaml:"max_lifetime" json:"max_lifetime" toml:"max_lifetime"`

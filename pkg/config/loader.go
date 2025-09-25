@@ -468,6 +468,7 @@ func setDefaults(v *viper.Viper) {
 	v.SetDefault("database.enabled", false)
 	v.SetDefault("database.driver", "sqlite")
 	v.SetDefault("database.dsn", "file:atest-ext-ai.db?cache=shared&mode=rwc")
+	v.SetDefault("database.default_type", "mysql")
 	v.SetDefault("database.max_connections", 10)
 	v.SetDefault("database.max_idle", 5)
 	v.SetDefault("database.max_lifetime", "1h")

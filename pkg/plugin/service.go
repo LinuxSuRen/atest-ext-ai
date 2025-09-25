@@ -335,9 +335,15 @@ func (s *AIPluginService) handleAIGenerate(ctx context.Context, req *server.Data
 		context["config"] = params.Config
 	}
 
+	// Get database type from configuration, fallback to mysql if not configured
+	databaseType := "mysql"
+	if s.config.Database.DefaultType != "" {
+		databaseType = s.config.Database.DefaultType
+	}
+
 	sqlResult, err := s.aiEngine.GenerateSQL(ctx, &ai.GenerateSQLRequest{
 		NaturalLanguage: params.Prompt,
-		DatabaseType:    "mysql", // TODO: Make configurable
+		DatabaseType:    databaseType,
 		Context:         context,
 	})
 	if err != nil {
@@ -738,9 +744,15 @@ func (s *AIPluginService) handleLegacyQuery(ctx context.Context, req *server.Dat
 		contextMap["existing_sql"] = req.Sql
 	}
 
+	// Get database type from configuration, fallback to mysql if not configured
+	databaseType := "mysql"
+	if s.config.Database.DefaultType != "" {
+		databaseType = s.config.Database.DefaultType
+	}
+
 	sqlResult, err := s.aiEngine.GenerateSQL(ctx, &ai.GenerateSQLRequest{
 		NaturalLanguage: req.Key,
-		DatabaseType:    "mysql", // Default database type
+		DatabaseType:    databaseType,
 		Context:         contextMap,
 	})
 	if err != nil {
