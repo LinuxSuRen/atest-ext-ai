@@ -79,12 +79,28 @@
     align-items: center;
     justify-content: center;
     transition: all 0.3s;
+    position: relative;
+    overflow: hidden;
 }
 
 .ai-settings-btn:hover {
     border-color: var(--el-color-primary);
     color: var(--el-color-primary);
     background: var(--el-color-primary-light-9);
+}
+
+.ai-settings-btn:active {
+    transform: translateY(1px);
+    background: var(--el-color-primary-light-8);
+}
+
+/* Enhanced settings icon with subtle animation */
+.ai-settings-btn i {
+    transition: transform 0.3s ease;
+}
+
+.ai-settings-btn:hover i {
+    transform: rotate(45deg);
 }
 
 /* Settings button in input area */
@@ -139,8 +155,50 @@
     color: var(--el-color-danger);
 }
 
-.sql-result {
+.ai-error-header {
+    font-weight: 500;
+    margin-bottom: 8px;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.ai-error-details {
+    color: var(--el-text-color-regular);
+    line-height: 1.5;
+}
+
+.ai-error-details small {
+    color: var(--el-text-color-secondary);
+}
+
+.ai-response-text {
+    margin-bottom: 12px;
+    padding: 12px 16px;
+    background: var(--el-color-primary-light-9);
+    border-left: 4px solid var(--el-color-primary);
+    border-radius: 0 6px 6px 0;
+    line-height: 1.6;
+    color: var(--el-text-color-primary);
+}
+
+.ai-meta-section {
     margin-top: 8px;
+    padding-top: 8px;
+    border-top: 1px solid var(--el-border-color-lighter);
+}
+
+.meta-info {
+    font-size: 12px;
+    color: var(--el-text-color-regular);
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex-wrap: wrap;
+}
+
+.sql-result {
+    margin-top: 12px;
 }
 
 .sql-header {
@@ -394,16 +452,24 @@
     background: var(--el-fill-color-light);
     border: 2px solid transparent;
     color: var(--el-text-color-regular);
-    padding: 12px 8px;
+    padding: 16px 12px;
     border-radius: 8px;
     cursor: pointer;
     font-size: 13px;
     display: flex;
     flex-direction: column;
     align-items: center;
-    gap: 6px;
+    gap: 4px;
     transition: all 0.3s;
     position: relative;
+    text-align: center;
+}
+
+.ai-provider-tab small {
+    font-size: 11px;
+    color: var(--el-text-color-placeholder);
+    margin-top: 2px;
+    line-height: 1.2;
 }
 
 .ai-provider-tab:hover {

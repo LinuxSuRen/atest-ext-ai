@@ -349,13 +349,26 @@ func (s *AIPluginService) handleAIGenerate(ctx context.Context, req *server.Data
 		}, nil
 	}
 
+	// Build meta information with more details
+	metaData := map[string]interface{}{
+		"confidence":  sqlResult.ConfidenceScore,
+		"model":      sqlResult.ModelUsed,
+		"explanation": sqlResult.Explanation,
+	}
+
+	metaJSON, err := json.Marshal(metaData)
+	if err != nil {
+		// Fallback to simple format
+		metaJSON = []byte(fmt.Sprintf(`{"confidence": %f, "model": "%s"}`,
+			sqlResult.ConfidenceScore, sqlResult.ModelUsed))
+	}
+
 	// Return in AI interface standard format
 	return &server.DataQueryResult{
 		Data: []*server.Pair{
 			{Key: "content", Value: sqlResult.SQL},
 			{Key: "success", Value: "true"},
-			{Key: "meta", Value: fmt.Sprintf(`{"confidence": %f, "model": "%s"}`,
-				sqlResult.ConfidenceScore, sqlResult.ModelUsed)},
+			{Key: "meta", Value: string(metaJSON)},
 		},
 	}, nil
 }

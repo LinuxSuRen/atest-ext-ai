@@ -5,7 +5,7 @@
     // Global configuration state
     let currentConfig = {
         language: 'en',
-        provider: 'ollama',
+        provider: 'local',  // Changed to new category
         endpoint: 'http://localhost:11434',
         model: '',
         apiKey: '',
@@ -42,7 +42,9 @@
             useOnlineAI: 'Use Online AI (API Key needed)',
             learnMore: 'Learn More',
             advanced: 'Advanced',
-            examples: 'Examples:'
+            examples: 'Examples:',
+            localService: 'Local Service',
+            onlineService: 'Online Service'
         },
         zh: {
             title: 'AI 助手',
@@ -70,7 +72,9 @@
             useOnlineAI: '使用在线AI（需要API密钥）',
             learnMore: '了解更多',
             advanced: '高级设置',
-            examples: '示例：'
+            examples: '示例：',
+            localService: '本地服务',
+            onlineService: '在线服务'
         }
     };
 
@@ -186,20 +190,17 @@
 
                 <div class="ai-settings-section">
                     <div class="ai-provider-tabs" id="ai-provider-tabs">
-                        <button class="ai-provider-tab active" data-provider="ollama">
-                            <i class="ai-provider-icon">🤖</i>
-                            <span>Ollama</span>
-                            <div class="ai-status-indicator" id="status-ollama"></div>
+                        <button class="ai-provider-tab active" data-provider="local">
+                            <i class="ai-provider-icon">🏠</i>
+                            <span data-i18n="localService">Local Service</span>
+                            <small>Ollama, LocalAI</small>
+                            <div class="ai-status-indicator" id="status-local"></div>
                         </button>
-                        <button class="ai-provider-tab" data-provider="openai">
-                            <i class="ai-provider-icon">🧠</i>
-                            <span>OpenAI</span>
-                            <div class="ai-status-indicator" id="status-openai"></div>
-                        </button>
-                        <button class="ai-provider-tab" data-provider="custom">
-                            <i class="ai-provider-icon">⚙️</i>
-                            <span>Custom API</span>
-                            <div class="ai-status-indicator" id="status-custom"></div>
+                        <button class="ai-provider-tab" data-provider="online">
+                            <i class="ai-provider-icon">☁️</i>
+                            <span data-i18n="onlineService">Online Service</span>
+                            <small>OpenAI, Anthropic, etc</small>
+                            <div class="ai-status-indicator" id="status-online"></div>
                         </button>
                     </div>
                 </div>
@@ -459,7 +460,7 @@
         // Show/hide API key field based on provider
         const apiKeyGroup = document.querySelector('.ai-api-key-group');
         if (apiKeyGroup) {
-            const showApiKey = ['openai', 'custom'].includes(currentConfig.provider);
+            const showApiKey = currentConfig.provider === 'online';
             apiKeyGroup.style.display = showApiKey ? 'block' : 'none';
         }
 
@@ -467,9 +468,8 @@
         const endpointInput = document.getElementById('ai-endpoint');
         if (endpointInput) {
             const placeholders = {
-                'ollama': 'http://localhost:11434',
-                'openai': 'https://api.openai.com/v1',
-                'custom': 'https://your-api-endpoint.com'
+                'local': 'http://localhost:11434',
+                'online': 'https://api.openai.com/v1'
             };
             endpointInput.placeholder = placeholders[currentConfig.provider] || '';
         }
@@ -722,7 +722,7 @@
     function resetConfiguration() {
         currentConfig = {
             language: 'en',
-            provider: 'ollama',
+            provider: 'local',  // Updated default to new category
             endpoint: 'http://localhost:11434',
             model: '',
             apiKey: '',
@@ -765,14 +765,33 @@
         userMessage.appendChild(userContent);
         messagesContainer.appendChild(userMessage);
 
-        // Add loading message
+        // Add loading message with better UX
         const loadingMessage = document.createElement('div');
         loadingMessage.className = 'ai-message loading';
         const loadingContent = document.createElement('div');
         loadingContent.className = 'ai-message-content';
-        loadingContent.innerHTML = '<i class="el-icon-loading"></i> Generating SQL query...';
+
+        const loadingSteps = [
+            'Analyzing your query...',
+            'Understanding database schema...',
+            'Generating SQL query...',
+            'Validating result...'
+        ];
+
+        let currentStep = 0;
+        loadingContent.innerHTML = `<i class="el-icon-loading"></i> ${loadingSteps[currentStep]}`;
         loadingMessage.appendChild(loadingContent);
         messagesContainer.appendChild(loadingMessage);
+
+        // Simulate progressive loading steps
+        const stepInterval = setInterval(() => {
+            currentStep = (currentStep + 1) % loadingSteps.length;
+            if (messagesContainer.contains(loadingMessage)) {
+                loadingContent.innerHTML = `<i class="el-icon-loading"></i> ${loadingSteps[currentStep]}`;
+            } else {
+                clearInterval(stepInterval);
+            }
+        }, 1000);
 
         // Clear input and update UI
         input.value = '';
@@ -800,6 +819,7 @@
             });
 
             const result = await response.json();
+            clearInterval(stepInterval);  // Clean up interval
             messagesContainer.removeChild(loadingMessage);
 
             if (result.success !== false) {
@@ -825,12 +845,25 @@
                     const aiContent = document.createElement('div');
                     aiContent.className = 'ai-message-content';
 
+                    // Add friendly response text first
+                    const responseText = document.createElement('div');
+                    responseText.className = 'ai-response-text';
+
+                    let responseMessage = "Here's the SQL query I generated for your request:";
+                    if (includeExplanation && metaObj.explanation) {
+                        responseMessage += `\n\n📝 **Explanation**: ${metaObj.explanation}`;
+                    }
+
+                    responseText.innerHTML = responseMessage.replace(/\n/g, '<br>').replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>');
+                    aiContent.appendChild(responseText);
+
+                    // SQL result section
                     const sqlResult = document.createElement('div');
                     sqlResult.className = 'sql-result';
 
                     const sqlHeader = document.createElement('div');
                     sqlHeader.className = 'sql-header';
-                    sqlHeader.innerHTML = '<strong>Generated SQL:</strong><button class="copy-btn" onclick="copyToClipboard(this)">Copy</button>';
+                    sqlHeader.innerHTML = '<strong>🔍 Generated SQL:</strong><button class="copy-btn" onclick="copyToClipboard(this)">📋 Copy</button>';
 
                     const sqlCode = document.createElement('pre');
                     sqlCode.className = 'sql-code';
@@ -839,18 +872,25 @@
                     sqlResult.appendChild(sqlHeader);
                     sqlResult.appendChild(sqlCode);
 
-                    if (metaObj.confidence) {
-                        const confidence = document.createElement('div');
-                        confidence.className = 'confidence';
-                        confidence.textContent = 'Confidence: ' + (metaObj.confidence * 100).toFixed(1) + '%';
-                        sqlResult.appendChild(confidence);
-                    }
+                    // Metadata section (more user-friendly)
+                    if (metaObj.confidence || metaObj.model) {
+                        const metaSection = document.createElement('div');
+                        metaSection.className = 'ai-meta-section';
 
-                    if (metaObj.model) {
-                        const model = document.createElement('div');
-                        model.className = 'model';
-                        model.textContent = 'Model: ' + metaObj.model;
-                        sqlResult.appendChild(model);
+                        let metaInfo = [];
+                        if (metaObj.confidence) {
+                            const confidencePercent = (metaObj.confidence * 100).toFixed(1);
+                            let confidenceIcon = '🟢';
+                            if (confidencePercent < 70) confidenceIcon = '🟡';
+                            if (confidencePercent < 50) confidenceIcon = '🔴';
+                            metaInfo.push(`${confidenceIcon} Confidence: ${confidencePercent}%`);
+                        }
+                        if (metaObj.model) {
+                            metaInfo.push(`🤖 Model: ${metaObj.model}`);
+                        }
+
+                        metaSection.innerHTML = '<div class="meta-info">' + metaInfo.join(' • ') + '</div>';
+                        sqlResult.appendChild(metaSection);
                     }
 
                     aiContent.appendChild(sqlResult);
@@ -874,6 +914,7 @@
             }
         } catch (error) {
             console.error('AI Query Error:', error);
+            clearInterval(stepInterval);  // Clean up interval
             if (messagesContainer.contains(loadingMessage)) {
                 messagesContainer.removeChild(loadingMessage);
             }
@@ -882,7 +923,31 @@
             errorMessage.className = 'ai-message error';
             const errorContent = document.createElement('div');
             errorContent.className = 'ai-message-content';
-            errorContent.innerHTML = '<i class="el-icon-warning"></i> Error: ' + error.message + '<br><small>Please try rephrasing your query or check your AI service configuration.</small>';
+
+            // Provide more helpful error messages
+            let errorText = 'Sorry, I encountered an issue while generating your SQL query.';
+            let helpText = 'Please try rephrasing your query or check your AI service configuration.';
+
+            if (error.message.includes('fetch')) {
+                errorText = 'Unable to connect to the AI service.';
+                helpText = 'Please check if the AI plugin service is running and configured properly.';
+            } else if (error.message.includes('Network')) {
+                errorText = 'Network connection issue detected.';
+                helpText = 'Please check your internet connection and try again.';
+            } else if (error.message.includes('timeout')) {
+                errorText = 'The AI service took too long to respond.';
+                helpText = 'The model might be busy. Please try again in a moment.';
+            }
+
+            errorContent.innerHTML = `
+                <div class="ai-error-header">
+                    <i class="el-icon-warning"></i> ${errorText}
+                </div>
+                <div class="ai-error-details">
+                    <small>${helpText}</small>
+                    <br><small><strong>Technical details:</strong> ${error.message}</small>
+                </div>
+            `;
             errorMessage.appendChild(errorContent);
             messagesContainer.appendChild(errorMessage);
         } finally {
@@ -1011,7 +1076,7 @@
                 window.open('https://ollama.com/download', '_blank');
                 break;
             case 'use-online':
-                currentConfig.provider = 'openai';
+                currentConfig.provider = 'online';  // Updated to new category
                 const settingsPanel = document.getElementById('ai-settings-panel');
                 settingsPanel.style.display = 'flex';
                 updateUI();
@@ -1078,11 +1143,19 @@
             // Update provider status indicators
             updateProviderStatusIndicators(providers);
 
-            // Auto-select first available provider if none is selected
-            if (!currentConfig.provider || currentConfig.provider === 'ollama') {
+            // Auto-select first available provider if none is selected or still using old config
+            if (!currentConfig.provider || ['ollama', 'openai', 'custom'].includes(currentConfig.provider)) {
                 const availableProvider = providers.find(p => p.available && p.models && p.models.length > 0);
                 if (availableProvider) {
-                    currentConfig.provider = availableProvider.name;
+                    // Map old provider names to new categories
+                    if (['ollama', 'local'].includes(availableProvider.name)) {
+                        currentConfig.provider = 'local';
+                    } else if (['openai', 'anthropic'].includes(availableProvider.name)) {
+                        currentConfig.provider = 'online';
+                    } else {
+                        // Default to local for unknown providers
+                        currentConfig.provider = 'local';
+                    }
                     currentConfig.endpoint = availableProvider.endpoint;
 
                     // Auto-select first model
