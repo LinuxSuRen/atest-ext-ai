@@ -23,10 +23,12 @@ import (
 	"fmt"
 	"log"
 	"strings"
+	"time"
 
 	"github.com/linuxsuren/api-testing/pkg/server"
 	"github.com/linuxsuren/api-testing/pkg/testing/remote"
 	"github.com/linuxsuren/atest-ext-ai/pkg/ai"
+	"github.com/linuxsuren/atest-ext-ai/pkg/ai/providers/universal"
 	"github.com/linuxsuren/atest-ext-ai/pkg/config"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
@@ -44,6 +46,7 @@ type AIPluginService struct {
 	aiEngine           ai.Engine
 	config             *config.Config
 	capabilityDetector *ai.CapabilityDetector
+	providerManager    *ai.ProviderManager
 }
 
 // NewAIPluginService creates a new AI plugin service instance
@@ -76,10 +79,27 @@ func NewAIPluginService() (*AIPluginService, error) {
 	capabilityDetector := ai.NewCapabilityDetector(cfg.AI, aiClient)
 	log.Printf("Capability detector initialized")
 
+	// Initialize provider manager
+	providerManager := ai.NewProviderManager()
+	log.Printf("Provider manager initialized")
+
+	// Auto-discover providers in background
+	go func() {
+		ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+		defer cancel()
+		if providers, err := providerManager.DiscoverProviders(ctx); err == nil {
+			log.Printf("Discovered %d AI providers", len(providers))
+			for _, p := range providers {
+				log.Printf("  - %s: %d models available", p.Name, len(p.Models))
+			}
+		}
+	}()
+
 	service := &AIPluginService{
 		aiEngine:           aiEngine,
 		config:             cfg,
 		capabilityDetector: capabilityDetector,
+		providerManager:    providerManager,
 	}
 
 	log.Println("AI plugin service creation completed")
@@ -103,6 +123,14 @@ func (s *AIPluginService) Query(ctx context.Context, req *server.DataQuery) (*se
 		return s.handleAIGenerate(ctx, req)
 	case "capabilities":
 		return s.handleAICapabilities(ctx, req)
+	case "providers":
+		return s.handleGetProviders(ctx, req)
+	case "models":
+		return s.handleGetModels(ctx, req)
+	case "test_connection":
+		return s.handleTestConnection(ctx, req)
+	case "update_config":
+		return s.handleUpdateConfig(ctx, req)
 	default:
 		// Backward compatibility: support legacy natural language queries
 		return s.handleLegacyQuery(ctx, req)
@@ -390,7 +418,7 @@ func (s *AIPluginService) GetPageOfJS(ctx context.Context, req *server.SimpleNam
 	if req.Name != "ai-chat" {
 		return &server.CommonResult{
 			Success: false,
-			Message: "Unknown AI plugin page",
+			Message: fmt.Sprintf("Unknown AI plugin page: %s", req.Name),
 		}, nil
 	}
 
@@ -410,7 +438,7 @@ func (s *AIPluginService) GetPageOfCSS(ctx context.Context, req *server.SimpleNa
 	if req.Name != "ai-chat" {
 		return &server.CommonResult{
 			Success: false,
-			Message: "Unknown AI plugin page",
+			Message: fmt.Sprintf("Unknown AI plugin page: %s", req.Name),
 		}, nil
 	}
 
@@ -741,4 +769,160 @@ func (s *AIPluginService) handleLegacyQuery(ctx context.Context, req *server.Dat
 		sqlResult.RequestID, sqlResult.ConfidenceScore, sqlResult.ProcessingTime.Milliseconds())
 
 	return result, nil
+}
+
+// handleGetProviders returns the list of available AI providers
+func (s *AIPluginService) handleGetProviders(ctx context.Context, req *server.DataQuery) (*server.DataQueryResult, error) {
+	log.Printf("Getting AI providers list")
+
+	// Ensure providers are discovered
+	providers, err := s.providerManager.DiscoverProviders(ctx)
+	if err != nil {
+		log.Printf("Failed to discover providers: %v", err)
+		// Continue with cached providers
+		providers = s.providerManager.GetProviders()
+	}
+
+	// Convert to JSON
+	providersJSON, err := json.Marshal(providers)
+	if err != nil {
+		return nil, status.Errorf(codes.Internal, "failed to serialize providers: %v", err)
+	}
+
+	return &server.DataQueryResult{
+		Data: []*server.Pair{
+			{Key: "providers", Value: string(providersJSON)},
+			{Key: "count", Value: fmt.Sprintf("%d", len(providers))},
+			{Key: "success", Value: "true"},
+		},
+	}, nil
+}
+
+// handleGetModels returns models for a specific provider
+func (s *AIPluginService) handleGetModels(ctx context.Context, req *server.DataQuery) (*server.DataQueryResult, error) {
+	// Parse provider name from SQL field
+	var params struct {
+		Provider string `json:"provider"`
+	}
+
+	if req.Sql != "" {
+		if err := json.Unmarshal([]byte(req.Sql), &params); err != nil {
+			return nil, status.Errorf(codes.InvalidArgument, "invalid parameters: %v", err)
+		}
+	}
+
+	if params.Provider == "" {
+		// If no provider specified, return all models from all providers
+		allModels := make(map[string][]interface{})
+		providers := s.providerManager.GetProviders()
+
+		for _, provider := range providers {
+			if models, err := s.providerManager.GetModels(ctx, provider.Name); err == nil {
+				modelList := make([]interface{}, len(models))
+				for i, m := range models {
+					modelList[i] = m
+				}
+				allModels[provider.Name] = modelList
+			}
+		}
+
+		modelsJSON, _ := json.Marshal(allModels)
+		return &server.DataQueryResult{
+			Data: []*server.Pair{
+				{Key: "models", Value: string(modelsJSON)},
+				{Key: "success", Value: "true"},
+			},
+		}, nil
+	}
+
+	// Get models for specific provider
+	models, err := s.providerManager.GetModels(ctx, params.Provider)
+	if err != nil {
+		return &server.DataQueryResult{
+			Data: []*server.Pair{
+				{Key: "error", Value: err.Error()},
+				{Key: "success", Value: "false"},
+			},
+		}, nil
+	}
+
+	modelsJSON, _ := json.Marshal(models)
+	return &server.DataQueryResult{
+		Data: []*server.Pair{
+			{Key: "models", Value: string(modelsJSON)},
+			{Key: "provider", Value: params.Provider},
+			{Key: "count", Value: fmt.Sprintf("%d", len(models))},
+			{Key: "success", Value: "true"},
+		},
+	}, nil
+}
+
+// handleTestConnection tests a connection with provided configuration
+func (s *AIPluginService) handleTestConnection(ctx context.Context, req *server.DataQuery) (*server.DataQueryResult, error) {
+	// Parse configuration from SQL field
+	var config universal.Config
+	if req.Sql != "" {
+		if err := json.Unmarshal([]byte(req.Sql), &config); err != nil {
+			return nil, status.Errorf(codes.InvalidArgument, "invalid configuration: %v", err)
+		}
+	}
+
+	// Test the connection
+	result, err := s.providerManager.TestConnection(ctx, &config)
+	if err != nil {
+		return &server.DataQueryResult{
+			Data: []*server.Pair{
+				{Key: "error", Value: err.Error()},
+				{Key: "success", Value: "false"},
+			},
+		}, nil
+	}
+
+	resultJSON, _ := json.Marshal(result)
+	return &server.DataQueryResult{
+		Data: []*server.Pair{
+			{Key: "result", Value: string(resultJSON)},
+			{Key: "success", Value: fmt.Sprintf("%t", result.Success)},
+			{Key: "message", Value: result.Message},
+			{Key: "response_time_ms", Value: fmt.Sprintf("%d", result.ResponseTime.Milliseconds())},
+		},
+	}, nil
+}
+
+// handleUpdateConfig updates the configuration for a provider
+func (s *AIPluginService) handleUpdateConfig(ctx context.Context, req *server.DataQuery) (*server.DataQueryResult, error) {
+	// Parse update request from SQL field
+	var updateReq struct {
+		Provider string              `json:"provider"`
+		Config   *universal.Config   `json:"config"`
+	}
+
+	if req.Sql != "" {
+		if err := json.Unmarshal([]byte(req.Sql), &updateReq); err != nil {
+			return nil, status.Errorf(codes.InvalidArgument, "invalid update request: %v", err)
+		}
+	}
+
+	if updateReq.Provider == "" || updateReq.Config == nil {
+		return nil, status.Errorf(codes.InvalidArgument, "provider and config are required")
+	}
+
+	// Update the configuration
+	err := s.providerManager.UpdateConfig(ctx, updateReq.Provider, updateReq.Config)
+	if err != nil {
+		return &server.DataQueryResult{
+			Data: []*server.Pair{
+				{Key: "error", Value: err.Error()},
+				{Key: "success", Value: "false"},
+			},
+		}, nil
+	}
+
+	return &server.DataQueryResult{
+		Data: []*server.Pair{
+			{Key: "provider", Value: updateReq.Provider},
+			{Key: "message", Value: "Configuration updated successfully"},
+			{Key: "success", Value: "true"},
+		},
+	}, nil
 }
