@@ -456,7 +456,7 @@ func setDefaults(v *viper.Viper) {
 	v.SetDefault("ai.services.ollama.enabled", true)
 	v.SetDefault("ai.services.ollama.provider", "ollama")
 	v.SetDefault("ai.services.ollama.endpoint", "http://localhost:11434")
-	v.SetDefault("ai.services.ollama.model", "codellama")
+	v.SetDefault("ai.services.ollama.model", "gemma3:1b")
 	v.SetDefault("ai.services.ollama.max_tokens", 4096)
 	v.SetDefault("ai.services.ollama.temperature", 0.7)
 	v.SetDefault("ai.services.ollama.priority", 1)

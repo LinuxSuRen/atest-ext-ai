@@ -59,7 +59,7 @@ func LoadLegacyConfig() (*LegacyConfig, error) {
 		AI: LegacyAIConfig{
 			Provider:            getEnvWithDefault("AI_PROVIDER", "local"),
 			OllamaEndpoint:      getEnvWithDefault("OLLAMA_ENDPOINT", "http://localhost:11434"),
-			Model:               getEnvWithDefault("AI_MODEL", "codellama"),
+			Model:               getEnvWithDefault("AI_MODEL", "gemma3:1b"),
 			APIKey:              os.Getenv("AI_API_KEY"),
 			ConfidenceThreshold: 0.7,
 			SupportedDatabases:  []string{"mysql", "postgresql", "sqlite"},

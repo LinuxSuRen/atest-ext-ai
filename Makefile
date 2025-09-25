@@ -66,7 +66,7 @@ dev:
 	@echo "Running $(BINARY_NAME) in development mode..."
 	@AI_PROVIDER="local" \
 	 OLLAMA_ENDPOINT="http://localhost:11434" \
-	 AI_MODEL="codellama" \
+	 AI_MODEL="gemma3:1b" \
 	 LOG_LEVEL="debug" \
 	 go run $(MAIN_PACKAGE)
 

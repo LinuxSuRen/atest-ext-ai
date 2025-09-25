@@ -614,6 +614,7 @@
             };
 
             return mockModels[currentConfig.provider] || [];
+        }
     }
 
     function updateModelSelection() {

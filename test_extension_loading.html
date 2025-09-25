@@ -1,0 +1,92 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Extension Loading Test</title>
+    <style>
+        #plugin-container {
+            min-height: 400px;
+            border: 1px solid #ccc;
+            padding: 20px;
+            margin: 20px;
+        }
+        .loading {
+            text-align: center;
+            color: #666;
+            padding: 50px;
+        }
+    </style>
+</head>
+<body>
+    <h1>AI Extension Loading Test</h1>
+    <div id="plugin-container" class="loading">
+        AI Assistant is loading...
+    </div>
+
+    <script>
+        // Simulate the Extension.vue loading logic
+        const loading = { value: true };
+
+        const loadPlugin = async () => {
+            try {
+                console.log('Starting to load plugin...');
+
+                // Simulate GetPageOfCSS
+                const cssResponse = await fetch('/api/v1/extension/pages/ai-chat/css');
+                const cssResult = await cssResponse.json();
+                if (cssResult.success) {
+                    const style = document.createElement('style');
+                    style.textContent = cssResult.message;
+                    document.head.appendChild(style);
+                    console.log('CSS loaded successfully');
+                }
+
+                // Simulate GetPageOfJS
+                const jsResponse = await fetch('/api/v1/extension/pages/ai-chat/js');
+                const jsResult = await jsResponse.json();
+                if (jsResult.success) {
+                    const script = document.createElement('script');
+                    script.type = 'text/javascript';
+                    script.textContent = jsResult.message;
+                    document.head.appendChild(script);
+                    console.log('JS loaded successfully');
+
+                    // Wait a moment for script to be evaluated
+                    setTimeout(() => {
+                        const plugin = window.ATestPlugin;
+
+                        if (plugin && plugin.mount) {
+                            console.log('extension load success');
+                            const container = document.getElementById("plugin-container");
+                            if (container) {
+                                container.innerHTML = ''; // Clear previous content
+                                plugin.mount(container);
+                                // Set loading to false after successful mount
+                                loading.value = false;
+                                console.log('Plugin mounted successfully, loading = false');
+                            } else {
+                                console.error('Plugin container not found');
+                                loading.value = false;
+                            }
+                        } else {
+                            console.error('ATestPlugin not found or missing mount method:', window.ATestPlugin);
+                            loading.value = false;
+                        }
+                    }, 200); // Give script time to execute
+                }
+            } catch (error) {
+                console.log(`extension load error: ${error.message}`);
+                loading.value = false;
+                document.getElementById("plugin-container").innerHTML =
+                    `<div style="color: red;">Error loading plugin: ${error.message}</div>`;
+            }
+        };
+
+        // Start loading when page loads
+        document.addEventListener('DOMContentLoaded', () => {
+            loadPlugin();
+        });
+    </script>
+</body>
+</html>
