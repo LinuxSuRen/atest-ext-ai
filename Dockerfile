@@ -43,8 +43,8 @@ USER aiuser
 # Environment variables
 ENV AI_PLUGIN_SOCKET_PATH="/tmp/atest-ext-ai.sock"
 ENV AI_PROVIDER="local"
-ENV OLLAMA_ENDPOINT="http://host.docker.internal:11434"
-ENV AI_MODEL="codellama"
+ENV OLLAMA_ENDPOINT="${OLLAMA_ENDPOINT:-http://ollama:11434}"
+# AI_MODEL will be auto-detected from available models
 
 # Expose Unix socket directory
 VOLUME ["/tmp"]

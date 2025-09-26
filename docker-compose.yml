@@ -71,7 +71,7 @@ services:
 
   # API Testing Tool main service (example integration)
   api-testing:
-    image: ghcr.io/linuxsuren/api-testing:latest
+    image: ghcr.io/linuxsuren/api-testing:v0.0.20
     container_name: atest-main
     restart: unless-stopped
     environment:
@@ -106,7 +106,8 @@ services:
     environment:
       - POSTGRES_DB=${POSTGRES_DB:-testdb}
       - POSTGRES_USER=${POSTGRES_USER:-testuser}
-      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD:-testpass}
+      # SECURITY: Password must be set via environment variable, no defaults
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD:?Error: POSTGRES_PASSWORD is required}
       - POSTGRES_INITDB_ARGS="--auth-host=scram-sha-256"
     volumes:
       - postgres_data:/var/lib/postgresql/data
@@ -132,7 +133,8 @@ services:
     image: redis:7-alpine
     container_name: atest-redis
     restart: unless-stopped
-    command: redis-server --appendonly yes --requirepass ${REDIS_PASSWORD:-redispass}
+    # SECURITY: Password must be set via environment variable, no defaults
+    command: redis-server --appendonly yes --requirepass ${REDIS_PASSWORD:?Error: REDIS_PASSWORD is required}
     volumes:
       - redis_data:/data
     ports:
@@ -184,7 +186,8 @@ services:
     container_name: atest-grafana
     restart: unless-stopped
     environment:
-      - GF_SECURITY_ADMIN_PASSWORD=${GRAFANA_PASSWORD:-admin}
+      # SECURITY: Password must be set via environment variable, no defaults
+      - GF_SECURITY_ADMIN_PASSWORD=${GRAFANA_PASSWORD:?Error: GRAFANA_PASSWORD is required}
       - GF_USERS_ALLOW_SIGN_UP=false
     volumes:
       - grafana_data:/var/lib/grafana
