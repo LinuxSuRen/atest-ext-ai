@@ -59,8 +59,8 @@ func LoadLegacyConfig() (*LegacyConfig, error) {
 		AI: LegacyAIConfig{
 			Provider:            getEnvWithDefault("AI_PROVIDER", "local"),
 			OllamaEndpoint:      getEnvWithDefault("OLLAMA_ENDPOINT", "http://localhost:11434"),
-			Model:               getEnvWithDefault("AI_MODEL", "gemma3:1b"),
-			APIKey:              os.Getenv("AI_API_KEY"),
+			Model:               getEnvWithFallback("AI_MODEL"), // Auto-detect from available models if not set
+			APIKey:              getEnvWithFallback("AI_API_KEY"),
 			ConfidenceThreshold: 0.7,
 			SupportedDatabases:  []string{"mysql", "postgresql", "sqlite"},
 			EnableSQLExecution:  true,
@@ -225,9 +225,7 @@ func validateLegacyConfig(config *LegacyConfig) error {
 		if config.AI.OllamaEndpoint == "" {
 			return fmt.Errorf("ollama_endpoint is required for local provider")
 		}
-		if config.AI.Model == "" {
-			return fmt.Errorf("model is required for local provider")
-		}
+		// Model is optional for local provider - will be auto-detected from available models
 	case "openai", "claude":
 		if config.AI.APIKey == "" {
 			return fmt.Errorf("api_key is required for %s provider", config.AI.Provider)
@@ -243,9 +241,26 @@ func validateLegacyConfig(config *LegacyConfig) error {
 }
 
 // getEnvWithDefault returns environment variable value or default
+// Supports both prefixed and non-prefixed environment variables for backward compatibility
 func getEnvWithDefault(key, defaultValue string) string {
+	// Try prefixed version first (new standard)
+	if value := os.Getenv("ATEST_EXT_AI_" + key); value != "" {
+		return value
+	}
+	// Fall back to non-prefixed version (legacy compatibility)
 	if value := os.Getenv(key); value != "" {
 		return value
 	}
 	return defaultValue
+}
+
+// getEnvWithFallback returns environment variable value with prefix fallback support
+// Supports both prefixed and non-prefixed environment variables for backward compatibility
+func getEnvWithFallback(key string) string {
+	// Try prefixed version first (new standard)
+	if value := os.Getenv("ATEST_EXT_AI_" + key); value != "" {
+		return value
+	}
+	// Fall back to non-prefixed version (legacy compatibility)
+	return os.Getenv(key)
 }

@@ -59,8 +59,13 @@ func NewClient(config *Config) (*Client, error) {
 
 	// Set defaults
 	if config.BaseURL == "" {
-		// Try environment variable first, then default
-		if envURL := os.Getenv("OLLAMA_BASE_URL"); envURL != "" {
+		// Try standardized environment variable first, with fallback for compatibility
+		if envURL := os.Getenv("ATEST_EXT_AI_OLLAMA_ENDPOINT"); envURL != "" {
+			config.BaseURL = envURL
+		} else if envURL := os.Getenv("OLLAMA_ENDPOINT"); envURL != "" {
+			config.BaseURL = envURL
+		} else if envURL := os.Getenv("OLLAMA_BASE_URL"); envURL != "" {
+			// Legacy compatibility
 			config.BaseURL = envURL
 		} else {
 			config.BaseURL = "http://localhost:11434"
@@ -72,9 +77,8 @@ func NewClient(config *Config) (*Client, error) {
 	if config.MaxTokens == 0 {
 		config.MaxTokens = 4096
 	}
-	if config.Model == "" {
-		config.Model = "llama2"
-	}
+	// Model will be auto-detected from available models at runtime
+	// Don't set a hardcoded default - respect user's local models only
 	if config.UserAgent == "" {
 		config.UserAgent = "atest-ext-ai/1.0"
 	}
@@ -375,6 +379,16 @@ func (c *Client) getModel(req *interfaces.GenerateRequest) string {
 	if req.Model != "" {
 		return req.Model
 	}
+
+	// If config model is not set, auto-detect from available models
+	if c.config.Model == "" {
+		if availableModel := c.getFirstAvailableModel(); availableModel != "" {
+			c.config.Model = availableModel // Cache the detected model
+			return availableModel
+		}
+		// If auto-detection fails, this will cause an error in Ollama which is appropriate
+	}
+
 	return c.config.Model
 }
 
@@ -392,6 +406,20 @@ func (c *Client) getTemperature(req *interfaces.GenerateRequest) float64 {
 		return req.Temperature
 	}
 	return c.config.Temperature
+}
+
+// getFirstAvailableModel gets the first available model for auto-detection
+func (c *Client) getFirstAvailableModel() string {
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+
+	models, err := c.getAvailableModels(ctx)
+	if err != nil || len(models) == 0 {
+		return ""
+	}
+
+	// Return the first available model
+	return models[0].ID
 }
 
 // getAvailableModels retrieves the list of available models from Ollama

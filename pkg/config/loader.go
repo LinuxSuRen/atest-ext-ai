@@ -224,7 +224,7 @@ func (l *Loader) setupEnvironmentVariables() {
 	// Replace dots and hyphens with underscores for environment variables
 	l.viper.SetEnvKeyReplacer(strings.NewReplacer(".", "_", "-", "_"))
 
-	// Bind specific environment variables
+	// Bind specific environment variables with consistent ATEST_EXT_AI_ prefix
 	envBindings := map[string]string{
 		"server.host":                 "SERVER_HOST",
 		"server.port":                 "SERVER_PORT",
@@ -232,10 +232,10 @@ func (l *Loader) setupEnvironmentVariables() {
 		"plugin.debug":                "DEBUG",
 		"plugin.log_level":            "LOG_LEVEL",
 		"plugin.environment":          "ENVIRONMENT",
-		"ai.default_service":          "AI_DEFAULT_SERVICE",
+		"ai.default_service":          "AI_PROVIDER",
 		"ai.timeout":                  "AI_TIMEOUT",
 		"ai.services.ollama.endpoint": "OLLAMA_ENDPOINT",
-		"ai.services.ollama.model":    "OLLAMA_MODEL",
+		"ai.services.ollama.model":    "AI_MODEL",
 		"ai.services.openai.api_key":  "OPENAI_API_KEY",
 		"ai.services.openai.model":    "OPENAI_MODEL",
 		"ai.services.claude.api_key":  "CLAUDE_API_KEY",
@@ -456,7 +456,7 @@ func setDefaults(v *viper.Viper) {
 	v.SetDefault("ai.services.ollama.enabled", true)
 	v.SetDefault("ai.services.ollama.provider", "ollama")
 	v.SetDefault("ai.services.ollama.endpoint", "http://localhost:11434")
-	v.SetDefault("ai.services.ollama.model", "gemma3:1b")
+	// AI_MODEL will be auto-detected from available models at runtime
 	v.SetDefault("ai.services.ollama.max_tokens", 4096)
 	v.SetDefault("ai.services.ollama.temperature", 0.7)
 	v.SetDefault("ai.services.ollama.priority", 1)
