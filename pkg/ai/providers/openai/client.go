@@ -60,10 +60,14 @@ func NewClient(config *Config) (*Client, error) {
 
 	// Set API key from environment if not provided
 	if config.APIKey == "" {
-		if envKey := os.Getenv("OPENAI_API_KEY"); envKey != "" {
+		// Try standardized environment variable first, with fallback for compatibility
+		if envKey := os.Getenv("ATEST_EXT_AI_OPENAI_API_KEY"); envKey != "" {
+			config.APIKey = envKey
+		} else if envKey := os.Getenv("OPENAI_API_KEY"); envKey != "" {
+			// Legacy compatibility
 			config.APIKey = envKey
 		} else {
-			return nil, fmt.Errorf("API key is required (set OPENAI_API_KEY environment variable or provide in config)")
+			return nil, fmt.Errorf("API key is required (set ATEST_EXT_AI_OPENAI_API_KEY or OPENAI_API_KEY environment variable or provide in config)")
 		}
 	}
 
