@@ -19,12 +19,26 @@ package ai
 import (
 	"context"
 	"fmt"
-	"log"
+	"os"
 	"time"
 
 	"github.com/linuxsuren/atest-ext-ai/pkg/config"
 	"github.com/linuxsuren/atest-ext-ai/pkg/interfaces"
+	"github.com/linuxsuren/atest-ext-ai/pkg/logging"
 )
+
+// shouldIncludeDebugInfo checks if debug information should be included in responses
+func shouldIncludeDebugInfo() bool {
+	return os.Getenv("APP_ENV") == "development" || os.Getenv("LOG_LEVEL") == "debug"
+}
+
+// addDebugInfo conditionally adds debug information based on environment
+func addDebugInfo(existing []string, info string) []string {
+	if shouldIncludeDebugInfo() {
+		return append(existing, info)
+	}
+	return existing
+}
 
 // Engine defines the interface for AI SQL generation
 type Engine interface {
@@ -86,21 +100,21 @@ func NewEngine(cfg config.AIConfig) (Engine, error) {
 	// Try to create a full AI client first
 	client, err := NewClient(cfg)
 	if err != nil {
-		log.Printf("Failed to create AI client, falling back to basic engine: %v", err)
+		logging.Logger.Warn("Failed to create AI client, falling back to basic engine", "error", err)
 		return &basicEngine{config: cfg}, nil
 	}
 
 	// Get the AI client from the Client
 	aiClient := client.GetPrimaryClient()
 	if aiClient == nil {
-		log.Printf("No primary AI client available, using basic engine")
+		logging.Logger.Info("No primary AI client available, using basic engine")
 		return &basicEngine{config: cfg}, nil
 	}
 
 	// Create SQL generator with AI client
 	generator, err := NewSQLGenerator(aiClient, cfg)
 	if err != nil {
-		log.Printf("Failed to create SQL generator: %v", err)
+		logging.Logger.Error("Failed to create SQL generator", "error", err)
 		return &basicEngine{config: cfg}, nil
 	}
 
@@ -139,7 +153,7 @@ func (e *basicEngine) GenerateSQL(ctx context.Context, req *GenerateSQLRequest) 
 		ProcessingTime:  time.Since(start),
 		RequestID:       fmt.Sprintf("req_%d", time.Now().UnixNano()),
 		ModelUsed:       e.config.DefaultService,
-		DebugInfo:       []string{"Using basic implementation"},
+		DebugInfo:       addDebugInfo([]string{}, "Using basic implementation"),
 	}, nil
 }
 
@@ -182,7 +196,7 @@ func (e *aiEngine) GenerateSQL(ctx context.Context, req *GenerateSQLRequest) (*G
 		ProcessingTime:  result.Metadata.ProcessingTime,
 		RequestID:       result.Metadata.RequestID,
 		ModelUsed:       result.Metadata.ModelUsed,
-		DebugInfo:       append(result.Metadata.DebugInfo, fmt.Sprintf("Query complexity: %s", result.Metadata.Complexity)),
+		DebugInfo:       addDebugInfo(result.Metadata.DebugInfo, fmt.Sprintf("Query complexity: %s", result.Metadata.Complexity)),
 	}, nil
 }
 

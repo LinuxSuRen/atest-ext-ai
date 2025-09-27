@@ -57,7 +57,7 @@ type OllamaListResponse struct {
 // NewOllamaDiscovery creates a new Ollama discovery instance
 func NewOllamaDiscovery(baseURL string) *OllamaDiscovery {
 	if baseURL == "" {
-		baseURL = "http://localhost:11434"
+		panic("baseURL is required for Ollama discovery - set OLLAMA_ENDPOINT environment variable")
 	}
 
 	return &OllamaDiscovery{
@@ -225,4 +225,9 @@ func (od *OllamaDiscovery) PullModel(ctx context.Context, modelName string) erro
 	// Note: This is a streaming endpoint, we're just checking if it starts successfully
 	// In production, you might want to handle the streaming response
 	return nil
+}
+
+// GetBaseURL returns the configured Ollama base URL
+func (od *OllamaDiscovery) GetBaseURL() string {
+	return od.baseURL
 }

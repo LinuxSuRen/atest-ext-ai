@@ -12,7 +12,7 @@ services:
     environment:
       - AI_PROVIDER=${AI_PROVIDER:-local}
       - OLLAMA_ENDPOINT=${OLLAMA_ENDPOINT:-http://ollama:11434}
-      - AI_MODEL=${AI_MODEL:-codellama}
+      - AI_MODEL=${AI_MODEL:-}
       - AI_API_KEY=${AI_API_KEY}
       - AI_PLUGIN_SOCKET_PATH=/tmp/atest-ext-ai.sock
       - LOG_LEVEL=${LOG_LEVEL:-info}
@@ -104,8 +104,8 @@ services:
     container_name: atest-postgres
     restart: unless-stopped
     environment:
-      - POSTGRES_DB=${POSTGRES_DB:-testdb}
-      - POSTGRES_USER=${POSTGRES_USER:-testuser}
+      - POSTGRES_DB=${POSTGRES_DB:-atest_ai_db}
+      - POSTGRES_USER=${POSTGRES_USER:-atest_ai_user}
       # SECURITY: Password must be set via environment variable, no defaults
       - POSTGRES_PASSWORD=${POSTGRES_PASSWORD:?Error: POSTGRES_PASSWORD is required}
       - POSTGRES_INITDB_ARGS="--auth-host=scram-sha-256"
@@ -117,7 +117,7 @@ services:
     networks:
       - atest-network
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-testuser} -d ${POSTGRES_DB:-testdb}"]
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-atest_ai_user} -d ${POSTGRES_DB:-atest_ai_db}"]
       interval: 10s
       timeout: 5s
       start_period: 30s

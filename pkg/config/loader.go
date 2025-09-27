@@ -243,7 +243,6 @@ func (l *Loader) setupEnvironmentVariables() {
 		"database.enabled":            "DATABASE_ENABLED",
 		"database.driver":             "DATABASE_DRIVER",
 		"database.dsn":                "DATABASE_DSN",
-		"logging.level":               "LOG_LEVEL",
 		"logging.format":              "LOG_FORMAT",
 		"logging.output":              "LOG_OUTPUT",
 	}
@@ -418,7 +417,7 @@ func setDefaults(v *viper.Viper) {
 	v.SetDefault("plugin.version", "1.0.0")
 	v.SetDefault("plugin.debug", false)
 	v.SetDefault("plugin.log_level", "info")
-	v.SetDefault("plugin.environment", "development")
+	v.SetDefault("plugin.environment", "production")
 
 	// AI defaults
 	v.SetDefault("ai.default_service", "ollama")
@@ -455,7 +454,7 @@ func setDefaults(v *viper.Viper) {
 	// AI Service defaults - Ollama
 	v.SetDefault("ai.services.ollama.enabled", true)
 	v.SetDefault("ai.services.ollama.provider", "ollama")
-	v.SetDefault("ai.services.ollama.endpoint", "http://localhost:11434")
+	// ai.services.ollama.endpoint must be set via OLLAMA_ENDPOINT environment variable
 	// AI_MODEL will be auto-detected from available models at runtime
 	v.SetDefault("ai.services.ollama.max_tokens", 4096)
 	v.SetDefault("ai.services.ollama.temperature", 0.7)

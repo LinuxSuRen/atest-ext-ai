@@ -19,6 +19,7 @@ package ai
 import (
 	"context"
 	"fmt"
+	"os"
 	"sync"
 	"time"
 
@@ -60,10 +61,19 @@ type ProviderManager struct {
 
 // NewProviderManager creates a new provider manager
 func NewProviderManager() *ProviderManager {
+	// Get Ollama endpoint from environment variables with fallback to default
+	endpoint := os.Getenv("OLLAMA_ENDPOINT")
+	if endpoint == "" {
+		endpoint = os.Getenv("ATEST_EXT_AI_OLLAMA_ENDPOINT")
+	}
+	if endpoint == "" {
+		endpoint = "http://localhost:11434" // Default Ollama endpoint
+	}
+
 	return &ProviderManager{
 		providers: make(map[string]*ProviderInfo),
 		clients:   make(map[string]interfaces.AIClient),
-		discovery: discovery.NewOllamaDiscovery(""),
+		discovery: discovery.NewOllamaDiscovery(endpoint),
 	}
 }
 
@@ -78,11 +88,14 @@ func (pm *ProviderManager) DiscoverProviders(ctx context.Context) ([]*ProviderIn
 	if pm.discovery.IsAvailable(ctx) {
 		models, err := pm.discovery.GetModels(ctx)
 		if err == nil {
+			// Get the configured endpoint from discovery
+			endpoint := pm.discovery.GetBaseURL()
+
 			provider := &ProviderInfo{
 				Name:        "ollama",
 				Type:        "local",
 				Available:   true,
-				Endpoint:    "http://localhost:11434",
+				Endpoint:    endpoint,
 				Models:      models,
 				LastChecked: time.Now(),
 			}
@@ -92,7 +105,7 @@ func (pm *ProviderManager) DiscoverProviders(ctx context.Context) ([]*ProviderIn
 			// Create Ollama client
 			config := &universal.Config{
 				Provider:       "ollama",
-				Endpoint:       "http://localhost:11434",
+				Endpoint:       endpoint,
 				Model:          "llama2",
 				Temperature:    0.7,
 				MaxTokens:      4096,

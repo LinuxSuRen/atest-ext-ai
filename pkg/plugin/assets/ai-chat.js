@@ -1,6 +1,11 @@
 (function() {
-    console.log('Loading AI Chat Plugin [VERSION 6 - Modern Settings]...');
-    console.log('Script execution started at:', new Date().toISOString());
+    // Create conditional logging for production safety
+    const debugLog = (typeof process !== 'undefined' && process.env?.NODE_ENV === 'development')
+      ? console.log
+      : () => {};
+
+    debugLog('Loading AI Chat Plugin [VERSION 6 - Modern Settings]...');
+    debugLog('Script execution started at:', new Date().toISOString());
 
     // Global configuration state
     let currentConfig = {
@@ -209,6 +214,7 @@
                     <div class="ai-setting-group">
                         <label data-i18n="endpoint">${t('endpoint')}:</label>
                         <input type="text" id="ai-endpoint" class="ai-input" placeholder="http://localhost:11434">
+                        <small id="ai-endpoint-help" class="ai-help-text">Default Ollama endpoint. Change only if using custom installation.</small>
                     </div>
 
                     <div class="ai-setting-group">
@@ -303,7 +309,7 @@
     }
 
     function createAIChatInterface() {
-        console.log('Creating AI Chat interface...');
+        debugLog('Creating AI Chat interface...');
         const container = document.createElement('div');
         container.className = 'ai-chat-container';
 
@@ -464,14 +470,24 @@
             apiKeyGroup.style.display = showApiKey ? 'block' : 'none';
         }
 
-        // Update endpoint placeholder
+        // Update endpoint placeholder and help text
         const endpointInput = document.getElementById('ai-endpoint');
         if (endpointInput) {
             const placeholders = {
-                'local': 'http://localhost:11434',
-                'online': 'https://api.openai.com/v1'
+                'local': 'http://localhost:11434 (Default for Ollama)',
+                'online': 'Leave empty for official API (OpenAI/Anthropic)'
             };
             endpointInput.placeholder = placeholders[currentConfig.provider] || '';
+
+            // Update help text if exists
+            const endpointHelp = document.getElementById('ai-endpoint-help');
+            if (endpointHelp) {
+                const helpTexts = {
+                    'local': 'Default Ollama endpoint. Change only if using custom installation.',
+                    'online': 'Leave empty to use official APIs. Custom endpoints supported for enterprise setups.'
+                };
+                endpointHelp.textContent = helpTexts[currentConfig.provider] || '';
+            }
         }
     }
 
@@ -1190,10 +1206,10 @@
     }
 
     // Expose plugin interface
-    console.log('Defining window.ATestPlugin interface...');
+    debugLog('Defining window.ATestPlugin interface...');
     window.ATestPlugin = {
         mount: function(container) {
-            console.log('Mounting AI Chat Plugin to container:', container);
+            debugLog('Mounting AI Chat Plugin to container:', container);
             if (!container) {
                 console.error('Mount failed: container is null or undefined');
                 return;
@@ -1230,8 +1246,8 @@
     // Make copyToClipboard globally accessible for onclick handlers
     window.copyToClipboard = copyToClipboard;
 
-    console.log('AI Chat Plugin loaded successfully [VERSION 6 - Modern Settings]');
-    console.log('window.ATestPlugin defined:', typeof window.ATestPlugin);
-    console.log('window.ATestPlugin.mount defined:', typeof window.ATestPlugin.mount);
-    console.log('Script setup completed at:', new Date().toISOString());
+    debugLog('AI Chat Plugin loaded successfully [VERSION 6 - Modern Settings]');
+    debugLog('window.ATestPlugin defined:', typeof window.ATestPlugin);
+    debugLog('window.ATestPlugin.mount defined:', typeof window.ATestPlugin.mount);
+    debugLog('Script setup completed at:', new Date().toISOString());
 })();

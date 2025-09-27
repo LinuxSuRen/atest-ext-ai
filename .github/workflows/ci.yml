@@ -85,9 +85,9 @@ jobs:
       postgres:
         image: postgres:16
         env:
-          POSTGRES_PASSWORD: testpass
-          POSTGRES_USER: testuser
-          POSTGRES_DB: testdb
+          POSTGRES_PASSWORD: ci_test_password_postgres
+          POSTGRES_USER: ci_test_user
+          POSTGRES_DB: ci_test_db
         options: >-
           --health-cmd pg_isready
           --health-interval 10s
@@ -99,10 +99,10 @@ jobs:
       mysql:
         image: mysql:8.0
         env:
-          MYSQL_ROOT_PASSWORD: rootpass
-          MYSQL_DATABASE: testdb
-          MYSQL_USER: testuser
-          MYSQL_PASSWORD: testpass
+          MYSQL_ROOT_PASSWORD: ci_test_root_password_mysql
+          MYSQL_DATABASE: ci_test_db
+          MYSQL_USER: ci_test_user
+          MYSQL_PASSWORD: ci_test_password_mysql
         options: >-
           --health-cmd="mysqladmin ping"
           --health-interval=10s

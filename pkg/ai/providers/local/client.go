@@ -68,6 +68,7 @@ func NewClient(config *Config) (*Client, error) {
 			// Legacy compatibility
 			config.BaseURL = envURL
 		} else {
+			// Default to local Ollama endpoint
 			config.BaseURL = "http://localhost:11434"
 		}
 	}
@@ -292,8 +293,7 @@ func (c *Client) generateStream(ctx context.Context, ollamaReq *GenerateRequest,
 
 	// Check for errors
 	if resp.StatusCode != http.StatusOK {
-		respBody, _ := io.ReadAll(resp.Body)
-		return nil, fmt.Errorf("API returned status %d: %s", resp.StatusCode, string(respBody))
+		return nil, fmt.Errorf("API returned status %d", resp.StatusCode)
 	}
 
 	// Read streaming response
@@ -503,7 +503,7 @@ func (c *Client) makeRequest(ctx context.Context, endpoint string, body interfac
 
 	// Check for errors
 	if resp.StatusCode != http.StatusOK {
-		return nil, fmt.Errorf("API returned status %d: %s", resp.StatusCode, string(respBody))
+		return nil, fmt.Errorf("API returned status %d", resp.StatusCode)
 	}
 
 	// Response body parsing

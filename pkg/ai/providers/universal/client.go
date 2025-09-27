@@ -72,7 +72,7 @@ func NewUniversalClient(config *Config) (*UniversalClient, error) {
 	switch config.Provider {
 	case "ollama":
 		if config.Endpoint == "" {
-			config.Endpoint = "http://localhost:11434"
+			return nil, fmt.Errorf("endpoint is required for ollama provider - set OLLAMA_ENDPOINT environment variable")
 		}
 		if config.CompletionPath == "" {
 			config.CompletionPath = "/api/chat"
@@ -177,8 +177,7 @@ func (c *UniversalClient) Generate(ctx context.Context, req *interfaces.Generate
 
 	// Check status
 	if resp.StatusCode != http.StatusOK {
-		body, _ := io.ReadAll(resp.Body)
-		return nil, fmt.Errorf("API returned status %d: %s", resp.StatusCode, string(body))
+		return nil, fmt.Errorf("API returned status %d", resp.StatusCode)
 	}
 
 	// Parse response based on provider

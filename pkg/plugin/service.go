@@ -21,7 +21,6 @@ import (
 	_ "embed"
 	"encoding/json"
 	"fmt"
-	"log"
 	"strings"
 	"time"
 
@@ -30,6 +29,7 @@ import (
 	"github.com/linuxsuren/atest-ext-ai/pkg/ai"
 	"github.com/linuxsuren/atest-ext-ai/pkg/ai/providers/universal"
 	"github.com/linuxsuren/atest-ext-ai/pkg/config"
+	"github.com/linuxsuren/atest-ext-ai/pkg/logging"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 )
@@ -51,46 +51,46 @@ type AIPluginService struct {
 
 // NewAIPluginService creates a new AI plugin service instance
 func NewAIPluginService() (*AIPluginService, error) {
-	log.Println("Initializing AI plugin service...")
+	logging.Logger.Info("Initializing AI plugin service...")
 
 	cfg, err := config.LoadConfig()
 	if err != nil {
-		log.Printf("Failed to load configuration: %v", err)
+		logging.Logger.Error("Failed to load configuration", "error", err)
 		return nil, fmt.Errorf("failed to load configuration: %w", err)
 	}
-	log.Printf("Configuration loaded successfully")
+	logging.Logger.Info("Configuration loaded successfully")
 
 	aiEngine, err := ai.NewEngine(cfg.AI)
 	if err != nil {
-		log.Printf("Failed to initialize AI engine: %v", err)
+		logging.Logger.Error("Failed to initialize AI engine", "error", err)
 		return nil, fmt.Errorf("failed to initialize AI engine: %w", err)
 	}
-	log.Printf("AI engine initialized successfully")
+	logging.Logger.Info("AI engine initialized successfully")
 
 	// Create AI client for capability detection
 	var aiClient *ai.Client
 	aiClient, err = ai.NewClient(cfg.AI)
 	if err != nil {
-		log.Printf("Warning: Failed to create AI client for capabilities: %v", err)
+		logging.Logger.Warn("Failed to create AI client for capabilities", "error", err)
 		// Continue without AI client - capability detector will work with limited functionality
 	}
 
 	// Initialize capability detector
 	capabilityDetector := ai.NewCapabilityDetector(cfg.AI, aiClient)
-	log.Printf("Capability detector initialized")
+	logging.Logger.Info("Capability detector initialized")
 
 	// Initialize provider manager
 	providerManager := ai.NewProviderManager()
-	log.Printf("Provider manager initialized")
+	logging.Logger.Info("Provider manager initialized")
 
 	// Auto-discover providers in background
 	go func() {
 		ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 		defer cancel()
 		if providers, err := providerManager.DiscoverProviders(ctx); err == nil {
-			log.Printf("Discovered %d AI providers", len(providers))
+			logging.Logger.Info("Discovered AI providers", "count", len(providers))
 			for _, p := range providers {
-				log.Printf("  - %s: %d models available", p.Name, len(p.Models))
+				logging.Logger.Debug("Provider models available", "provider", p.Name, "model_count", len(p.Models))
 			}
 		}
 	}()
@@ -102,18 +102,18 @@ func NewAIPluginService() (*AIPluginService, error) {
 		providerManager:    providerManager,
 	}
 
-	log.Println("AI plugin service creation completed")
+	logging.Logger.Info("AI plugin service creation completed")
 	return service, nil
 }
 
 // Query handles AI query requests from the main API testing system
 func (s *AIPluginService) Query(ctx context.Context, req *server.DataQuery) (*server.DataQueryResult, error) {
-	log.Printf("Received query request: type=%s, key=%s, sql_length=%d", req.Type, req.Key, len(req.Sql))
+	logging.Logger.Info("Received query request", "type", req.Type, "key", req.Key, "sql_length", len(req.Sql))
 
 	// Accept both empty type (for backward compatibility) and explicit "ai" type
 	// The main project doesn't always send the type field
 	if req.Type != "" && req.Type != "ai" {
-		log.Printf("Unsupported query type: %s", req.Type)
+		logging.Logger.Warn("Unsupported query type", "type", req.Type)
 		return nil, status.Errorf(codes.InvalidArgument, "unsupported query type: %s", req.Type)
 	}
 
@@ -139,7 +139,7 @@ func (s *AIPluginService) Query(ctx context.Context, req *server.DataQuery) (*se
 
 // handleCapabilitiesQuery handles requests for AI plugin capabilities
 func (s *AIPluginService) handleCapabilitiesQuery(ctx context.Context, req *server.DataQuery) (*server.DataQueryResult, error) {
-	log.Printf("Handling capabilities query: key=%s", req.Key)
+	logging.Logger.Info("Handling capabilities query", "key", req.Key)
 
 	// Parse capability request parameters from SQL field (if provided)
 	capReq := &ai.CapabilitiesRequest{
@@ -166,7 +166,7 @@ func (s *AIPluginService) handleCapabilitiesQuery(ctx context.Context, req *serv
 				capReq.CheckHealth = checkHealth
 			}
 		} else {
-			log.Printf("Failed to parse capability request parameters: %v", err)
+			logging.Logger.Error("Failed to parse capability request parameters", "error", err)
 		}
 	}
 
@@ -203,14 +203,14 @@ func (s *AIPluginService) handleCapabilitiesQuery(ctx context.Context, req *serv
 
 	capabilities, err := s.capabilityDetector.GetCapabilities(ctx, capReq)
 	if err != nil {
-		log.Printf("Failed to get capabilities: %v", err)
+		logging.Logger.Error("Failed to get capabilities", "error", err)
 		return nil, status.Errorf(codes.Internal, "failed to get capabilities: %v", err)
 	}
 
 	// Convert capabilities to JSON
 	capabilitiesJSON, err := json.Marshal(capabilities)
 	if err != nil {
-		log.Printf("Failed to marshal capabilities: %v", err)
+		logging.Logger.Error("Failed to marshal capabilities", "error", err)
 		return nil, status.Errorf(codes.Internal, "failed to serialize capabilities: %v", err)
 	}
 
@@ -248,15 +248,15 @@ func (s *AIPluginService) handleCapabilitiesQuery(ctx context.Context, req *serv
 		},
 	}
 
-	log.Printf("Capabilities query completed successfully: models=%d, databases=%d, features=%d",
-		len(capabilities.Models), len(capabilities.Databases), len(capabilities.Features))
+	logging.Logger.Info("Capabilities query completed successfully",
+		"models", len(capabilities.Models), "databases", len(capabilities.Databases), "features", len(capabilities.Features))
 
 	return result, nil
 }
 
 // Verify returns the plugin status for health checks
 func (s *AIPluginService) Verify(ctx context.Context, req *server.Empty) (*server.ExtensionStatus, error) {
-	log.Printf("Health check requested")
+	logging.Logger.Info("Health check requested")
 
 	var engineHealthy bool
 	if s.aiEngine != nil {
@@ -276,9 +276,9 @@ func (s *AIPluginService) Verify(ctx context.Context, req *server.Empty) (*serve
 		} else {
 			status.Message = "AI engine not available"
 		}
-		log.Printf("Health check failed: %s", status.Message)
+		logging.Logger.Warn("Health check failed", "message", status.Message)
 	} else {
-		log.Printf("Health check passed: AI plugin is ready")
+		logging.Logger.Info("Health check passed: AI plugin is ready")
 	}
 
 	return status, nil
@@ -286,15 +286,15 @@ func (s *AIPluginService) Verify(ctx context.Context, req *server.Empty) (*serve
 
 // Shutdown gracefully stops the AI plugin service
 func (s *AIPluginService) Shutdown() {
-	log.Println("Shutting down AI plugin service...")
+	logging.Logger.Info("Shutting down AI plugin service...")
 
 	if s.aiEngine != nil {
-		log.Println("Closing AI engine...")
+		logging.Logger.Info("Closing AI engine...")
 		s.aiEngine.Close()
-		log.Println("AI engine closed successfully")
+		logging.Logger.Info("AI engine closed successfully")
 	}
 
-	log.Println("AI plugin service shutdown complete")
+	logging.Logger.Info("AI plugin service shutdown complete")
 }
 
 // handleAIGenerate handles ai.generate calls
@@ -320,11 +320,11 @@ func (s *AIPluginService) handleAIGenerate(ctx context.Context, req *server.Data
 	var configMap map[string]interface{}
 	if params.Config != "" {
 		if err := json.Unmarshal([]byte(params.Config), &configMap); err != nil {
-			log.Printf("Warning: failed to parse config JSON: %v", err)
+			logging.Logger.Warn("Failed to parse config JSON", "error", err)
 		}
 	}
 
-	log.Printf("Generating SQL with AI interface standard: model=%s, prompt_length=%d", params.Model, len(params.Prompt))
+	logging.Logger.Info("Generating SQL with AI interface standard", "model", params.Model, "prompt_length", len(params.Prompt))
 
 	// Generate using AI engine
 	context := map[string]string{}
@@ -414,8 +414,7 @@ func (s *AIPluginService) handleAICapabilities(ctx context.Context, req *server.
 
 // GetMenus returns the menu entries for AI plugin UI
 func (s *AIPluginService) GetMenus(ctx context.Context, req *server.Empty) (*server.MenuList, error) {
-	log.Printf("🎯🎯🎯 AI PLUGIN GetMenus CALLED 🎯🎯🎯")
-	fmt.Printf("🎯🎯🎯 AI PLUGIN GetMenus CALLED 🎯🎯🎯\n")
+	logging.Logger.Debug("AI plugin GetMenus called")
 
 	return &server.MenuList{
 		Data: []*server.Menu{
@@ -431,8 +430,7 @@ func (s *AIPluginService) GetMenus(ctx context.Context, req *server.Empty) (*ser
 
 // GetPageOfJS returns the JavaScript code for AI plugin UI
 func (s *AIPluginService) GetPageOfJS(ctx context.Context, req *server.SimpleName) (*server.CommonResult, error) {
-	log.Printf("🎯🎯🎯 AI PLUGIN GetPageOfJS CALLED FOR: %s 🎯🎯🎯", req.Name)
-	fmt.Printf("🎯🎯🎯 AI PLUGIN GetPageOfJS CALLED FOR: %s 🎯🎯🎯\n", req.Name)
+	logging.Logger.Debug("AI plugin GetPageOfJS called", "name", req.Name)
 
 	if req.Name != "ai-chat" {
 		return &server.CommonResult{
@@ -452,7 +450,7 @@ func (s *AIPluginService) GetPageOfJS(ctx context.Context, req *server.SimpleNam
 
 // GetPageOfCSS returns the CSS styles for AI plugin UI
 func (s *AIPluginService) GetPageOfCSS(ctx context.Context, req *server.SimpleName) (*server.CommonResult, error) {
-	log.Printf("Serving CSS for AI plugin: %s", req.Name)
+	logging.Logger.Debug("Serving CSS for AI plugin", "name", req.Name)
 
 	if req.Name != "ai-chat" {
 		return &server.CommonResult{
@@ -727,7 +725,7 @@ func (s *AIPluginService) handleLegacyQuery(ctx context.Context, req *server.Dat
 	// For AI queries, we use the 'key' field as the natural language input
 	// and 'sql' field for any additional context or existing SQL
 	if req.Key == "" {
-		log.Printf("Missing key field (natural language query) in request")
+		logging.Logger.Warn("Missing key field (natural language query) in request")
 		return nil, status.Errorf(codes.InvalidArgument, "key field is required for AI queries (natural language input)")
 	}
 
@@ -736,7 +734,7 @@ func (s *AIPluginService) handleLegacyQuery(ctx context.Context, req *server.Dat
 	if len(queryPreview) > 100 {
 		queryPreview = queryPreview[:100] + "..."
 	}
-	log.Printf("Generating SQL for natural language query: %s", queryPreview)
+	logging.Logger.Info("Generating SQL for natural language query", "query_preview", queryPreview)
 
 	// Create context map from available information
 	contextMap := make(map[string]string)
@@ -756,7 +754,7 @@ func (s *AIPluginService) handleLegacyQuery(ctx context.Context, req *server.Dat
 		Context:         contextMap,
 	})
 	if err != nil {
-		log.Printf("Failed to generate SQL: %v", err)
+		logging.Logger.Error("Failed to generate SQL", "error", err)
 		return nil, status.Errorf(codes.Internal, "failed to generate SQL: %v", err)
 	}
 
@@ -790,20 +788,20 @@ func (s *AIPluginService) handleLegacyQuery(ctx context.Context, req *server.Dat
 		},
 	}
 
-	log.Printf("AI query completed successfully: request_id=%s, confidence=%.2f, processing_time=%dms",
-		sqlResult.RequestID, sqlResult.ConfidenceScore, sqlResult.ProcessingTime.Milliseconds())
+	logging.Logger.Info("AI query completed successfully",
+		"request_id", sqlResult.RequestID, "confidence", sqlResult.ConfidenceScore, "processing_time_ms", sqlResult.ProcessingTime.Milliseconds())
 
 	return result, nil
 }
 
 // handleGetProviders returns the list of available AI providers
 func (s *AIPluginService) handleGetProviders(ctx context.Context, req *server.DataQuery) (*server.DataQueryResult, error) {
-	log.Printf("Getting AI providers list")
+	logging.Logger.Debug("Getting AI providers list")
 
 	// Ensure providers are discovered
 	providers, err := s.providerManager.DiscoverProviders(ctx)
 	if err != nil {
-		log.Printf("Failed to discover providers: %v", err)
+		logging.Logger.Error("Failed to discover providers", "error", err)
 		// Continue with cached providers
 		providers = s.providerManager.GetProviders()
 	}

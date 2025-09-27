@@ -333,7 +333,7 @@ func (c *Client) generateStream(ctx context.Context, openaiReq *ChatCompletionRe
 		if err := json.Unmarshal(respBody, &errorResp); err == nil {
 			return nil, fmt.Errorf("API error: %s", errorResp.Error.Message)
 		}
-		return nil, fmt.Errorf("API returned status %d: %s", resp.StatusCode, string(respBody))
+		return nil, fmt.Errorf("API returned status %d", resp.StatusCode)
 	}
 
 	// Read streaming response
@@ -476,7 +476,7 @@ func (c *Client) makeRequest(ctx context.Context, endpoint string, body interfac
 		if err := json.Unmarshal(respBody, &errorResp); err == nil {
 			return nil, fmt.Errorf("API error: %s", errorResp.Error.Message)
 		}
-		return nil, fmt.Errorf("API returned status %d: %s", resp.StatusCode, string(respBody))
+		return nil, fmt.Errorf("API returned status %d", resp.StatusCode)
 	}
 
 	// Parse response

@@ -60,7 +60,7 @@ func LoadLegacyConfig() (*LegacyConfig, error) {
 			Provider:            getEnvWithDefault("AI_PROVIDER", "local"),
 			OllamaEndpoint:      getEnvWithDefault("OLLAMA_ENDPOINT", "http://localhost:11434"),
 			Model:               getEnvWithFallback("AI_MODEL"), // Auto-detect from available models if not set
-			APIKey:              getEnvWithFallback("AI_API_KEY"),
+			APIKey:              os.Getenv("AI_API_KEY"),
 			ConfidenceThreshold: 0.7,
 			SupportedDatabases:  []string{"mysql", "postgresql", "sqlite"},
 			EnableSQLExecution:  true,
@@ -89,6 +89,18 @@ func LoadLegacyConfig() (*LegacyConfig, error) {
 	return config, nil
 }
 
+// getEnvironment returns the environment setting with production as safe default
+func getEnvironment() string {
+	env := os.Getenv("APP_ENV")
+	if env == "" {
+		env = os.Getenv("ENVIRONMENT")
+	}
+	if env == "" {
+		return "production"
+	}
+	return env
+}
+
 // ConvertLegacyToNew converts legacy configuration to new format
 func ConvertLegacyToNew(legacy *LegacyConfig) *Config {
 	if legacy == nil {
@@ -111,8 +123,7 @@ func ConvertLegacyToNew(legacy *LegacyConfig) *Config {
 		Plugin: PluginConfig{
 			Name:        "atest-ext-ai",
 			Version:     "1.0.0",
-			Environment: "development",
-			LogLevel:    "info",
+			Environment: getEnvironment(),
 		},
 		AI: AIConfig{
 			DefaultService: provider,
@@ -241,26 +252,14 @@ func validateLegacyConfig(config *LegacyConfig) error {
 }
 
 // getEnvWithDefault returns environment variable value or default
-// Supports both prefixed and non-prefixed environment variables for backward compatibility
 func getEnvWithDefault(key, defaultValue string) string {
-	// Try prefixed version first (new standard)
-	if value := os.Getenv("ATEST_EXT_AI_" + key); value != "" {
-		return value
-	}
-	// Fall back to non-prefixed version (legacy compatibility)
 	if value := os.Getenv(key); value != "" {
 		return value
 	}
 	return defaultValue
 }
 
-// getEnvWithFallback returns environment variable value with prefix fallback support
-// Supports both prefixed and non-prefixed environment variables for backward compatibility
+// getEnvWithFallback returns environment variable value
 func getEnvWithFallback(key string) string {
-	// Try prefixed version first (new standard)
-	if value := os.Getenv("ATEST_EXT_AI_" + key); value != "" {
-		return value
-	}
-	// Fall back to non-prefixed version (legacy compatibility)
 	return os.Getenv(key)
 }

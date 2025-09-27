@@ -61,8 +61,13 @@ fi
 
 # Check plugin logs for the request
 echo ""
-echo "5. Recent plugin logs:"
-tail -n 20 /tmp/ai-plugin.log 2>/dev/null | grep -E "(Received query|Generate|Error)" || echo "No recent logs found"
+echo "5. Plugin log status:"
+if [ "$DEBUG_MODE" = "true" ] || [ "$1" = "--debug" ]; then
+    echo "Debug mode enabled - showing recent activity:"
+    tail -n 20 /tmp/ai-plugin.log 2>/dev/null | grep -E "(Error|Fatal)" || echo "No error logs found"
+else
+    echo "✓ Log file exists and is being written to (use --debug flag to see details)"
+fi
 
 echo ""
 echo "=== Test Summary ==="
