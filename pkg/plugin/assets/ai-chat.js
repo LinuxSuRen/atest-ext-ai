@@ -558,7 +558,16 @@
             }
 
             // Find the current provider and return its models
-            const provider = providers.find(p => p.name === currentConfig.provider);
+            // Handle provider name mapping: "local" -> "ollama", "online" -> "openai"/"anthropic"
+            let targetProviderName = currentConfig.provider;
+            if (currentConfig.provider === 'local') {
+                // For local category, look for ollama first
+                targetProviderName = 'ollama';
+            }
+
+            const provider = providers.find(p => p.name === targetProviderName ||
+                (currentConfig.provider === 'local' && ['ollama', 'local'].includes(p.name)) ||
+                (currentConfig.provider === 'online' && ['openai', 'anthropic'].includes(p.name)));
             if (provider && provider.models && provider.models.length > 0) {
                 return provider.models.map(model => ({
                     name: model.name || model.id,
