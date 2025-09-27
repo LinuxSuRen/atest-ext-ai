@@ -73,7 +73,10 @@ func NewClient(config *Config) (*Client, error) {
 		}
 	}
 	if config.Timeout == 0 {
-		config.Timeout = 60 * time.Second
+		// Increased timeout to allow for longer AI generation times
+		// Direct Ollama calls take ~12s, but our requests were timing out at 60s
+		// This suggests there may be additional overhead in our request processing
+		config.Timeout = 180 * time.Second
 	}
 	if config.MaxTokens == 0 {
 		config.MaxTokens = 4096
