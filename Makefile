@@ -1,6 +1,6 @@
 # Makefile for atest-ext-ai plugin
 
-.PHONY: all build test clean install help dev
+.PHONY: all build test clean install install-local help dev
 
 # Build configuration
 BINARY_NAME=atest-ext-ai
@@ -54,12 +54,21 @@ clean:
 	@rm -f coverage.out
 	@go clean -cache
 
-# Install the plugin binary
+# Install the plugin binary to system location
 install: build
 	@echo "Installing $(BINARY_NAME) to /usr/local/bin..."
 	@sudo cp $(BUILD_DIR)/$(BINARY_NAME) /usr/local/bin/
 	@sudo chmod +x /usr/local/bin/$(BINARY_NAME)
 	@echo "Installation completed"
+
+# Install the plugin binary for local development and testing
+install-local: build
+	@echo "Installing $(BINARY_NAME) for local development..."
+	@mkdir -p ~/.config/atest/bin/
+	@cp $(BUILD_DIR)/$(BINARY_NAME) ~/.config/atest/bin/
+	@chmod +x ~/.config/atest/bin/$(BINARY_NAME)
+	@echo "Local installation completed: ~/.config/atest/bin/$(BINARY_NAME)"
+	@echo "The plugin will be automatically discovered by the API Testing Server"
 
 # Run development mode
 dev:
@@ -108,6 +117,7 @@ help:
 	@echo "  test-integration - Run integration tests"
 	@echo "  clean        - Clean build artifacts"
 	@echo "  install      - Install binary to /usr/local/bin"
+	@echo "  install-local - Install binary to ~/.config/atest/bin for local development"
 	@echo "  dev          - Run in development mode"
 	@echo "  fmt          - Format Go code"
 	@echo "  deps         - Install dependencies"
