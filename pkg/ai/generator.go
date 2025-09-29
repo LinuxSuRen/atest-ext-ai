@@ -346,18 +346,16 @@ func (g *SQLGenerator) buildPrompt(naturalLanguage string, options *GenerateOpti
 
 	// Add format requirements
 	promptBuilder.WriteString("Response Format:\n")
-	promptBuilder.WriteString("Please provide the response in the following JSON format:\n")
-	promptBuilder.WriteString("{\n")
-	promptBuilder.WriteString("  \"sql\": \"<generated SQL query>\",\n")
+	promptBuilder.WriteString("Please provide the response in the following simple format:\n")
+	promptBuilder.WriteString("sql:<generated SQL query>\n")
 	if options.IncludeExplanation {
-		promptBuilder.WriteString("  \"explanation\": \"<explanation of the query>\",\n")
+		promptBuilder.WriteString("explanation:<explanation of the query>\n")
 	}
-	promptBuilder.WriteString("  \"confidence\": <confidence score from 0.0 to 1.0>,\n")
-	promptBuilder.WriteString("  \"query_type\": \"<SELECT|INSERT|UPDATE|DELETE|CREATE|etc>\",\n")
-	promptBuilder.WriteString("  \"tables_involved\": [\"<table names>\"],\n")
-	promptBuilder.WriteString("  \"warnings\": [\"<any warnings>\"],\n")
-	promptBuilder.WriteString("  \"suggestions\": [\"<optimization suggestions>\"]\n")
-	promptBuilder.WriteString("}\n")
+	promptBuilder.WriteString("\nExample:\n")
+	promptBuilder.WriteString("sql:SELECT * FROM users WHERE age > 18;\n")
+	if options.IncludeExplanation {
+		promptBuilder.WriteString("explanation:This query selects all users older than 18 years.\n")
+	}
 
 	return promptBuilder.String(), nil
 }
@@ -375,7 +373,7 @@ Key principles:
 5. Include appropriate error handling
 6. Use standard SQL when possible, dialect-specific features only when necessary
 
-Always respond with valid JSON format as requested.`, databaseType, databaseType)
+Always respond in the exact format requested: sql:<query> explanation:<explanation>`, databaseType, databaseType)
 }
 
 // parseAIResponse parses and validates the AI response
@@ -442,10 +440,39 @@ type SQLResponse struct {
 
 // extractSQLFromResponse extracts structured SQL information from AI response
 func (g *SQLGenerator) extractSQLFromResponse(responseText string) (*SQLResponse, error) {
-	// First try to parse as JSON
 	responseText = strings.TrimSpace(responseText)
 
-	// Check if it looks like JSON
+	// DEBUG: Log the raw AI response to understand what we're getting
+	fmt.Printf("🔍 [DEBUG] Raw AI Response: %s\n", responseText)
+
+	// First try to parse the new simple format: "sql:...\nexplanation:..."
+	if strings.HasPrefix(responseText, "sql:") {
+		// Try with newline separator first
+		parts := strings.SplitN(responseText, "\nexplanation:", 2)
+		if len(parts) == 1 {
+			// Fallback to space separator for backward compatibility
+			parts = strings.SplitN(responseText, " explanation:", 2)
+		}
+
+		sql := strings.TrimSpace(strings.TrimPrefix(parts[0], "sql:"))
+
+		explanation := "Generated SQL query based on natural language input"
+		if len(parts) > 1 {
+			explanation = strings.TrimSpace(parts[1])
+		}
+
+		return &SQLResponse{
+			SQL:            sql,
+			Explanation:    explanation,
+			Confidence:     0.8,
+			QueryType:      g.detectQueryType(sql),
+			TablesInvolved: g.extractTableNames(sql),
+			Warnings:       []string{},
+			Suggestions:    []string{},
+		}, nil
+	}
+
+	// Fallback: Check if it looks like JSON (for backward compatibility)
 	if strings.HasPrefix(responseText, "{") && strings.HasSuffix(responseText, "}") {
 		var jsonResponse SQLResponse
 		if err := json.Unmarshal([]byte(responseText), &jsonResponse); err == nil {
@@ -459,24 +486,27 @@ func (g *SQLGenerator) extractSQLFromResponse(responseText string) (*SQLResponse
 				sql = strings.TrimSuffix(sql, "```")
 				sql = strings.TrimSpace(sql)
 
-				jsonResponse.SQL = sql
-				jsonResponse.QueryType = g.detectQueryType(sql)
-				jsonResponse.TablesInvolved = g.extractTableNames(sql)
-
-				// Set defaults if not provided
-				if jsonResponse.Confidence == 0 {
-					jsonResponse.Confidence = 0.8
-				}
-				if jsonResponse.Explanation == "" {
-					jsonResponse.Explanation = "Generated SQL query based on natural language input"
+				// Extract explanation
+				explanation := strings.TrimSpace(jsonResponse.Explanation)
+				if explanation == "" {
+					explanation = "Generated SQL query based on natural language input"
 				}
 
-				return &jsonResponse, nil
+				// Return a simplified SQLResponse with only SQL and explanation
+				return &SQLResponse{
+					SQL:            sql,
+					Explanation:    explanation,
+					Confidence:     0.8,
+					QueryType:      g.detectQueryType(sql),
+					TablesInvolved: g.extractTableNames(sql),
+					Warnings:       []string{},
+					Suggestions:    []string{},
+				}, nil
 			}
 		}
 	}
 
-	// If not JSON or JSON parsing failed, try to extract SQL from plain text
+	// If neither format worked, try to extract SQL from plain text
 	sql := strings.TrimSpace(responseText)
 
 	// Remove common prefixes and suffixes

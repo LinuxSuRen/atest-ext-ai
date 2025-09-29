@@ -358,24 +358,26 @@ func (s *AIPluginService) handleAIGenerate(ctx context.Context, req *server.Data
 		}, nil
 	}
 
-	// Build meta information with more details
-	metaData := map[string]interface{}{
-		"confidence":  sqlResult.ConfidenceScore,
-		"model":      sqlResult.ModelUsed,
-		"explanation": sqlResult.Explanation,
-	}
+	// Return in simplified format with line break
+	simpleFormat := fmt.Sprintf("sql:%s\nexplanation:%s", sqlResult.SQL, sqlResult.Explanation)
 
+	// Build minimal meta information for UI display
+	metaData := map[string]interface{}{
+		"confidence": sqlResult.ConfidenceScore,
+		"model":     sqlResult.ModelUsed,
+	}
 	metaJSON, err := json.Marshal(metaData)
 	if err != nil {
-		// Fallback to simple format
 		metaJSON = []byte(fmt.Sprintf(`{"confidence": %f, "model": "%s"}`,
 			sqlResult.ConfidenceScore, sqlResult.ModelUsed))
 	}
 
-	// Return in AI interface standard format
+	// DEBUG: Log the meta content we're returning
+	fmt.Printf("📊 [DEBUG] Returning meta: %s\n", string(metaJSON))
+
 	return &server.DataQueryResult{
 		Data: []*server.Pair{
-			{Key: "content", Value: sqlResult.SQL},
+			{Key: "content", Value: simpleFormat},
 			{Key: "success", Value: "true"},
 			{Key: "meta", Value: string(metaJSON)},
 		},
@@ -761,32 +763,36 @@ func (s *AIPluginService) handleLegacyQuery(ctx context.Context, req *server.Dat
 		return nil, status.Errorf(codes.Internal, "failed to generate SQL: %v", err)
 	}
 
-	// Create response with basic data structure
+	// Create response in simplified format with line break
+	simpleFormat := fmt.Sprintf("sql:%s\nexplanation:%s", sqlResult.SQL, sqlResult.Explanation)
+
+	// Build minimal meta information for UI display
+	metaData := map[string]interface{}{
+		"confidence": sqlResult.ConfidenceScore,
+		"model":     sqlResult.ModelUsed,
+	}
+	metaJSON, err := json.Marshal(metaData)
+	if err != nil {
+		metaJSON = []byte(fmt.Sprintf(`{"confidence": %f, "model": "%s"}`,
+			sqlResult.ConfidenceScore, sqlResult.ModelUsed))
+	}
+
+	// DEBUG: Log the meta content we're returning
+	fmt.Printf("📊 [DEBUG] Returning meta: %s\n", string(metaJSON))
+
 	result := &server.DataQueryResult{
 		Data: []*server.Pair{
 			{
-				Key:   "generated_sql",
-				Value: sqlResult.SQL,
+				Key:   "content",
+				Value: simpleFormat,
 			},
 			{
-				Key:   "explanation",
-				Value: sqlResult.Explanation,
+				Key:   "success",
+				Value: "true",
 			},
 			{
-				Key:   "confidence_score",
-				Value: fmt.Sprintf("%.2f", sqlResult.ConfidenceScore),
-			},
-			{
-				Key:   "request_id",
-				Value: sqlResult.RequestID,
-			},
-			{
-				Key:   "processing_time_ms",
-				Value: fmt.Sprintf("%d", sqlResult.ProcessingTime.Milliseconds()),
-			},
-			{
-				Key:   "model_used",
-				Value: sqlResult.ModelUsed,
+				Key:   "meta",
+				Value: string(metaJSON),
 			},
 		},
 	}
