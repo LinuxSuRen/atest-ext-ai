@@ -94,6 +94,18 @@ func NewUniversalClient(config *Config) (*UniversalClient, error) {
 		}
 		config.StreamSupported = true
 
+	case "deepseek":
+		if config.Endpoint == "" {
+			config.Endpoint = "https://api.deepseek.com"
+		}
+		if config.CompletionPath == "" {
+			config.CompletionPath = "/v1/chat/completions"
+		}
+		if config.ModelsPath == "" {
+			config.ModelsPath = "/v1/models"
+		}
+		config.StreamSupported = true
+
 	default: // custom or unknown provider
 		// Use OpenAI-compatible defaults
 		if config.CompletionPath == "" {
@@ -109,7 +121,12 @@ func NewUniversalClient(config *Config) (*UniversalClient, error) {
 
 	// Set other defaults
 	if config.Timeout == 0 {
-		config.Timeout = 60 * time.Second
+		// Increase timeout for reasoning/thinking models
+		if strings.Contains(strings.ToLower(config.Model), "think") || strings.Contains(strings.ToLower(config.Model), "reason") {
+			config.Timeout = 300 * time.Second // 5 minutes for thinking models
+		} else {
+			config.Timeout = 120 * time.Second // 2 minutes for regular models
+		}
 	}
 	if config.MaxTokens == 0 {
 		config.MaxTokens = 4096
@@ -216,15 +233,8 @@ func (c *UniversalClient) GetCapabilities(ctx context.Context) (*interfaces.Capa
 	if err == nil {
 		caps.Models = models
 	} else {
-		// If we can't get models, at least add the configured model
-		caps.Models = []interfaces.ModelInfo{
-			{
-				ID:          c.config.Model,
-				Name:        c.config.Model,
-				Description: "Default configured model",
-				MaxTokens:   c.config.MaxTokens,
-			},
-		}
+		// If we can't get models, provide default models for the provider
+		caps.Models = c.getDefaultModelsForProvider()
 	}
 
 	// Add streaming feature if supported
@@ -565,16 +575,117 @@ func (c *UniversalClient) parseOpenAIModels(body io.Reader) ([]interfaces.ModelI
 
 	models := make([]interfaces.ModelInfo, 0, len(resp.Data))
 	for _, m := range resp.Data {
-		// Only include chat models
-		if strings.Contains(m.ID, "gpt") || strings.Contains(m.ID, "chat") {
+		// Include models that are likely to be chat/completion models
+		// Expanded to support more providers like DeepSeek, Moonshot, etc.
+		if c.isValidChatModel(m.ID) {
 			models = append(models, interfaces.ModelInfo{
 				ID:          m.ID,
 				Name:        m.ID,
-				Description: fmt.Sprintf("OpenAI model (owner: %s)", m.OwnedBy),
+				Description: fmt.Sprintf("AI model (owner: %s)", m.OwnedBy),
 				MaxTokens:   c.config.MaxTokens,
 			})
 		}
 	}
 
 	return models, nil
+}
+
+// isValidChatModel determines if a model ID represents a valid chat/completion model
+func (c *UniversalClient) isValidChatModel(modelID string) bool {
+	modelID = strings.ToLower(modelID)
+
+	// Common patterns for chat/completion models
+	chatKeywords := []string{
+		"gpt", "chat", "turbo", "instruct",
+		"deepseek", "moonshot", "glm", "chatglm",
+		"baichuan", "qwen", "claude", "llama",
+		"yi", "internlm", "mistral", "gemma",
+		"codeqwen", "codechat", "assistant",
+		"completion", "text", "dialogue",
+	}
+
+	for _, keyword := range chatKeywords {
+		if strings.Contains(modelID, keyword) {
+			return true
+		}
+	}
+
+	// Exclude models that are clearly not for chat/completion
+	excludeKeywords := []string{
+		"embedding", "whisper", "dall-e", "tts",
+		"moderation", "edit", "similarity",
+		"search", "classification", "fine-tune",
+	}
+
+	for _, keyword := range excludeKeywords {
+		if strings.Contains(modelID, keyword) {
+			return false
+		}
+	}
+
+	// If no specific patterns match, include by default for compatibility
+	return true
+}
+
+// getDefaultModelsForProvider returns default models for specific providers
+func (c *UniversalClient) getDefaultModelsForProvider() []interfaces.ModelInfo {
+	switch c.config.Provider {
+	case "deepseek":
+		return []interfaces.ModelInfo{
+			{
+				ID:          "deepseek-chat",
+				Name:        "DeepSeek Chat",
+				Description: "DeepSeek's flagship conversational AI model",
+				MaxTokens:   32768,
+			},
+			{
+				ID:          "deepseek-reasoner",
+				Name:        "DeepSeek Reasoner",
+				Description: "DeepSeek's reasoning model with thinking capabilities",
+				MaxTokens:   32768,
+			},
+		}
+	case "openai":
+		return []interfaces.ModelInfo{
+			{
+				ID:          "gpt-3.5-turbo",
+				Name:        "GPT-3.5 Turbo",
+				Description: "OpenAI's GPT-3.5 Turbo model",
+				MaxTokens:   16385,
+			},
+			{
+				ID:          "gpt-4",
+				Name:        "GPT-4",
+				Description: "OpenAI's GPT-4 model",
+				MaxTokens:   8192,
+			},
+			{
+				ID:          "gpt-4-turbo",
+				Name:        "GPT-4 Turbo",
+				Description: "Latest GPT-4 Turbo model",
+				MaxTokens:   128000,
+			},
+		}
+	default:
+		// If we have a configured model, include it
+		if c.config.Model != "" {
+			return []interfaces.ModelInfo{
+				{
+					ID:          c.config.Model,
+					Name:        c.config.Model,
+					Description: "Default configured model",
+					MaxTokens:   c.config.MaxTokens,
+				},
+			}
+		}
+		// Otherwise, provide a generic fallback
+		return []interfaces.ModelInfo{
+			{
+				ID:          "default",
+				Name:        "Default Model",
+				Description: "Default model for this provider",
+				MaxTokens:   4096,
+			},
+		}
+	}
 }

@@ -10,7 +10,7 @@
     // Global configuration state
     let currentConfig = {
         language: 'en',
-        provider: 'local',  // Changed to new category
+        provider: 'ollama',  // Direct provider selection
         endpoint: 'http://localhost:11434',
         model: '',
         apiKey: '',
@@ -87,26 +87,86 @@
         return i18n[currentConfig.language][key] || key;
     }
 
-    // Load configuration from localStorage
+    // Load configuration from localStorage (provider-specific)
     function loadConfig() {
-        const saved = localStorage.getItem('atest-ai-config');
-        if (saved) {
+        console.log('🔍 [DEBUG] Loading configurations for all providers');
+
+        // Load current provider setting
+        const globalConfig = localStorage.getItem('atest-ai-global-config');
+        if (globalConfig) {
             try {
-                currentConfig = { ...currentConfig, ...JSON.parse(saved) };
+                const global = JSON.parse(globalConfig);
+                currentConfig.provider = global.provider || currentConfig.provider;
+                currentConfig.language = global.language || currentConfig.language;
             } catch (e) {
-                console.warn('Failed to load config:', e);
+                console.warn('Failed to load global config:', e);
             }
+        }
+
+        // Load provider-specific configuration
+        const currentProvider = currentConfig.provider;
+        const providerConfig = localStorage.getItem(`atest-ai-config-${currentProvider}`);
+        if (providerConfig) {
+            try {
+                const saved = JSON.parse(providerConfig);
+                // Only merge provider-specific fields
+                currentConfig.endpoint = saved.endpoint || currentConfig.endpoint;
+                currentConfig.apiKey = saved.apiKey || currentConfig.apiKey;
+                currentConfig.model = saved.model || currentConfig.model;
+                currentConfig.temperature = saved.temperature || currentConfig.temperature;
+                currentConfig.maxTokens = saved.maxTokens || currentConfig.maxTokens;
+                currentConfig.status = saved.status || currentConfig.status;
+
+                console.log(`✅ [DEBUG] Loaded config for ${currentProvider}:`, {
+                    endpoint: currentConfig.endpoint,
+                    apiKey: currentConfig.apiKey ? 'SET' : 'EMPTY',
+                    model: currentConfig.model || 'EMPTY'
+                });
+            } catch (e) {
+                console.warn(`Failed to load config for provider ${currentProvider}:`, e);
+            }
+        } else {
+            console.log(`📋 [DEBUG] No saved config found for ${currentProvider}, using defaults`);
         }
     }
 
-    // Save configuration to localStorage and backend
+    // Save configuration to localStorage and backend (provider-specific)
     async function saveConfig() {
-        // Always save to localStorage first
-        localStorage.setItem('atest-ai-config', JSON.stringify(currentConfig));
+        console.log('💾 [DEBUG] Saving configuration for provider:', currentConfig.provider);
+
+        // Save global settings (provider, language)
+        const globalConfig = {
+            provider: currentConfig.provider,
+            language: currentConfig.language
+        };
+        localStorage.setItem('atest-ai-global-config', JSON.stringify(globalConfig));
+
+        // Save provider-specific configuration
+        const providerConfig = {
+            endpoint: currentConfig.endpoint,
+            apiKey: currentConfig.apiKey,
+            model: currentConfig.model,
+            temperature: currentConfig.temperature,
+            maxTokens: currentConfig.maxTokens,
+            status: currentConfig.status
+        };
+        localStorage.setItem(`atest-ai-config-${currentConfig.provider}`, JSON.stringify(providerConfig));
+
+        console.log(`💾 [DEBUG] Saved config for ${currentConfig.provider}:`, {
+            endpoint: providerConfig.endpoint,
+            apiKey: providerConfig.apiKey ? 'SET' : 'EMPTY',
+            model: providerConfig.model || 'EMPTY'
+        });
 
         try {
             // Also save to backend if we have a valid configuration
-            if (currentConfig.provider && currentConfig.endpoint) {
+            // For local providers (ollama), we need endpoint
+            // For cloud providers (openai, deepseek), we need apiKey
+            const isLocalProvider = currentConfig.provider === 'ollama';
+            const hasValidConfig = currentConfig.provider &&
+                (isLocalProvider ? currentConfig.endpoint : currentConfig.apiKey);
+
+            if (hasValidConfig) {
                 const updateRequest = {
                     provider: currentConfig.provider,
                     config: {
@@ -119,6 +179,7 @@
                     }
                 };
 
+                console.log('🔥 [DEBUG] Sending update_config request:', updateRequest);
                 const response = await fetch('/api/v1/data/query', {
                     method: 'POST',
                     headers: {
@@ -132,8 +193,10 @@
                     })
                 });
 
+                console.log('🔥 [DEBUG] Response status:', response.status, response.statusText);
                 if (response.ok) {
                     const result = await response.json();
+                    console.log('🔥 [DEBUG] Response result:', result);
                     let success = false;
                     if (result.data) {
                         for (const pair of result.data) {
@@ -194,18 +257,36 @@
                 </div>
 
                 <div class="ai-settings-section">
-                    <div class="ai-provider-tabs" id="ai-provider-tabs">
-                        <button class="ai-provider-tab active" data-provider="local">
-                            <i class="ai-provider-icon">🏠</i>
-                            <span data-i18n="localService">Local Service</span>
-                            <small>Ollama, LocalAI</small>
-                            <div class="ai-status-indicator" id="status-local"></div>
+                    <h4>🏠 本地服务 (Local Services)</h4>
+                    <div class="ai-provider-group">
+                        <button class="ai-provider-card active" data-provider="ollama">
+                            <i class="ai-provider-icon">🦙</i>
+                            <div>
+                                <span class="ai-provider-name">Ollama</span>
+                                <small class="ai-provider-desc">本地运行的开源模型</small>
+                            </div>
+                            <div class="ai-status-indicator" id="status-ollama"></div>
                         </button>
-                        <button class="ai-provider-tab" data-provider="online">
-                            <i class="ai-provider-icon">☁️</i>
-                            <span data-i18n="onlineService">Online Service</span>
-                            <small>OpenAI, Anthropic, etc</small>
-                            <div class="ai-status-indicator" id="status-online"></div>
+                    </div>
+
+                    <h4>☁️ 云端服务 (Cloud Services)</h4>
+                    <div class="ai-provider-group">
+                        <button class="ai-provider-card" data-provider="openai">
+                            <i class="ai-provider-icon">🤖</i>
+                            <div>
+                                <span class="ai-provider-name">OpenAI</span>
+                                <small class="ai-provider-desc">GPT-4, GPT-3.5 系列模型</small>
+                            </div>
+                            <div class="ai-status-indicator" id="status-openai"></div>
+                        </button>
+
+                        <button class="ai-provider-card" data-provider="deepseek">
+                            <i class="ai-provider-icon">🧠</i>
+                            <div>
+                                <span class="ai-provider-name">DeepSeek</span>
+                                <small class="ai-provider-desc">DeepSeek Chat & Reasoner</small>
+                            </div>
+                            <div class="ai-status-indicator" id="status-deepseek"></div>
                         </button>
                     </div>
                 </div>
@@ -448,45 +529,64 @@
         }
         if (maxTokensInput) maxTokensInput.value = currentConfig.maxTokens;
 
-        // Update provider tabs
-        updateProviderTabs();
+        // Update provider cards
+        updateProviderCards();
         updateModelSelection();
     }
 
-    function updateProviderTabs() {
-        const tabs = document.querySelectorAll('.ai-provider-tab');
-        tabs.forEach(tab => {
-            if (tab.getAttribute('data-provider') === currentConfig.provider) {
-                tab.classList.add('active');
+    function updateProviderCards() {
+        const cards = document.querySelectorAll('.ai-provider-card');
+        cards.forEach(card => {
+            if (card.getAttribute('data-provider') === currentConfig.provider) {
+                card.classList.add('active');
             } else {
-                tab.classList.remove('active');
+                card.classList.remove('active');
             }
         });
 
         // Show/hide API key field based on provider
         const apiKeyGroup = document.querySelector('.ai-api-key-group');
         if (apiKeyGroup) {
-            const showApiKey = currentConfig.provider === 'online';
-            apiKeyGroup.style.display = showApiKey ? 'block' : 'none';
+            const isCloudProvider = ['openai', 'deepseek'].includes(currentConfig.provider);
+            apiKeyGroup.style.display = isCloudProvider ? 'block' : 'none';
         }
 
-        // Update endpoint placeholder and help text
+        // Update endpoint placeholder and help text based on provider
         const endpointInput = document.getElementById('ai-endpoint');
         if (endpointInput) {
-            const placeholders = {
-                'local': 'http://localhost:11434 (Default for Ollama)',
-                'online': 'Leave empty for official API (OpenAI/Anthropic)'
+            const providerConfig = {
+                'ollama': {
+                    placeholder: 'http://localhost:11434 (Default for Ollama)',
+                    helpText: 'Default Ollama endpoint. Change only if using custom installation.',
+                    defaultValue: 'http://localhost:11434'
+                },
+                'openai': {
+                    placeholder: 'https://api.openai.com (Leave empty for default)',
+                    helpText: 'OpenAI API endpoint. Leave empty to use official API.',
+                    defaultValue: ''
+                },
+                'deepseek': {
+                    placeholder: 'https://api.deepseek.com (Leave empty for default)',
+                    helpText: 'DeepSeek API endpoint. Leave empty to use official API.',
+                    defaultValue: 'https://api.deepseek.com'
+                }
             };
-            endpointInput.placeholder = placeholders[currentConfig.provider] || '';
 
-            // Update help text if exists
-            const endpointHelp = document.getElementById('ai-endpoint-help');
-            if (endpointHelp) {
-                const helpTexts = {
-                    'local': 'Default Ollama endpoint. Change only if using custom installation.',
-                    'online': 'Leave empty to use official APIs. Custom endpoints supported for enterprise setups.'
-                };
-                endpointHelp.textContent = helpTexts[currentConfig.provider] || '';
+            const config = providerConfig[currentConfig.provider];
+            if (config) {
+                endpointInput.placeholder = config.placeholder;
+
+                // Update endpoint value if switching providers
+                if (!currentConfig.endpoint || currentConfig.endpoint === 'http://localhost:11434') {
+                    currentConfig.endpoint = config.defaultValue;
+                    endpointInput.value = config.defaultValue;
+                }
+
+                // Update help text if exists
+                const endpointHelp = document.getElementById('ai-endpoint-help');
+                if (endpointHelp) {
+                    endpointHelp.textContent = config.helpText;
+                }
             }
         }
     }
@@ -507,10 +607,16 @@
             modelSelect.innerHTML = '<option value="">Select a model...</option>';
             models.forEach(model => {
                 const option = document.createElement('option');
-                option.value = model.name;
-                option.textContent = `${model.name} (${model.size})`;
+                option.value = model.id;        // Use model.id for API calls
+                option.textContent = `${model.name} (${model.size})`;  // Use model.name for display
                 modelSelect.appendChild(option);
             });
+
+            // Auto-select first model if no model is currently configured
+            if (!currentConfig.model && models.length > 0) {
+                currentConfig.model = models[0].id;  // Use model.id for API calls
+                saveConfig();
+            }
 
             if (currentConfig.model) {
                 modelSelect.value = currentConfig.model;
@@ -557,20 +663,12 @@
                 }
             }
 
-            // Find the current provider and return its models
-            // Handle provider name mapping: "local" -> "ollama", "online" -> "openai"/"anthropic"
-            let targetProviderName = currentConfig.provider;
-            if (currentConfig.provider === 'local') {
-                // For local category, look for ollama first
-                targetProviderName = 'ollama';
-            }
-
-            const provider = providers.find(p => p.name === targetProviderName ||
-                (currentConfig.provider === 'local' && ['ollama', 'local'].includes(p.name)) ||
-                (currentConfig.provider === 'online' && ['openai', 'anthropic'].includes(p.name)));
+            // Find the exact provider by name
+            const provider = providers.find(p => p.name === currentConfig.provider);
             if (provider && provider.models && provider.models.length > 0) {
                 return provider.models.map(model => ({
-                    name: model.name || model.id,
+                    id: model.id || model.name,          // API name (e.g., "deepseek-chat")
+                    name: model.name || model.id,        // Display name (e.g., "DeepSeek Chat")
                     size: model.size || 'Unknown'
                 }));
             }
@@ -835,9 +933,15 @@
                     type: 'ai',
                     key: 'generate',
                     sql: JSON.stringify({
+                        model: currentConfig.model || '',
                         prompt: query,
                         config: JSON.stringify({
-                            include_explanation: includeExplanation
+                            include_explanation: includeExplanation,
+                            provider: currentConfig.provider,
+                            endpoint: currentConfig.endpoint,
+                            api_key: currentConfig.apiKey,
+                            temperature: currentConfig.temperature,
+                            max_tokens: currentConfig.maxTokens
                         })
                     })
                 })
@@ -847,15 +951,19 @@
             clearInterval(stepInterval);  // Clean up interval
             messagesContainer.removeChild(loadingMessage);
 
-            if (result.success !== false) {
-                let sql = '', meta = '', success = false;
-                if (result.data) {
-                    for (const pair of result.data) {
-                        if (pair.key === 'content') sql = pair.value;
-                        if (pair.key === 'meta') meta = pair.value;
-                        if (pair.key === 'success') success = pair.value === 'true';
-                    }
+            if (result.success !== false && result.data) {
+                let sql = '', meta = '', success = false, errorMsg = '';
+
+                // Parse response data
+                for (const pair of result.data) {
+                    if (pair.key === 'content') sql = pair.value;
+                    if (pair.key === 'meta') meta = pair.value;
+                    if (pair.key === 'success') success = pair.value === 'true';
+                    if (pair.key === 'error') errorMsg = pair.value;
                 }
+
+                // Debug logging
+                console.log('🔍 [DEBUG] AI Response:', { success, sql, meta, errorMsg });
 
                 if (success && sql) {
                     let metaObj = {};
@@ -922,17 +1030,31 @@
                     aiMessage.appendChild(aiContent);
                     messagesContainer.appendChild(aiMessage);
                 } else {
-                    // Check if there's an error in the response
-                    let errorMsg = 'Failed to generate SQL query';
-                    if (result.data) {
-                        for (const pair of result.data) {
-                            if (pair.key === 'error') {
-                                errorMsg = pair.value;
-                                break;
-                            }
-                        }
+                    // Handle case where success is false or no SQL was generated
+                    const aiMessage = document.createElement('div');
+                    aiMessage.className = 'ai-message error';
+                    const aiContent = document.createElement('div');
+                    aiContent.className = 'ai-message-content';
+
+                    let displayMessage = errorMsg || 'Failed to generate SQL query';
+
+                    // Check for specific error scenarios
+                    if (!success) {
+                        displayMessage = errorMsg || 'The AI service encountered an issue. Please check your configuration.';
+                    } else if (!sql) {
+                        displayMessage = 'No SQL query was generated. Please try rephrasing your request.';
                     }
-                    throw new Error(errorMsg);
+
+                    aiContent.innerHTML = `
+                        <div class="ai-error-header">
+                            <i class="el-icon-warning"></i> ${displayMessage}
+                        </div>
+                        <div class="ai-error-details">
+                            <small>💡 Tip: Make sure your AI service is properly configured and running.</small>
+                        </div>
+                    `;
+                    aiMessage.appendChild(aiContent);
+                    messagesContainer.appendChild(aiMessage);
                 }
             } else {
                 throw new Error(result.message || 'Unknown error occurred');
@@ -1004,13 +1126,86 @@
             updateUI();
         });
 
-        // Provider tabs
-        const providerTabs = document.querySelectorAll('.ai-provider-tab');
-        providerTabs.forEach(tab => {
-            tab.addEventListener('click', () => {
-                currentConfig.provider = tab.getAttribute('data-provider');
-                updateProviderTabs();
+        // Provider cards
+        const providerCards = document.querySelectorAll('.ai-provider-card');
+        providerCards.forEach(card => {
+            card.addEventListener('click', () => {
+                const newProvider = card.getAttribute('data-provider');
+                const oldProvider = currentConfig.provider;
+
+                // Only switch if different provider selected
+                if (newProvider !== oldProvider) {
+                    console.log(`🔄 [DEBUG] Switching from ${oldProvider} to ${newProvider}`);
+
+                    // Save current provider's configuration first
+                    if (oldProvider) {
+                        const oldProviderConfig = {
+                            endpoint: currentConfig.endpoint,
+                            apiKey: currentConfig.apiKey,
+                            model: currentConfig.model,
+                            temperature: currentConfig.temperature,
+                            maxTokens: currentConfig.maxTokens,
+                            status: currentConfig.status
+                        };
+                        localStorage.setItem(`atest-ai-config-${oldProvider}`, JSON.stringify(oldProviderConfig));
+                        console.log(`💾 [DEBUG] Saved ${oldProvider} config before switching`);
+                    }
+
+                    // Define provider-specific default configurations
+                    const providerDefaults = {
+                        ollama: {
+                            endpoint: 'http://localhost:11434',
+                            apiKey: '',
+                            model: ''
+                        },
+                        openai: {
+                            endpoint: '',
+                            apiKey: '',
+                            model: ''
+                        },
+                        deepseek: {
+                            endpoint: '',
+                            apiKey: '',
+                            model: ''
+                        }
+                    };
+
+                    // Load saved configuration for new provider or use defaults
+                    const savedConfig = localStorage.getItem(`atest-ai-config-${newProvider}`);
+                    let newConfig;
+
+                    if (savedConfig) {
+                        try {
+                            newConfig = JSON.parse(savedConfig);
+                            console.log(`📂 [DEBUG] Loaded saved config for ${newProvider}`);
+                        } catch (e) {
+                            newConfig = providerDefaults[newProvider] || {};
+                            console.log(`⚠️ [DEBUG] Failed to parse saved config, using defaults for ${newProvider}`);
+                        }
+                    } else {
+                        newConfig = providerDefaults[newProvider] || {};
+                        console.log(`📋 [DEBUG] No saved config found, using defaults for ${newProvider}`);
+                    }
+
+                    // Apply the configuration
+                    currentConfig.endpoint = newConfig.endpoint || '';
+                    currentConfig.apiKey = newConfig.apiKey || '';
+                    currentConfig.model = newConfig.model || '';
+                    currentConfig.temperature = newConfig.temperature || 0.7;
+                    currentConfig.maxTokens = newConfig.maxTokens || 2048;
+                    currentConfig.status = newConfig.status || 'disconnected';
+
+                    console.log(`✨ [DEBUG] Applied config for ${newProvider}:`, {
+                        endpoint: currentConfig.endpoint,
+                        apiKey: currentConfig.apiKey ? 'SET' : 'EMPTY',
+                        model: currentConfig.model || 'EMPTY'
+                    });
+                }
+
+                currentConfig.provider = newProvider;
+                updateProviderCards();
                 updateModelSelection();
+                updateUI(); // Refresh UI to reflect cleared fields
             });
         });
 
@@ -1101,7 +1296,7 @@
                 window.open('https://ollama.com/download', '_blank');
                 break;
             case 'use-online':
-                currentConfig.provider = 'online';  // Updated to new category
+                currentConfig.provider = 'openai';  // Default to OpenAI for cloud service
                 const settingsPanel = document.getElementById('ai-settings-panel');
                 settingsPanel.style.display = 'flex';
                 updateUI();
@@ -1168,20 +1363,13 @@
             // Update provider status indicators
             updateProviderStatusIndicators(providers);
 
-            // Auto-select first available provider if none is selected or still using old config
-            if (!currentConfig.provider || ['ollama', 'openai', 'custom'].includes(currentConfig.provider)) {
+            // Auto-select first available provider if none is selected
+            if (!currentConfig.provider || !['ollama', 'openai', 'deepseek'].includes(currentConfig.provider)) {
                 const availableProvider = providers.find(p => p.available && p.models && p.models.length > 0);
                 if (availableProvider) {
-                    // Map old provider names to new categories
-                    if (['ollama', 'local'].includes(availableProvider.name)) {
-                        currentConfig.provider = 'local';
-                    } else if (['openai', 'anthropic'].includes(availableProvider.name)) {
-                        currentConfig.provider = 'online';
-                    } else {
-                        // Default to local for unknown providers
-                        currentConfig.provider = 'local';
-                    }
-                    currentConfig.endpoint = availableProvider.endpoint;
+                    // Use direct provider name
+                    currentConfig.provider = availableProvider.name;
+                    currentConfig.endpoint = availableProvider.endpoint || '';
 
                     // Auto-select first model
                     if (availableProvider.models.length > 0 && !currentConfig.model) {
@@ -1227,6 +1415,14 @@
             // Load configuration first
             loadConfig();
 
+            // Update UI with loaded configuration
+            console.log('📋 [DEBUG] Initial config loaded:', {
+                provider: currentConfig.provider,
+                endpoint: currentConfig.endpoint,
+                apiKey: currentConfig.apiKey ? 'SET' : 'EMPTY',
+                model: currentConfig.model || 'EMPTY'
+            });
+
             const chatInterface = createAIChatInterface();
             container.appendChild(chatInterface);
 
@@ -1240,10 +1436,14 @@
             // Auto-discover providers and refresh models on mount
             setTimeout(async () => {
                 await refreshModels();
-                // If still no models found, show welcome panel
-                if (!currentConfig.model) {
-                    const welcomePanel = document.getElementById('ai-welcome-panel');
-                    if (welcomePanel) welcomePanel.style.display = 'flex';
+                // Show/hide welcome panel based on model availability
+                const welcomePanel = document.getElementById('ai-welcome-panel');
+                if (welcomePanel) {
+                    if (currentConfig.model) {
+                        welcomePanel.style.display = 'none';
+                    } else {
+                        welcomePanel.style.display = 'flex';
+                    }
                 }
             }, 500);
 

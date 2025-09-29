@@ -108,6 +108,7 @@ func NewAIPluginService() (*AIPluginService, error) {
 
 // Query handles AI query requests from the main API testing system
 func (s *AIPluginService) Query(ctx context.Context, req *server.DataQuery) (*server.DataQueryResult, error) {
+	fmt.Printf("🔥🔥🔥 [DEBUG] QUERY RECEIVED! Type: %s, Key: %s, SQL: %s\n", req.Type, req.Key, req.Sql)
 	logging.Logger.Info("Received query request", "type", req.Type, "key", req.Key, "sql_length", len(req.Sql))
 
 	// Accept both empty type (for backward compatibility) and explicit "ai" type
@@ -324,12 +325,14 @@ func (s *AIPluginService) handleAIGenerate(ctx context.Context, req *server.Data
 		}
 	}
 
+	fmt.Printf("🎯 [DEBUG] AI GENERATE PARAMS: Model='%s', Prompt Length=%d, Config='%s'\n", params.Model, len(params.Prompt), params.Config)
 	logging.Logger.Info("Generating SQL with AI interface standard", "model", params.Model, "prompt_length", len(params.Prompt))
 
 	// Generate using AI engine
 	context := map[string]string{}
 	if params.Model != "" {
 		context["preferred_model"] = params.Model
+		fmt.Printf("🎯 [DEBUG] Setting preferred_model in context: '%s'\n", params.Model)
 	}
 	if params.Config != "" {
 		context["config"] = params.Config
@@ -859,7 +862,16 @@ func (s *AIPluginService) handleGetModels(ctx context.Context, req *server.DataQ
 	}
 
 	// Get models for specific provider
-	models, err := s.providerManager.GetModels(ctx, params.Provider)
+	// Map frontend category names to backend provider names
+	providerName := params.Provider
+	if params.Provider == "local" {
+		providerName = "ollama"
+	} else if params.Provider == "online" {
+		// Map "online" to default online provider (can be configured)
+		providerName = "deepseek"
+	}
+
+	models, err := s.providerManager.GetModels(ctx, providerName)
 	if err != nil {
 		return &server.DataQueryResult{
 			Data: []*server.Pair{
@@ -882,17 +894,30 @@ func (s *AIPluginService) handleGetModels(ctx context.Context, req *server.DataQ
 
 // handleTestConnection tests a connection with provided configuration
 func (s *AIPluginService) handleTestConnection(ctx context.Context, req *server.DataQuery) (*server.DataQueryResult, error) {
+	fmt.Printf("🔥 [DEBUG] HANDLE TEST CONNECTION called with SQL: %s\n", req.Sql)
+	logging.Logger.Info("Handling test connection request", "sql", req.Sql)
+
 	// Parse configuration from SQL field
 	var config universal.Config
 	if req.Sql != "" {
 		if err := json.Unmarshal([]byte(req.Sql), &config); err != nil {
+			fmt.Printf("🔥 [DEBUG] Failed to parse config: %v\n", err)
 			return nil, status.Errorf(codes.InvalidArgument, "invalid configuration: %v", err)
 		}
 	}
 
+	apiKeyDisplay := config.APIKey
+	if len(apiKeyDisplay) > 10 {
+		apiKeyDisplay = config.APIKey[:10] + "..."
+	}
+	fmt.Printf("🔥 [DEBUG] Parsed config: Provider=%s, APIKey=%s, Model=%s\n", config.Provider, apiKeyDisplay, config.Model)
+
 	// Test the connection
+	fmt.Printf("🔥 [DEBUG] About to call providerManager.TestConnection...\n")
 	result, err := s.providerManager.TestConnection(ctx, &config)
+	fmt.Printf("🔥 [DEBUG] TestConnection returned, err=%v\n", err)
 	if err != nil {
+		fmt.Printf("🔥 [DEBUG] TestConnection failed with error: %v\n", err)
 		return &server.DataQueryResult{
 			Data: []*server.Pair{
 				{Key: "error", Value: err.Error()},
@@ -914,6 +939,9 @@ func (s *AIPluginService) handleTestConnection(ctx context.Context, req *server.
 
 // handleUpdateConfig updates the configuration for a provider
 func (s *AIPluginService) handleUpdateConfig(ctx context.Context, req *server.DataQuery) (*server.DataQueryResult, error) {
+	fmt.Printf("🔥 [DEBUG] HANDLE UPDATE CONFIG called with SQL: %s\n", req.Sql)
+	logging.Logger.Info("Handling update config request", "sql", req.Sql)
+
 	// Parse update request from SQL field
 	var updateReq struct {
 		Provider string              `json:"provider"`
@@ -922,9 +950,12 @@ func (s *AIPluginService) handleUpdateConfig(ctx context.Context, req *server.Da
 
 	if req.Sql != "" {
 		if err := json.Unmarshal([]byte(req.Sql), &updateReq); err != nil {
+			fmt.Printf("🔥 [DEBUG] Failed to parse update request: %v\n", err)
 			return nil, status.Errorf(codes.InvalidArgument, "invalid update request: %v", err)
 		}
 	}
+
+	fmt.Printf("🔥 [DEBUG] Parsed update request: Provider=%s, Config=%+v\n", updateReq.Provider, updateReq.Config)
 
 	if updateReq.Provider == "" || updateReq.Config == nil {
 		return nil, status.Errorf(codes.InvalidArgument, "provider and config are required")

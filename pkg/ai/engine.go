@@ -18,6 +18,8 @@ package ai
 
 import (
 	"context"
+	"encoding/json"
+	"errors"
 	"fmt"
 	"os"
 	"time"
@@ -38,6 +40,15 @@ func addDebugInfo(existing []string, info string) []string {
 		return append(existing, info)
 	}
 	return existing
+}
+
+// IsProviderNotSupported checks if an error is due to an unsupported provider
+func IsProviderNotSupported(err error) bool {
+	if err == nil {
+		return false
+	}
+	// Check if the error is from the client factory
+	return errors.Is(err, ErrProviderNotSupported)
 }
 
 // Engine defines the interface for AI SQL generation
@@ -100,24 +111,31 @@ func NewEngine(cfg config.AIConfig) (Engine, error) {
 	// Try to create a full AI client first
 	client, err := NewClient(cfg)
 	if err != nil {
-		logging.Logger.Warn("Failed to create AI client, falling back to basic engine", "error", err)
-		return &basicEngine{config: cfg}, nil
+		// Check if this is an unsupported provider error
+		if IsProviderNotSupported(err) {
+			logging.Logger.Error("Provider not supported - please use one of: openai, anthropic, local, deepseek, moonshot, zhipu, baichuan, custom", "error", err, "provider", cfg.DefaultService)
+			return nil, fmt.Errorf("unsupported AI provider '%s': %w. Supported providers: openai, anthropic, local, deepseek, moonshot, zhipu, baichuan, custom", cfg.DefaultService, err)
+		}
+		// For other errors, also fail instead of silent fallback
+		logging.Logger.Error("Failed to create AI client", "error", err, "provider", cfg.DefaultService)
+		return nil, fmt.Errorf("failed to create AI client for provider '%s': %w", cfg.DefaultService, err)
 	}
 
 	// Get the AI client from the Client
 	aiClient := client.GetPrimaryClient()
 	if aiClient == nil {
-		logging.Logger.Info("No primary AI client available, using basic engine")
-		return &basicEngine{config: cfg}, nil
+		logging.Logger.Error("No primary AI client available - check your configuration", "provider", cfg.DefaultService)
+		return nil, fmt.Errorf("no primary AI client available for provider '%s' - please check your configuration", cfg.DefaultService)
 	}
 
 	// Create SQL generator with AI client
 	generator, err := NewSQLGenerator(aiClient, cfg)
 	if err != nil {
-		logging.Logger.Error("Failed to create SQL generator", "error", err)
-		return &basicEngine{config: cfg}, nil
+		logging.Logger.Error("Failed to create SQL generator", "error", err, "provider", cfg.DefaultService)
+		return nil, fmt.Errorf("failed to create SQL generator for provider '%s': %w", cfg.DefaultService, err)
 	}
 
+	logging.Logger.Info("AI engine created successfully", "provider", cfg.DefaultService)
 	return &aiEngine{
 		config:    cfg,
 		generator: generator,
@@ -174,11 +192,42 @@ func (e *aiEngine) GenerateSQL(ctx context.Context, req *GenerateSQLRequest) (*G
 		MaxTokens:          2000,
 	}
 
-	// Add context if provided
+	// Add context if provided and extract preferred_model and runtime config
+	var runtimeConfig map[string]interface{}
 	if len(req.Context) > 0 {
 		options.Context = make([]string, 0, len(req.Context))
 		for key, value := range req.Context {
-			options.Context = append(options.Context, fmt.Sprintf("%s: %s", key, value))
+			if key == "preferred_model" {
+				// Set the preferred model directly in options
+				options.Model = value
+				fmt.Printf("🎯 [DEBUG] AI ENGINE: Setting model from context: '%s'\n", value)
+			} else if key == "config" {
+				// Parse runtime configuration for API keys etc.
+				if err := json.Unmarshal([]byte(value), &runtimeConfig); err != nil {
+					logging.Logger.Warn("Failed to parse runtime config", "error", err)
+				} else {
+					fmt.Printf("🔑 [DEBUG] AI ENGINE: Parsed runtime config: %+v\n", runtimeConfig)
+					// Extract configuration for dynamic client creation
+					if provider, ok := runtimeConfig["provider"].(string); ok {
+						options.Provider = provider
+					}
+					if apiKey, ok := runtimeConfig["api_key"].(string); ok && apiKey != "" {
+						options.APIKey = apiKey
+					}
+					if endpoint, ok := runtimeConfig["endpoint"].(string); ok && endpoint != "" {
+						options.Endpoint = endpoint
+					}
+					if temp, ok := runtimeConfig["temperature"].(float64); ok {
+						options.Temperature = temp
+					}
+					if maxTokens, ok := runtimeConfig["max_tokens"].(float64); ok {
+						options.MaxTokens = int(maxTokens)
+					}
+				}
+			} else {
+				// Add other context as strings
+				options.Context = append(options.Context, fmt.Sprintf("%s: %s", key, value))
+			}
 		}
 	}
 

@@ -878,3 +878,112 @@ html.dark .ai-chat-container {
 html.dark .ai-settings-panel {
     background: rgba(0, 0, 0, 0.8);
 }
+
+/* New Provider Card Styles */
+.ai-settings-section h4 {
+    margin: 16px 0 12px 0;
+    color: var(--el-text-color-primary);
+    font-size: 16px;
+    font-weight: 600;
+    border-bottom: 1px solid var(--el-border-color-lighter);
+    padding-bottom: 6px;
+}
+
+.ai-provider-group {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    margin-bottom: 20px;
+}
+
+.ai-provider-card {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 16px;
+    border: 2px solid var(--el-border-color);
+    border-radius: 8px;
+    background: var(--el-bg-color);
+    cursor: pointer;
+    transition: all 0.2s ease;
+    position: relative;
+    min-height: 60px;
+}
+
+.ai-provider-card:hover {
+    border-color: var(--el-color-primary);
+    background: var(--el-bg-color-page);
+    transform: translateY(-1px);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+}
+
+.ai-provider-card.active {
+    border-color: var(--el-color-primary);
+    background: var(--el-color-primary-light-9);
+    box-shadow: 0 2px 8px rgba(64, 158, 255, 0.2);
+}
+
+.ai-provider-card .ai-provider-icon {
+    font-size: 24px;
+    flex-shrink: 0;
+}
+
+.ai-provider-card .ai-provider-name {
+    font-weight: 600;
+    color: var(--el-text-color-primary);
+    font-size: 15px;
+    margin: 0;
+}
+
+.ai-provider-card .ai-provider-desc {
+    color: var(--el-text-color-regular);
+    font-size: 12px;
+    margin: 2px 0 0 0;
+    opacity: 0.8;
+}
+
+.ai-provider-card .ai-status-indicator {
+    position: absolute;
+    top: 8px;
+    right: 8px;
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+    background: var(--el-color-info);
+}
+
+.ai-provider-card .ai-status-indicator.connected {
+    background: var(--el-color-success);
+    box-shadow: 0 0 6px rgba(103, 194, 58, 0.6);
+}
+
+.ai-provider-card .ai-status-indicator.disconnected {
+    background: var(--el-color-danger);
+}
+
+/* Provider card content layout */
+.ai-provider-card > div {
+    display: flex;
+    flex-direction: column;
+    flex: 1;
+}
+
+/* Responsive adjustments */
+@media (max-width: 768px) {
+    .ai-provider-card {
+        padding: 12px;
+        min-height: 50px;
+    }
+
+    .ai-provider-card .ai-provider-icon {
+        font-size: 20px;
+    }
+
+    .ai-provider-card .ai-provider-name {
+        font-size: 14px;
+    }
+
+    .ai-provider-card .ai-provider-desc {
+        font-size: 11px;
+    }
+}

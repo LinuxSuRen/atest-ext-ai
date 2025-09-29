@@ -416,6 +416,12 @@ func (f *defaultClientFactory) registerProviders() {
 	f.providers["local"] = f.createLocalClient
 	// Register ollama as an alias for local provider for backward compatibility
 	f.providers["ollama"] = f.createLocalClient
+	// Register OpenAI-compatible providers
+	f.providers["deepseek"] = f.createDeepSeekClient
+	f.providers["moonshot"] = f.createMoonshotClient
+	f.providers["zhipu"] = f.createZhipuClient
+	f.providers["baichuan"] = f.createBaichuanClient
+	f.providers["custom"] = f.createCustomOpenAIClient
 }
 
 // CreateClient creates a new AI client for the specified provider
@@ -537,6 +543,162 @@ func (f *defaultClientFactory) createLocalClient(config map[string]any) (interfa
 	}
 
 	return local.NewClient(localConfig)
+}
+
+// createDeepSeekClient creates a DeepSeek client using OpenAI-compatible interface
+func (f *defaultClientFactory) createDeepSeekClient(config map[string]any) (interfaces.AIClient, error) {
+	openaiConfig := &openai.Config{}
+
+	if apiKey, ok := config["api_key"].(string); ok {
+		openaiConfig.APIKey = apiKey
+	}
+	// DeepSeek API endpoint
+	if baseURL, ok := config["base_url"].(string); ok {
+		openaiConfig.BaseURL = baseURL
+	} else {
+		openaiConfig.BaseURL = "https://api.deepseek.com/v1"
+	}
+	if model, ok := config["model"].(string); ok {
+		openaiConfig.Model = model
+	} else {
+		openaiConfig.Model = "deepseek-chat"
+	}
+	if timeout, ok := config["timeout"].(time.Duration); ok {
+		openaiConfig.Timeout = timeout
+	} else if timeoutStr, ok := config["timeout"].(string); ok {
+		if duration, err := time.ParseDuration(timeoutStr); err == nil {
+			openaiConfig.Timeout = duration
+		}
+	}
+	if maxTokens, ok := config["max_tokens"].(int); ok {
+		openaiConfig.MaxTokens = maxTokens
+	}
+
+	return openai.NewClient(openaiConfig)
+}
+
+// createMoonshotClient creates a Moonshot client using OpenAI-compatible interface
+func (f *defaultClientFactory) createMoonshotClient(config map[string]any) (interfaces.AIClient, error) {
+	openaiConfig := &openai.Config{}
+
+	if apiKey, ok := config["api_key"].(string); ok {
+		openaiConfig.APIKey = apiKey
+	}
+	if baseURL, ok := config["base_url"].(string); ok {
+		openaiConfig.BaseURL = baseURL
+	} else {
+		openaiConfig.BaseURL = "https://api.moonshot.cn/v1"
+	}
+	if model, ok := config["model"].(string); ok {
+		openaiConfig.Model = model
+	} else {
+		openaiConfig.Model = "moonshot-v1-8k"
+	}
+	if timeout, ok := config["timeout"].(time.Duration); ok {
+		openaiConfig.Timeout = timeout
+	} else if timeoutStr, ok := config["timeout"].(string); ok {
+		if duration, err := time.ParseDuration(timeoutStr); err == nil {
+			openaiConfig.Timeout = duration
+		}
+	}
+	if maxTokens, ok := config["max_tokens"].(int); ok {
+		openaiConfig.MaxTokens = maxTokens
+	}
+
+	return openai.NewClient(openaiConfig)
+}
+
+// createZhipuClient creates a Zhipu AI client using OpenAI-compatible interface
+func (f *defaultClientFactory) createZhipuClient(config map[string]any) (interfaces.AIClient, error) {
+	openaiConfig := &openai.Config{}
+
+	if apiKey, ok := config["api_key"].(string); ok {
+		openaiConfig.APIKey = apiKey
+	}
+	if baseURL, ok := config["base_url"].(string); ok {
+		openaiConfig.BaseURL = baseURL
+	} else {
+		openaiConfig.BaseURL = "https://open.bigmodel.cn/api/paas/v4"
+	}
+	if model, ok := config["model"].(string); ok {
+		openaiConfig.Model = model
+	} else {
+		openaiConfig.Model = "glm-4"
+	}
+	if timeout, ok := config["timeout"].(time.Duration); ok {
+		openaiConfig.Timeout = timeout
+	} else if timeoutStr, ok := config["timeout"].(string); ok {
+		if duration, err := time.ParseDuration(timeoutStr); err == nil {
+			openaiConfig.Timeout = duration
+		}
+	}
+	if maxTokens, ok := config["max_tokens"].(int); ok {
+		openaiConfig.MaxTokens = maxTokens
+	}
+
+	return openai.NewClient(openaiConfig)
+}
+
+// createBaichuanClient creates a Baichuan client using OpenAI-compatible interface
+func (f *defaultClientFactory) createBaichuanClient(config map[string]any) (interfaces.AIClient, error) {
+	openaiConfig := &openai.Config{}
+
+	if apiKey, ok := config["api_key"].(string); ok {
+		openaiConfig.APIKey = apiKey
+	}
+	if baseURL, ok := config["base_url"].(string); ok {
+		openaiConfig.BaseURL = baseURL
+	} else {
+		openaiConfig.BaseURL = "https://api.baichuan-ai.com/v1"
+	}
+	if model, ok := config["model"].(string); ok {
+		openaiConfig.Model = model
+	} else {
+		openaiConfig.Model = "Baichuan2-Turbo"
+	}
+	if timeout, ok := config["timeout"].(time.Duration); ok {
+		openaiConfig.Timeout = timeout
+	} else if timeoutStr, ok := config["timeout"].(string); ok {
+		if duration, err := time.ParseDuration(timeoutStr); err == nil {
+			openaiConfig.Timeout = duration
+		}
+	}
+	if maxTokens, ok := config["max_tokens"].(int); ok {
+		openaiConfig.MaxTokens = maxTokens
+	}
+
+	return openai.NewClient(openaiConfig)
+}
+
+// createCustomOpenAIClient creates a custom OpenAI-compatible client
+func (f *defaultClientFactory) createCustomOpenAIClient(config map[string]any) (interfaces.AIClient, error) {
+	openaiConfig := &openai.Config{}
+
+	if apiKey, ok := config["api_key"].(string); ok {
+		openaiConfig.APIKey = apiKey
+	}
+	if baseURL, ok := config["base_url"].(string); ok {
+		openaiConfig.BaseURL = baseURL
+	} else {
+		return nil, fmt.Errorf("base_url is required for custom provider")
+	}
+	if model, ok := config["model"].(string); ok {
+		openaiConfig.Model = model
+	} else {
+		return nil, fmt.Errorf("model is required for custom provider")
+	}
+	if timeout, ok := config["timeout"].(time.Duration); ok {
+		openaiConfig.Timeout = timeout
+	} else if timeoutStr, ok := config["timeout"].(string); ok {
+		if duration, err := time.ParseDuration(timeoutStr); err == nil {
+			openaiConfig.Timeout = duration
+		}
+	}
+	if maxTokens, ok := config["max_tokens"].(int); ok {
+		openaiConfig.MaxTokens = maxTokens
+	}
+
+	return openai.NewClient(openaiConfig)
 }
 
 // HealthChecker monitors the health of AI clients

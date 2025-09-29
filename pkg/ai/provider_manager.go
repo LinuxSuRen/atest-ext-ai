@@ -117,7 +117,7 @@ func (pm *ProviderManager) DiscoverProviders(ctx context.Context) ([]*ProviderIn
 	}
 
 	// Check for other configured providers
-	// This can be extended to check for OpenAI, Anthropic, etc.
+	pm.discoverOnlineProviders(&providers)
 
 	return providers, nil
 }
@@ -368,4 +368,51 @@ func (pm *ProviderManager) RemoveProvider(name string) error {
 	// Remove provider info
 	delete(pm.providers, name)
 	return nil
+}
+
+// discoverOnlineProviders discovers and adds online AI service providers
+func (pm *ProviderManager) discoverOnlineProviders(providers *[]*ProviderInfo) {
+	// Predefined online service providers with their endpoints and default models
+	onlineProviders := map[string]struct {
+		endpoint string
+		models   []interfaces.ModelInfo
+	}{
+		"deepseek": {
+			endpoint: "https://api.deepseek.com",
+			models: []interfaces.ModelInfo{
+				{ID: "deepseek-chat", Name: "DeepSeek Chat", Description: "DeepSeek's flagship conversational AI model", MaxTokens: 32768},
+				{ID: "deepseek-reasoner", Name: "DeepSeek Reasoner", Description: "DeepSeek's reasoning model with thinking capabilities", MaxTokens: 32768},
+			},
+		},
+		"openai": {
+			endpoint: "https://api.openai.com",
+			models: []interfaces.ModelInfo{
+				{ID: "gpt-4", Name: "GPT-4", Description: "Most capable GPT-4 model", MaxTokens: 8192},
+				{ID: "gpt-4-turbo", Name: "GPT-4 Turbo", Description: "Latest GPT-4 Turbo model", MaxTokens: 128000},
+				{ID: "gpt-3.5-turbo", Name: "GPT-3.5 Turbo", Description: "Fast and efficient GPT-3.5 model", MaxTokens: 16385},
+			},
+		},
+	}
+
+	// Add each online provider
+	for name, config := range onlineProviders {
+		provider := &ProviderInfo{
+			Name:        name,
+			Type:        "online",
+			Available:   true, // Mark as available to allow user configuration
+			Endpoint:    config.endpoint,
+			Models:      config.models,
+			LastChecked: time.Now(),
+			Config: map[string]interface{}{
+				"requires_api_key": true,
+				"provider_type":    "online",
+			},
+		}
+
+		// Store in providers map
+		pm.providers[name] = provider
+
+		// Add to the list being returned
+		*providers = append(*providers, provider)
+	}
 }

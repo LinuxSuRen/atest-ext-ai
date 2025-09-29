@@ -127,13 +127,20 @@ func NewClient(config *Config) (*Client, error) {
 // Generate executes a generation request
 func (c *Client) Generate(ctx context.Context, req *interfaces.GenerateRequest) (*interfaces.GenerateResponse, error) {
 	start := time.Now()
+	fmt.Printf("🔥🔥🔥 [DEBUG] LOCAL CLIENT GENERATE CALLED! Time: %v\n", start)
 
 	// Build the prompt with context
+	promptStart := time.Now()
 	prompt := c.buildPrompt(req)
+	fmt.Printf("🕐 [TIMING] buildPrompt() took: %v\n", time.Since(promptStart))
 
 	// Build the Ollama request
+	modelStart := time.Now()
+	model := c.getModel(req)
+	fmt.Printf("🕐 [TIMING] getModel() took: %v, model: %s\n", time.Since(modelStart), model)
+
 	ollamaReq := &GenerateRequest{
-		Model:  c.getModel(req),
+		Model:  model,
 		Prompt: prompt,
 		Stream: false, // Force non-streaming for now to fix JSON parsing
 		Options: map[string]any{
@@ -149,7 +156,10 @@ func (c *Client) Generate(ctx context.Context, req *interfaces.GenerateRequest) 
 	}
 
 	// Make the HTTP request for non-streaming
+	requestStart := time.Now()
+	fmt.Printf("🕐 [TIMING] makeRequest() starting at: %v\n", requestStart)
 	response, err := c.makeRequest(ctx, "/api/generate", ollamaReq)
+	fmt.Printf("🕐 [TIMING] makeRequest() took: %v\n", time.Since(requestStart))
 	if err != nil {
 		return nil, fmt.Errorf("failed to make request: %w", err)
 	}
@@ -175,6 +185,9 @@ func (c *Client) Generate(ctx context.Context, req *interfaces.GenerateRequest) 
 			"streaming":            false,
 		},
 	}
+
+	totalTime := time.Since(start)
+	fmt.Printf("🕐 [TIMING] Generate() completed in total: %v\n", totalTime)
 
 	return aiResponse, nil
 }
@@ -379,19 +392,23 @@ func (c *Client) buildPrompt(req *interfaces.GenerateRequest) string {
 
 // getModel returns the model to use for the request
 func (c *Client) getModel(req *interfaces.GenerateRequest) string {
+	// CRITICAL FIX: Always prioritize request-specific model over auto-discovery
 	if req.Model != "" {
+		fmt.Printf("🎯 [DEBUG] Using request-specific model: '%s'\n", req.Model)
 		return req.Model
 	}
 
 	// If config model is not set, auto-detect from available models
 	if c.config.Model == "" {
 		if availableModel := c.getFirstAvailableModel(); availableModel != "" {
-			c.config.Model = availableModel // Cache the detected model
+			fmt.Printf("🎯 [DEBUG] Auto-detected model: '%s'\n", availableModel)
+			// DON'T cache to config.Model - let each request use its own model preference
 			return availableModel
 		}
 		// If auto-detection fails, this will cause an error in Ollama which is appropriate
 	}
 
+	fmt.Printf("🎯 [DEBUG] Using config model: '%s'\n", c.config.Model)
 	return c.config.Model
 }
 
