@@ -1,4 +1,4 @@
-import { createApp, App as VueApp } from 'vue'
+import { createApp, type App as VueApp } from 'vue'
 import ElementPlus from 'element-plus'
 import 'element-plus/dist/index.css'
 import App from './App.vue'

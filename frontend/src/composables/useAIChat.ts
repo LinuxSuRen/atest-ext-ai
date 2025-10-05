@@ -8,7 +8,7 @@ const API_STORE = 'ai'
  * Uses context from main app for API calls and i18n
  */
 export function useAIChat(context: AppContext) {
-  const { API, Cache } = context
+  const { API } = context
 
   // Configuration management
   const config = ref<AIConfig>(loadConfig())
@@ -224,10 +224,10 @@ function loadConfig(): AIConfig {
   const defaults = getDefaultConfig(provider)
 
   if (providerConfig) {
-    return { ...defaults, ...JSON.parse(providerConfig), provider, language }
+    return { ...defaults, ...JSON.parse(providerConfig), provider, language } as AIConfig
   }
 
-  return { ...defaults, provider, language }
+  return { ...defaults, provider, language } as AIConfig
 }
 
 /**
