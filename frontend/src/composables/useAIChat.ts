@@ -212,38 +212,35 @@ export function useAIChat(context: AppContext) {
 function loadConfig(): AIConfig {
   const globalConfig = localStorage.getItem('atest-ai-global-config')
   let provider: 'ollama' | 'openai' | 'deepseek' = 'ollama'
-  let language: 'en' | 'zh' = 'en'
 
   if (globalConfig) {
     const parsed = JSON.parse(globalConfig)
     provider = parsed.provider || provider
-    language = parsed.language || language
   }
 
   const providerConfig = localStorage.getItem(`atest-ai-config-${provider}`)
   const defaults = getDefaultConfig(provider)
 
   if (providerConfig) {
-    return { ...defaults, ...JSON.parse(providerConfig), provider, language } as AIConfig
+    return { ...defaults, ...JSON.parse(providerConfig), provider } as AIConfig
   }
 
-  return { ...defaults, provider, language } as AIConfig
+  return { ...defaults, provider } as AIConfig
 }
 
 /**
  * Save configuration to localStorage
+ * Note: Language is managed by main app, not saved here
  */
 function saveConfig(config: AIConfig) {
-  // Save global config (provider and language)
+  // Save global config (only provider)
   localStorage.setItem('atest-ai-global-config', JSON.stringify({
-    provider: config.provider,
-    language: config.language
+    provider: config.provider
   }))
 
   // Save provider-specific config
   const providerConfig = { ...config }
   delete (providerConfig as any).provider
-  delete (providerConfig as any).language
 
   localStorage.setItem(
     `atest-ai-config-${config.provider}`,

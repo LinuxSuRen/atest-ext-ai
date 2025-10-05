@@ -6,14 +6,6 @@
     @close="emit('update:visible', false)"
   >
     <el-form :model="localConfig" label-width="120px">
-      <!-- Language Selection -->
-      <el-form-item :label="t('ai.settings.language')">
-        <el-select v-model="localConfig.language" @change="updateLanguage">
-          <el-option label="English" value="en" />
-          <el-option label="中文" value="zh" />
-        </el-select>
-      </el-form-item>
-
       <!-- Provider Selection -->
       <el-form-item :label="t('ai.settings.provider')">
         <el-select v-model="localConfig.provider">
@@ -160,7 +152,7 @@ const emit = defineEmits<Emits>()
 
 // Inject context
 const context = inject<AppContext>('appContext')!
-const { t, locale } = context.i18n
+const { t } = context.i18n
 
 // Local config copy
 const localConfig = ref<AIConfig>({ ...props.config })
@@ -169,11 +161,6 @@ const localConfig = ref<AIConfig>({ ...props.config })
 watch(() => props.config, (newConfig) => {
   localConfig.value = { ...newConfig }
 }, { deep: true })
-
-// Update main app language when plugin language changes
-function updateLanguage(lang: string) {
-  locale.value = lang
-}
 
 function handleSave() {
   // Copy local config back to props
