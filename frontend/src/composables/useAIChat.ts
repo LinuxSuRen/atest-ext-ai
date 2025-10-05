@@ -1,17 +1,14 @@
 import { ref, computed, watch } from 'vue'
 import type { AppContext, AIConfig, Message, Model } from '@/types'
 import { loadConfig, saveConfig, getMockModels, generateId } from '@/utils/config'
-
-const API_STORE = 'ai'
+import { aiService } from '@/services/aiService'
 
 /**
  * Main composable for AI Chat functionality
- * Uses context from main app for API calls and i18n
+ * Uses aiService for API calls and manages UI state
  */
 export function useAIChat(_context: AppContext) {
-  // Note: We use fetch API directly instead of context.API.DataQuery
-  // because DataQuery is designed for database queries and transforms the request format
-  // The context parameter is kept for future use (e.g., authentication tokens)
+  // Note: context parameter is kept for future use (e.g., authentication tokens)
 
   // Configuration management
   const config = ref<AIConfig>(loadConfig())
@@ -45,10 +42,7 @@ export function useAIChat(_context: AppContext) {
    */
   async function refreshModels() {
     try {
-      const result = await callAPI<{ models: Model[] }>('models', {
-        provider: config.value.provider
-      })
-      availableModels.value = result.models || []
+      availableModels.value = await aiService.fetchModels(config.value.provider)
 
       // Auto-select first model if none selected
       if (!config.value.model && availableModels.value.length > 0) {
@@ -76,36 +70,29 @@ export function useAIChat(_context: AppContext) {
     // Show loading
     isLoading.value = true
     try {
-      const result = await callAPI<{
-        content: string
-        meta: string
-        success: string
-        error?: string
-      }>('generate', {
+      const response = await aiService.generateSQL({
+        provider: config.value.provider,
+        endpoint: config.value.endpoint,
+        apiKey: config.value.apiKey,
         model: config.value.model,
         prompt,
-        config: JSON.stringify({
-          include_explanation: options.includeExplanation,
-          provider: config.value.provider,
-          endpoint: config.value.endpoint,
-          api_key: config.value.apiKey,
-          temperature: config.value.temperature,
-          max_tokens: config.value.maxTokens
-        })
+        temperature: config.value.temperature,
+        maxTokens: config.value.maxTokens,
+        includeExplanation: options.includeExplanation
       })
 
-      if (result.success === 'true' && result.content) {
+      if (response.success && response.sql) {
         // Add AI response
         messages.value.push({
           id: generateId(),
           type: 'ai',
           content: 'Generated SQL:',
-          sql: result.content,
-          meta: result.meta ? JSON.parse(result.meta) : undefined,
+          sql: response.sql,
+          meta: response.meta,
           timestamp: Date.now()
         })
       } else {
-        throw new Error(result.error || 'Failed to generate SQL')
+        throw new Error(response.error || 'Failed to generate SQL')
       }
     } catch (error) {
       // Add error message
@@ -125,17 +112,7 @@ export function useAIChat(_context: AppContext) {
    */
   async function handleSaveConfig() {
     try {
-      await callAPI('update_config', {
-        provider: config.value.provider,
-        config: {
-          provider: config.value.provider,
-          endpoint: config.value.endpoint,
-          model: config.value.model,
-          api_key: config.value.apiKey,
-          temperature: config.value.temperature,
-          max_tokens: config.value.maxTokens
-        }
-      })
+      await aiService.saveConfig(config.value)
       return { success: true }
     } catch (error) {
       console.error('Failed to save config to backend:', error)
@@ -149,55 +126,13 @@ export function useAIChat(_context: AppContext) {
   async function handleTestConnection() {
     config.value.status = 'connecting'
     try {
-      const result = await callAPI<{ success: string }>('test_connection', config.value)
-      config.value.status = result.success === 'true' ? 'connected' : 'disconnected'
-      return { success: result.success === 'true' }
+      const success = await aiService.testConnection(config.value)
+      config.value.status = success ? 'connected' : 'disconnected'
+      return { success }
     } catch (error) {
       config.value.status = 'disconnected'
       throw error
     }
-  }
-
-  /**
-   * Call backend API directly
-   *
-   * Note: We use fetch directly instead of DataQuery because DataQuery
-   * is designed for database queries and transforms the request format.
-   * The AI plugin expects: {type: 'ai', key: 'operation', sql: 'params_json'}
-   */
-  async function callAPI<T>(key: string, data: any): Promise<T> {
-    const response = await fetch('/api/v1/data/query', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'X-Store-Name': API_STORE
-      },
-      body: JSON.stringify({
-        type: 'ai',
-        key,
-        sql: JSON.stringify(data)
-      })
-    })
-
-    if (!response.ok) {
-      throw new Error(`API error: ${response.status}`)
-    }
-
-    const result = await response.json()
-
-    // Parse key-value pair format from backend
-    const parsed: any = {}
-    if (result.data) {
-      for (const pair of result.data) {
-        try {
-          parsed[pair.key] = JSON.parse(pair.value)
-        } catch {
-          parsed[pair.key] = pair.value
-        }
-      }
-    }
-
-    return parsed as T
   }
 
   // Initialize: load models on mount

@@ -1,6 +1,17 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest'
 import { useAIChat } from '@/composables/useAIChat'
+import { aiService } from '@/services/aiService'
 import type { AppContext } from '@/types'
+
+// Mock aiService
+vi.mock('@/services/aiService', () => ({
+  aiService: {
+    fetchModels: vi.fn(),
+    testConnection: vi.fn(),
+    generateSQL: vi.fn(),
+    saveConfig: vi.fn()
+  }
+}))
 
 describe('useAIChat', () => {
   let mockContext: AppContext
@@ -8,6 +19,9 @@ describe('useAIChat', () => {
   beforeEach(() => {
     localStorage.clear()
     vi.clearAllMocks()
+
+    // Set default mock behavior for fetchModels (called during initialization)
+    vi.mocked(aiService.fetchModels).mockResolvedValue([])
 
     mockContext = {
       i18n: {
@@ -65,17 +79,12 @@ describe('useAIChat', () => {
   describe('handleQuery', () => {
     it('should add user message and handle successful response', async () => {
       const mockResponse = {
-        data: [
-          { key: 'success', value: 'true' },
-          { key: 'content', value: 'SELECT * FROM users' },
-          { key: 'meta', value: JSON.stringify({ model: 'llama3.2:3b', duration: 150 }) }
-        ]
+        success: true,
+        sql: 'SELECT * FROM users',
+        meta: { model: 'llama3.2:3b', duration: 150 }
       }
 
-      global.fetch = vi.fn().mockResolvedValue({
-        ok: true,
-        json: async () => mockResponse
-      })
+      vi.mocked(aiService.generateSQL).mockResolvedValue(mockResponse)
 
       const { messages, handleQuery } = useAIChat(mockContext)
 
@@ -89,10 +98,7 @@ describe('useAIChat', () => {
     })
 
     it('should add error message when API fails', async () => {
-      global.fetch = vi.fn().mockResolvedValue({
-        ok: false,
-        status: 500
-      })
+      vi.mocked(aiService.generateSQL).mockRejectedValue(new Error('API error: 500'))
 
       const { messages, handleQuery } = useAIChat(mockContext)
 
@@ -105,14 +111,12 @@ describe('useAIChat', () => {
 
     it('should set loading state correctly', async () => {
       const mockResponse = {
-        data: [
-          { key: 'success', value: 'true' },
-          { key: 'content', value: 'SELECT * FROM users' }
-        ]
+        success: true,
+        sql: 'SELECT * FROM users'
       }
 
       let resolvePromise: any
-      global.fetch = vi.fn().mockReturnValue(
+      vi.mocked(aiService.generateSQL).mockReturnValue(
         new Promise((resolve) => {
           resolvePromise = resolve
         })
@@ -124,10 +128,7 @@ describe('useAIChat', () => {
 
       expect(isLoading.value).toBe(true)
 
-      resolvePromise({
-        ok: true,
-        json: async () => mockResponse
-      })
+      resolvePromise(mockResponse)
 
       await queryPromise
       expect(isLoading.value).toBe(false)
@@ -136,16 +137,7 @@ describe('useAIChat', () => {
 
   describe('handleTestConnection', () => {
     it('should set status to connected on success', async () => {
-      const mockResponse = {
-        data: [
-          { key: 'success', value: 'true' }
-        ]
-      }
-
-      global.fetch = vi.fn().mockResolvedValue({
-        ok: true,
-        json: async () => mockResponse
-      })
+      vi.mocked(aiService.testConnection).mockResolvedValue(true)
 
       const { config, handleTestConnection } = useAIChat(mockContext)
 
@@ -156,7 +148,7 @@ describe('useAIChat', () => {
     })
 
     it('should set status to disconnected on failure', async () => {
-      global.fetch = vi.fn().mockRejectedValue(new Error('Network error'))
+      vi.mocked(aiService.testConnection).mockRejectedValue(new Error('Network error'))
 
       const { config, handleTestConnection } = useAIChat(mockContext)
 
@@ -167,22 +159,12 @@ describe('useAIChat', () => {
 
   describe('refreshModels', () => {
     it('should fetch and set available models', async () => {
-      const mockResponse = {
-        data: [
-          {
-            key: 'models',
-            value: JSON.stringify([
-              { id: 'model1', name: 'Model 1', size: '2GB' },
-              { id: 'model2', name: 'Model 2', size: '5GB' }
-            ])
-          }
-        ]
-      }
+      const mockModels = [
+        { id: 'model1', name: 'Model 1', size: '2GB' },
+        { id: 'model2', name: 'Model 2', size: '5GB' }
+      ]
 
-      global.fetch = vi.fn().mockResolvedValue({
-        ok: true,
-        json: async () => mockResponse
-      })
+      vi.mocked(aiService.fetchModels).mockResolvedValue(mockModels)
 
       const { availableModels, refreshModels } = useAIChat(mockContext)
 
@@ -193,7 +175,7 @@ describe('useAIChat', () => {
     })
 
     it('should use mock models when API fails', async () => {
-      global.fetch = vi.fn().mockRejectedValue(new Error('Network error'))
+      vi.mocked(aiService.fetchModels).mockRejectedValue(new Error('Network error'))
 
       const { availableModels, refreshModels } = useAIChat(mockContext)
 
@@ -204,21 +186,11 @@ describe('useAIChat', () => {
     })
 
     it('should auto-select first model if none selected', async () => {
-      const mockResponse = {
-        data: [
-          {
-            key: 'models',
-            value: JSON.stringify([
-              { id: 'auto-model', name: 'Auto Model', size: '1GB' }
-            ])
-          }
-        ]
-      }
+      const mockModels = [
+        { id: 'auto-model', name: 'Auto Model', size: '1GB' }
+      ]
 
-      global.fetch = vi.fn().mockResolvedValue({
-        ok: true,
-        json: async () => mockResponse
-      })
+      vi.mocked(aiService.fetchModels).mockResolvedValue(mockModels)
 
       const { config, refreshModels } = useAIChat(mockContext)
 
