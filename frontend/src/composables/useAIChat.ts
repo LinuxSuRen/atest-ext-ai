@@ -7,8 +7,10 @@ const API_STORE = 'ai'
  * Main composable for AI Chat functionality
  * Uses context from main app for API calls and i18n
  */
-export function useAIChat(context: AppContext) {
-  const { API } = context
+export function useAIChat(_context: AppContext) {
+  // Note: We use fetch API directly instead of context.API.DataQuery
+  // because DataQuery is designed for database queries and transforms the request format
+  // The context parameter is kept for future use (e.g., authentication tokens)
 
   // Configuration management
   const config = ref<AIConfig>(loadConfig())
@@ -156,38 +158,45 @@ export function useAIChat(context: AppContext) {
   }
 
   /**
-   * Call backend API using main app's DataQuery
+   * Call backend API directly
+   *
+   * Note: We use fetch directly instead of DataQuery because DataQuery
+   * is designed for database queries and transforms the request format.
+   * The AI plugin expects: {type: 'ai', key: 'operation', sql: 'params_json'}
    */
-  function callAPI<T>(key: string, data: any): Promise<T> {
-    return new Promise((resolve, reject) => {
-      API.DataQuery(
-        API_STORE,
-        'atest-store-orm',
-        '',
-        JSON.stringify({
-          type: 'ai',
-          key,
-          sql: JSON.stringify(data)
-        }),
-        (result: any) => {
-          // Parse key-value pair format from backend
-          const parsed: any = {}
-          if (result.data) {
-            for (const pair of result.data) {
-              try {
-                parsed[pair.key] = JSON.parse(pair.value)
-              } catch {
-                parsed[pair.key] = pair.value
-              }
-            }
-          }
-          resolve(parsed as T)
-        },
-        (error: any) => {
-          reject(new Error(error?.message || 'API call failed'))
-        }
-      )
+  async function callAPI<T>(key: string, data: any): Promise<T> {
+    const response = await fetch('/api/v1/data/query', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'X-Store-Name': API_STORE
+      },
+      body: JSON.stringify({
+        type: 'ai',
+        key,
+        sql: JSON.stringify(data)
+      })
     })
+
+    if (!response.ok) {
+      throw new Error(`API error: ${response.status}`)
+    }
+
+    const result = await response.json()
+
+    // Parse key-value pair format from backend
+    const parsed: any = {}
+    if (result.data) {
+      for (const pair of result.data) {
+        try {
+          parsed[pair.key] = JSON.parse(pair.value)
+        } catch {
+          parsed[pair.key] = pair.value
+        }
+      }
+    }
+
+    return parsed as T
   }
 
   // Initialize: load models on mount

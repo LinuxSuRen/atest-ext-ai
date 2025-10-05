@@ -68,7 +68,7 @@ function formatTime(timestamp: number): string {
 async function copySQL(sql: string) {
   try {
     await navigator.clipboard.writeText(sql)
-    ElMessage.success(t('button.copy') + ' ' + t('button.ok'))
+    ElMessage.success(t('ai.message.copiedSuccess'))
   } catch (error) {
     ElMessage.error('Failed to copy')
   }
