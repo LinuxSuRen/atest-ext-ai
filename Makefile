@@ -1,6 +1,6 @@
 # Makefile for atest-ext-ai plugin
 
-.PHONY: all build test clean install install-local help dev docker-build docker-release docker-release-github
+.PHONY: all build test clean install install-local help dev docker-build docker-release docker-release-github build-frontend
 
 # Build configuration
 BINARY_NAME=atest-ext-ai
@@ -14,6 +14,13 @@ LDFLAGS=-ldflags "-s -w -X main.version=$(VERSION)"
 
 # Default target
 all: clean build test
+
+# Build frontend assets
+build-frontend:
+	@echo "Building frontend assets..."
+	@cd frontend && [ -d node_modules ] || npm install
+	@cd frontend && npm run build
+	@echo "Frontend build completed: pkg/plugin/assets/"
 
 # Build the plugin binary
 build:
@@ -49,7 +56,7 @@ install: build
 	@echo "Installation completed"
 
 # Install the plugin binary for local development and testing
-install-local: build
+install-local: build-frontend build
 	@echo "Installing $(BINARY_NAME) for local development..."
 	@mkdir -p ~/.config/atest/bin/
 	@cp $(BUILD_DIR)/$(BINARY_NAME) ~/.config/atest/bin/
@@ -102,11 +109,12 @@ docker-release-github:
 # Show help
 help:
 	@echo "Available targets:"
+	@echo "  build-frontend - Build frontend assets (Vue 3 + TypeScript)"
 	@echo "  build        - Build the plugin binary for local development"
 	@echo "  test         - Run tests"
 	@echo "  clean        - Clean build artifacts"
 	@echo "  install      - Install binary to /usr/local/bin"
-	@echo "  install-local - Install binary to ~/.config/atest/bin for local development"
+	@echo "  install-local - Install binary to ~/.config/atest/bin for local development (includes frontend build)"
 	@echo "  dev          - Run in development mode"
 	@echo "  fmt          - Format Go code"
 	@echo "  deps         - Install dependencies"

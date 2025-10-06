@@ -25,6 +25,33 @@ export const aiService = {
   },
 
   /**
+   * Check AI service health (does not affect plugin Ready status)
+   */
+  async checkHealth(provider: string = '', timeout: number = 5): Promise<{
+    healthy: boolean
+    provider: string
+    error: string
+    timestamp: string
+  }> {
+    const result = await callAPI<{
+      healthy: string
+      provider: string
+      error: string
+      timestamp: string
+    }>('health_check', {
+      provider,
+      timeout
+    })
+
+    return {
+      healthy: result.healthy === 'true',
+      provider: result.provider,
+      error: result.error || '',
+      timestamp: result.timestamp
+    }
+  },
+
+  /**
    * Generate SQL from natural language query
    */
   async generateSQL(request: QueryRequest): Promise<QueryResponse> {
@@ -46,9 +73,25 @@ export const aiService = {
       })
     })
 
+    // Parse backend format: "sql:xxx\nexplanation:xxx"
+    let sql = ''
+    let explanation = ''
+
+    if (result.content) {
+      const lines = result.content.split('\n')
+      for (const line of lines) {
+        if (line.startsWith('sql:')) {
+          sql = line.substring(4).trim()
+        } else if (line.startsWith('explanation:')) {
+          explanation = line.substring(12).trim()
+        }
+      }
+    }
+
     return {
       success: result.success === 'true',
-      sql: result.content,
+      sql,
+      explanation: explanation || undefined,
       meta: result.meta ? JSON.parse(result.meta) : undefined,
       error: result.error
     }

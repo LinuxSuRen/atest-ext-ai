@@ -130,6 +130,8 @@ func (s *AIPluginService) Query(ctx context.Context, req *server.DataQuery) (*se
 		return s.handleGetModels(ctx, req)
 	case "test_connection":
 		return s.handleTestConnection(ctx, req)
+	case "health_check":
+		return s.handleHealthCheck(ctx, req)
 	case "update_config":
 		return s.handleUpdateConfig(ctx, req)
 	default:
@@ -256,30 +258,34 @@ func (s *AIPluginService) handleCapabilitiesQuery(ctx context.Context, req *serv
 }
 
 // Verify returns the plugin status for health checks
+// Note: This checks if the plugin service itself is ready, NOT if AI services are available.
+// AI service availability should be checked separately via test_connection or health_check endpoints.
 func (s *AIPluginService) Verify(ctx context.Context, req *server.Empty) (*server.ExtensionStatus, error) {
 	logging.Logger.Info("Health check requested")
 
-	var engineHealthy bool
-	if s.aiEngine != nil {
-		engineHealthy = s.aiEngine.IsHealthy()
+	// Plugin Ready check: only verify core components are initialized
+	// This allows the plugin to be "Ready" even without active AI services (e.g., cloud-only users)
+	isReady := s.aiEngine != nil && s.config != nil && s.providerManager != nil
+
+	message := "AI Plugin ready"
+	if !isReady {
+		if s.aiEngine == nil {
+			message = "AI engine not initialized"
+		} else if s.config == nil {
+			message = "Configuration not loaded"
+		} else if s.providerManager == nil {
+			message = "Provider manager not initialized"
+		}
+		logging.Logger.Warn("Health check failed", "message", message)
+	} else {
+		logging.Logger.Info("Health check passed: AI plugin is ready")
 	}
 
 	status := &server.ExtensionStatus{
-		Ready:    engineHealthy,
+		Ready:    isReady,
 		ReadOnly: false,
 		Version:  "1.0.0",
-		Message:  "AI Plugin ready",
-	}
-
-	if !status.Ready {
-		if s.aiEngine == nil {
-			status.Message = "AI engine not initialized"
-		} else {
-			status.Message = "AI engine not available"
-		}
-		logging.Logger.Warn("Health check failed", "message", status.Message)
-	} else {
-		logging.Logger.Info("Health check passed: AI plugin is ready")
+		Message:  message,
 	}
 
 	return status, nil
@@ -983,6 +989,77 @@ func (s *AIPluginService) handleUpdateConfig(ctx context.Context, req *server.Da
 			{Key: "provider", Value: updateReq.Provider},
 			{Key: "message", Value: "Configuration updated successfully"},
 			{Key: "success", Value: "true"},
+		},
+	}, nil
+}
+
+// handleHealthCheck performs health check on specific AI service
+// This is separate from the plugin's Verify method, which only checks if the plugin is ready
+func (s *AIPluginService) handleHealthCheck(ctx context.Context, req *server.DataQuery) (*server.DataQueryResult, error) {
+	logging.Logger.Debug("AI service health check requested")
+
+	// Parse request parameters
+	var params struct {
+		Provider string `json:"provider"`
+		Timeout  int    `json:"timeout"` // seconds
+	}
+
+	if req.Sql != "" {
+		if err := json.Unmarshal([]byte(req.Sql), &params); err != nil {
+			return nil, status.Errorf(codes.InvalidArgument, "invalid parameters: %v", err)
+		}
+	}
+
+	// Default timeout 5 seconds
+	if params.Timeout == 0 {
+		params.Timeout = 5
+	}
+
+	// Check specified provider or default provider
+	provider := params.Provider
+	if provider == "" {
+		provider = s.config.AI.DefaultService
+	}
+
+	// Execute health check with timeout
+	checkCtx, cancel := context.WithTimeout(ctx, time.Duration(params.Timeout)*time.Second)
+	defer cancel()
+
+	var healthy bool
+	var errorMsg string
+
+	// Perform health check on the AI engine
+	if s.aiEngine != nil {
+		if s.aiEngine.IsHealthy() {
+			healthy = true
+			errorMsg = ""
+		} else {
+			healthy = false
+			errorMsg = "AI service is not available"
+		}
+	} else {
+		healthy = false
+		errorMsg = "AI engine not initialized"
+	}
+
+	// Wait for context timeout if still checking
+	select {
+	case <-checkCtx.Done():
+		if checkCtx.Err() == context.DeadlineExceeded {
+			healthy = false
+			errorMsg = "Health check timeout"
+		}
+	default:
+		// Check completed
+	}
+
+	return &server.DataQueryResult{
+		Data: []*server.Pair{
+			{Key: "healthy", Value: fmt.Sprintf("%t", healthy)},
+			{Key: "provider", Value: provider},
+			{Key: "error", Value: errorMsg},
+			{Key: "timestamp", Value: time.Now().Format(time.RFC3339)},
+			{Key: "success", Value: "true"}, // API call succeeded even if service is unhealthy
 		},
 	}, nil
 }
