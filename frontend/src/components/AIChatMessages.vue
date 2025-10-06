@@ -1,5 +1,14 @@
 <template>
   <div class="chat-messages" ref="messagesContainer">
+    <!-- Empty state -->
+    <div v-if="props.messages.length === 0" class="empty-state">
+      <el-icon :size="64" color="var(--el-text-color-placeholder)">
+        <ChatDotRound />
+      </el-icon>
+      <p>{{ t('ai.welcome.startChat') }}</p>
+    </div>
+
+    <!-- Messages list -->
     <div
       v-for="message in props.messages"
       :key="message.id"
@@ -101,14 +110,32 @@ async function copySQL(sql: string) {
   flex: 1;
   overflow-y: auto;
   padding: 24px 40px;
-  background: linear-gradient(to bottom, #f5f7fa 0%, #e8ecf1 100%);
+  min-height: 400px;
+  background: var(--el-bg-color-page);
+}
+
+/* Empty state */
+.empty-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  height: 100%;
+  min-height: 300px;
+  gap: 16px;
+}
+
+.empty-state p {
+  color: var(--el-text-color-secondary);
+  font-size: 14px;
+  margin: 0;
 }
 
 /* Message wrapper with avatar */
 .message-wrapper {
   display: flex;
   gap: 12px;
-  margin-bottom: 24px;
+  margin-bottom: 20px;
   align-items: flex-start;
 }
 
@@ -122,19 +149,20 @@ async function copySQL(sql: string) {
 }
 
 .avatar-ai {
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  background: var(--el-color-primary);
   color: #fff;
 }
 
 .avatar-user {
-  background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+  background: var(--el-color-success);
   color: #fff;
 }
 
 /* Message bubble */
 .message-bubble {
-  max-width: 70%;
-  position: relative;
+  flex: 1;
+  max-width: calc(100% - 60px);
+  min-width: 200px;
 }
 
 .message-ai .message-bubble {
@@ -171,18 +199,18 @@ async function copySQL(sql: string) {
   border-bottom-left-radius: 4px;
 }
 
-/* User message bubble (blue gradient) */
+/* User message bubble */
 .message-user .message-content {
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  background: var(--el-color-primary);
   color: #fff;
   border-bottom-right-radius: 4px;
 }
 
 /* Error message bubble */
 .message-error .message-content {
-  background: #fef0f0;
-  border: 1px solid #fbc4c4;
-  color: #f56c6c;
+  background: var(--el-color-danger-light-9);
+  border: 1px solid var(--el-color-danger-light-7);
+  color: var(--el-color-danger);
 }
 
 /* Message text */
@@ -212,18 +240,18 @@ async function copySQL(sql: string) {
 .sql-label {
   font-size: 11px;
   font-weight: 600;
-  color: #abb2bf;
+  color: var(--el-text-color-regular);
   text-transform: uppercase;
   letter-spacing: 0.5px;
 }
 
 .copy-btn {
-  color: #61afef !important;
+  color: var(--el-color-primary) !important;
   font-size: 12px;
 }
 
 .copy-btn:hover {
-  color: #84b9ef !important;
+  color: var(--el-color-primary-light-3) !important;
 }
 
 .sql-code {
@@ -232,10 +260,10 @@ async function copySQL(sql: string) {
   font-family: 'Monaco', 'Menlo', 'Courier New', monospace;
   font-size: 13px;
   line-height: 1.5;
-  color: #abb2bf;
+  color: var(--el-text-color-primary);
   white-space: pre-wrap;
   word-wrap: break-word;
-  background: #282c34;
+  background: var(--el-fill-color-darker);
 }
 
 /* Message metadata */
@@ -248,11 +276,11 @@ async function copySQL(sql: string) {
 }
 
 .message-ai .message-meta {
-  color: #909399;
+  color: var(--el-text-color-secondary);
 }
 
 .message-user .message-meta {
-  color: rgba(255, 255, 255, 0.8);
+  color: rgba(255, 255, 255, 0.9);
 }
 
 .message-user .message-meta :deep(.el-tag) {
@@ -269,7 +297,7 @@ async function copySQL(sql: string) {
 .message-time {
   margin-top: 6px;
   font-size: 11px;
-  color: #c0c4cc;
+  color: var(--el-text-color-placeholder);
   padding: 0 4px;
 }
 
@@ -291,11 +319,11 @@ async function copySQL(sql: string) {
 }
 
 .chat-messages::-webkit-scrollbar-thumb {
-  background: #c0c4cc;
+  background: var(--el-border-color);
   border-radius: 4px;
 }
 
 .chat-messages::-webkit-scrollbar-thumb:hover {
-  background: #a8abb2;
+  background: var(--el-border-color-darker);
 }
 </style>
