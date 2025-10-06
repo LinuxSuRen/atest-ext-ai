@@ -66,9 +66,9 @@ function handleSubmit() {
 <style scoped>
 .chat-input {
   padding: 20px 40px 24px;
-  background: #fff;
-  border-top: 1px solid #e4e7ed;
-  box-shadow: 0 -4px 12px rgba(0, 0, 0, 0.05);
+  background: var(--el-bg-color);
+  border-top: 1px solid var(--el-border-color);
+  box-shadow: 0 -4px 12px var(--el-box-shadow-lighter);
 }
 
 .input-options {
@@ -84,22 +84,22 @@ function handleSubmit() {
 
 .input-controls :deep(.el-textarea__inner) {
   border-radius: 12px;
-  border: 2px solid #e4e7ed;
+  border: 2px solid var(--el-border-color);
   padding: 12px 16px;
   font-size: 14px;
   line-height: 1.6;
   resize: none;
   transition: all 0.3s ease;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
+  box-shadow: 0 2px 8px var(--el-box-shadow-lighter);
 }
 
 .input-controls :deep(.el-textarea__inner:focus) {
-  border-color: #667eea;
-  box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+  border-color: var(--el-color-primary);
+  box-shadow: 0 0 0 3px var(--el-color-primary-light-9);
 }
 
 .input-controls :deep(.el-textarea__inner::placeholder) {
-  color: #c0c4cc;
+  color: var(--el-text-color-placeholder);
 }
 
 .input-controls .el-button {
@@ -109,15 +109,16 @@ function handleSubmit() {
   font-size: 14px;
   font-weight: 500;
   white-space: nowrap;
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  background: var(--el-color-primary);
   border: none;
-  box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4);
+  box-shadow: 0 4px 12px var(--el-box-shadow);
   transition: all 0.3s ease;
 }
 
 .input-controls .el-button:hover:not(:disabled) {
   transform: translateY(-2px);
-  box-shadow: 0 6px 16px rgba(102, 126, 234, 0.5);
+  background: var(--el-color-primary-light-3);
+  box-shadow: 0 6px 16px var(--el-box-shadow-dark);
 }
 
 .input-controls .el-button:active:not(:disabled) {
@@ -125,12 +126,12 @@ function handleSubmit() {
 }
 
 .input-controls .el-button:disabled {
-  background: #c0c4cc;
+  background: var(--el-fill-color);
   box-shadow: none;
 }
 
 .input-controls .el-button.is-loading {
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  background: var(--el-color-primary);
   opacity: 0.8;
 }
 </style>
