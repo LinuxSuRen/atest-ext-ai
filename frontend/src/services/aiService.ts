@@ -108,7 +108,10 @@ export const aiService = {
       success: result.success === 'true',
       sql,
       explanation: explanation || undefined,
-      meta: result.meta ? JSON.parse(result.meta) : undefined,
+      // Handle meta: could be already parsed object or string
+      meta: typeof result.meta === 'string'
+        ? JSON.parse(result.meta)
+        : result.meta,
       error: result.error
     }
   },
