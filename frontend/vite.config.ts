@@ -11,9 +11,12 @@ export default defineConfig({
       entry: resolve(__dirname, 'src/main.ts'),
       name: 'ATestPlugin',
       formats: ['iife'],
-      fileName: () => 'main.js'
+      // Output filename must match what Go embed expects
+      fileName: () => 'ai-chat.js'
     },
-    outDir: '../dist',
+    // Output directly to assets directory for Go embed
+    // The backend uses //go:embed to bundle these files into the binary
+    outDir: '../pkg/plugin/assets',
     emptyOutDir: false,
 
     rollupOptions: {
@@ -22,7 +25,9 @@ export default defineConfig({
       output: {
         // Expose plugin on window
         extend: true,
-        globals: {}
+        globals: {},
+        // CSS filename must match what Go embed expects
+        assetFileNames: 'ai-chat.css'
       }
     }
   },
