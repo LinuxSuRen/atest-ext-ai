@@ -81,15 +81,29 @@ async function handleSave() {
 
 // Test connection
 async function handleTest() {
-  try {
-    const result = await handleTestConnection()
-    if (result.success) {
-      ElMessage.success(t('ai.message.connectionSuccess'))
-    } else {
-      ElMessage.error(t('ai.message.connectionFailed'))
+  const result = await handleTestConnection()
+
+  if (result.success) {
+    ElMessage.success(t('ai.message.connectionSuccess'))
+  } else {
+    // Show detailed error message
+    let errorMsg = result.message || t('ai.message.connectionFailed')
+
+    // Add helpful tips for Ollama connection issues
+    if (result.provider === 'ollama' && result.error) {
+      errorMsg += '\n\nTroubleshooting tips:\n' +
+        '• Make sure Ollama is running: ollama serve\n' +
+        '• Verify endpoint is correct (default: http://localhost:11434)\n' +
+        '• Check if firewall is blocking the connection'
     }
-  } catch (error) {
-    ElMessage.error(t('ai.message.connectionFailed'))
+
+    ElMessage({
+      message: errorMsg,
+      type: 'error',
+      duration: 5000,
+      dangerouslyUseHTMLString: false,
+      customClass: 'connection-error-message'
+    })
   }
 }
 </script>

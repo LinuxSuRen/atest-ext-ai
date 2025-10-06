@@ -153,12 +153,17 @@ export function useAIChat(_context: AppContext) {
   async function handleTestConnection() {
     config.value.status = 'connecting'
     try {
-      const success = await aiService.testConnection(config.value)
-      config.value.status = success ? 'connected' : 'disconnected'
-      return { success }
+      const result = await aiService.testConnection(config.value)
+      config.value.status = result.success ? 'connected' : 'disconnected'
+      return result
     } catch (error) {
       config.value.status = 'disconnected'
-      throw error
+      return {
+        success: false,
+        message: (error as Error).message || 'Connection failed',
+        provider: config.value.provider,
+        error: (error as Error).message
+      }
     }
   }
 

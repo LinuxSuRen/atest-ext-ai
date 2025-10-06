@@ -19,9 +19,25 @@ export const aiService = {
   /**
    * Test connection to AI provider
    */
-  async testConnection(config: AIConfig): Promise<boolean> {
-    const result = await callAPI<{ success: string }>('test_connection', config)
-    return result.success === 'true'
+  async testConnection(config: AIConfig): Promise<{
+    success: boolean
+    message: string
+    provider: string
+    error?: string
+  }> {
+    const result = await callAPI<{
+      success: string
+      message: string
+      provider: string
+      error?: string
+    }>('test_connection', config)
+
+    return {
+      success: result.success === 'true',
+      message: result.message || '',
+      provider: result.provider || config.provider,
+      error: result.error
+    }
   },
 
   /**
