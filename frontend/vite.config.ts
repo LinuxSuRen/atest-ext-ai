@@ -6,6 +6,11 @@ import { resolve } from 'path'
 export default defineConfig({
   plugins: [vue()],
 
+  // Define global constants for browser environment
+  define: {
+    'process.env.NODE_ENV': JSON.stringify('production'),
+  },
+
   build: {
     lib: {
       entry: resolve(__dirname, 'src/main.ts'),
@@ -26,7 +31,9 @@ export default defineConfig({
         // UMD format will automatically use correct global object (window)
         globals: {},
         // CSS filename must match what Go embed expects
-        assetFileNames: 'ai-chat.css'
+        assetFileNames: 'ai-chat.css',
+        // Inject process polyfill at the start of the UMD bundle
+        intro: 'var process = { env: { NODE_ENV: "production" } };'
       }
     }
   },
