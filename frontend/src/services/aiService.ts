@@ -71,48 +71,83 @@ export const aiService = {
    * Generate SQL from natural language query
    */
   async generateSQL(request: QueryRequest): Promise<QueryResponse> {
-    const result = await callAPI<{
-      content: string
-      meta: string
-      success: string
-      error?: string
-    }>('generate', {
+    console.log('📤 [aiService] generateSQL called', {
       model: request.model,
-      prompt: request.prompt,
-      config: JSON.stringify({
-        include_explanation: request.includeExplanation,
-        provider: request.provider,
-        endpoint: request.endpoint,
-        api_key: request.apiKey,
-        temperature: request.temperature,
-        max_tokens: request.maxTokens
-      })
+      provider: request.provider,
+      endpoint: request.endpoint,
+      promptLength: request.prompt.length,
+      includeExplanation: request.includeExplanation
     })
 
-    // Parse backend format: "sql:xxx\nexplanation:xxx"
-    let sql = ''
-    let explanation = ''
+    try {
+      const result = await callAPI<{
+        content: string
+        meta: string
+        success: string
+        error?: string
+      }>('generate', {
+        model: request.model,
+        prompt: request.prompt,
+        config: JSON.stringify({
+          include_explanation: request.includeExplanation,
+          provider: request.provider,
+          endpoint: request.endpoint,
+          api_key: request.apiKey,
+          temperature: request.temperature,
+          max_tokens: request.maxTokens
+        })
+      })
 
-    if (result.content) {
-      const lines = result.content.split('\n')
-      for (const line of lines) {
-        if (line.startsWith('sql:')) {
-          sql = line.substring(4).trim()
-        } else if (line.startsWith('explanation:')) {
-          explanation = line.substring(12).trim()
+      console.log('📥 [aiService] Received backend result', {
+        hasContent: !!result.content,
+        contentLength: result.content?.length || 0,
+        success: result.success,
+        hasError: !!result.error,
+        hasMeta: !!result.meta
+      })
+
+      // Parse backend format: "sql:xxx\nexplanation:xxx"
+      let sql = ''
+      let explanation = ''
+
+      if (result.content) {
+        const lines = result.content.split('\n')
+        for (const line of lines) {
+          if (line.startsWith('sql:')) {
+            sql = line.substring(4).trim()
+          } else if (line.startsWith('explanation:')) {
+            explanation = line.substring(12).trim()
+          }
         }
       }
-    }
 
-    return {
-      success: result.success === 'true',
-      sql,
-      explanation: explanation || undefined,
-      // Handle meta: could be already parsed object or string
-      meta: typeof result.meta === 'string'
-        ? JSON.parse(result.meta)
-        : result.meta,
-      error: result.error
+      const response = {
+        success: result.success === 'true',
+        sql,
+        explanation: explanation || undefined,
+        // Handle meta: could be already parsed object or string
+        meta: typeof result.meta === 'string'
+          ? JSON.parse(result.meta)
+          : result.meta,
+        error: result.error
+      }
+
+      console.log('✅ [aiService] Parsed response', {
+        success: response.success,
+        hasSql: !!response.sql,
+        sqlLength: response.sql?.length || 0,
+        hasExplanation: !!response.explanation,
+        hasError: !!response.error
+      })
+
+      return response
+    } catch (error) {
+      console.error('❌ [aiService] generateSQL failed', {
+        error,
+        message: (error as Error).message,
+        stack: (error as Error).stack
+      })
+      throw error
     }
   },
 
@@ -143,36 +178,75 @@ export const aiService = {
  * The AI plugin expects: {type: 'ai', key: 'operation', sql: 'params_json'}
  */
 async function callAPI<T>(key: string, data: any): Promise<T> {
-  const response = await fetch(API_BASE, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      'X-Store-Name': API_STORE
-    },
-    body: JSON.stringify({
-      type: 'ai',
-      key,
-      sql: JSON.stringify(data)
-    })
+  const requestBody = {
+    type: 'ai',
+    key,
+    sql: JSON.stringify(data)
+  }
+
+  console.log('🌐 [callAPI] Sending request', {
+    url: API_BASE,
+    key,
+    dataKeys: Object.keys(data),
+    bodyLength: JSON.stringify(requestBody).length
   })
 
-  if (!response.ok) {
-    throw new Error(`API error: ${response.status} ${response.statusText}`)
-  }
+  try {
+    const response = await fetch(API_BASE, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'X-Store-Name': API_STORE
+      },
+      body: JSON.stringify(requestBody)
+    })
 
-  const result = await response.json()
+    console.log('📡 [callAPI] Received HTTP response', {
+      status: response.status,
+      statusText: response.statusText,
+      ok: response.ok,
+      contentType: response.headers.get('content-type')
+    })
 
-  // Parse key-value pair format from backend
-  const parsed: any = {}
-  if (result.data) {
-    for (const pair of result.data) {
-      try {
-        parsed[pair.key] = JSON.parse(pair.value)
-      } catch {
-        parsed[pair.key] = pair.value
-      }
+    if (!response.ok) {
+      const errorText = await response.text()
+      console.error('❌ [callAPI] HTTP error', {
+        status: response.status,
+        statusText: response.statusText,
+        body: errorText
+      })
+      throw new Error(`API error: ${response.status} ${response.statusText} - ${errorText}`)
     }
-  }
 
-  return parsed as T
+    const result = await response.json()
+    console.log('📦 [callAPI] Parsed JSON result', {
+      hasData: !!result.data,
+      dataLength: result.data?.length || 0,
+      resultKeys: Object.keys(result)
+    })
+
+    // Parse key-value pair format from backend
+    const parsed: any = {}
+    if (result.data) {
+      for (const pair of result.data) {
+        try {
+          parsed[pair.key] = JSON.parse(pair.value)
+        } catch {
+          parsed[pair.key] = pair.value
+        }
+      }
+      console.log('🔓 [callAPI] Parsed data pairs', {
+        keys: Object.keys(parsed)
+      })
+    }
+
+    return parsed as T
+  } catch (error) {
+    console.error('💥 [callAPI] Request failed', {
+      error,
+      message: (error as Error).message,
+      stack: (error as Error).stack
+    })
+    throw error
+  }
 }

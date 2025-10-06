@@ -85,6 +85,18 @@ export function useAIChat(_context: AppContext) {
    * Handle query submission
    */
   async function handleQuery(prompt: string, options: { includeExplanation: boolean }) {
+    console.log('🎯 [useAIChat] handleQuery called', {
+      prompt,
+      options,
+      isConfigured: isConfigured.value,
+      config: {
+        provider: config.value.provider,
+        endpoint: config.value.endpoint,
+        model: config.value.model,
+        hasApiKey: !!config.value.apiKey
+      }
+    })
+
     // Add user message
     const userMsg: Message = {
       id: generateId(),
@@ -97,6 +109,8 @@ export function useAIChat(_context: AppContext) {
     // Show loading
     isLoading.value = true
     try {
+      console.log('🚀 [useAIChat] Sending generateSQL request...')
+
       const response = await aiService.generateSQL({
         provider: config.value.provider,
         endpoint: config.value.endpoint,
@@ -106,6 +120,13 @@ export function useAIChat(_context: AppContext) {
         temperature: config.value.temperature,
         maxTokens: config.value.maxTokens,
         includeExplanation: options.includeExplanation
+      })
+
+      console.log('✅ [useAIChat] Received response', {
+        success: response.success,
+        hasSql: !!response.sql,
+        hasError: !!response.error,
+        meta: response.meta
       })
 
       if (response.success && response.sql) {
@@ -119,14 +140,26 @@ export function useAIChat(_context: AppContext) {
           timestamp: Date.now()
         })
       } else {
-        throw new Error(response.error || 'Failed to generate SQL')
+        const errorMsg = response.error || 'Failed to generate SQL'
+        console.error('❌ [useAIChat] Response failed', {
+          success: response.success,
+          sql: response.sql,
+          error: response.error
+        })
+        throw new Error(errorMsg)
       }
     } catch (error) {
+      console.error('💥 [useAIChat] Exception caught', {
+        error,
+        message: (error as Error).message,
+        stack: (error as Error).stack
+      })
+
       // Add error message
       messages.value.push({
         id: generateId(),
         type: 'error',
-        content: (error as Error).message,
+        content: `Error: ${(error as Error).message}`,
         timestamp: Date.now()
       })
     } finally {
@@ -169,6 +202,17 @@ export function useAIChat(_context: AppContext) {
 
   // Initialize: load models on mount
   refreshModels()
+
+  // Diagnostic logging on startup
+  console.log('🚀 [useAIChat] Initialized', {
+    provider: config.value.provider,
+    endpoint: config.value.endpoint,
+    model: config.value.model,
+    hasApiKey: !!config.value.apiKey,
+    isConfigured: isConfigured.value,
+    localStorageGlobal: localStorage.getItem('atest-ai-global-config'),
+    localStorageProvider: localStorage.getItem(`atest-ai-config-${config.value.provider}`)
+  })
 
   return {
     config,
