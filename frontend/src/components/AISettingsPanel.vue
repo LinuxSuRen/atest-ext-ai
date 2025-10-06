@@ -296,7 +296,7 @@ function handleSave() {
 }
 
 .provider-tabs :deep(.el-tabs__header) {
-  background: #f5f7fa;
+  background: var(--el-bg-color-page);
   margin: 0;
   padding: 0 20px;
 }
@@ -331,14 +331,14 @@ function handleSave() {
 }
 
 .provider-card.is-selected {
-  border-color: #667eea;
-  box-shadow: 0 4px 12px rgba(102, 126, 234, 0.15);
+  border-color: var(--el-color-primary);
+  box-shadow: 0 4px 12px var(--el-color-primary-light-8);
 }
 
 .provider-card :deep(.el-card__header) {
   padding: 16px 20px;
-  background: linear-gradient(to right, #fafbfc, #f5f7fa);
-  border-bottom: 1px solid #e4e7ed;
+  background: var(--el-fill-color-light);
+  border-bottom: 1px solid var(--el-border-color);
 }
 
 .provider-card :deep(.el-card__body) {
@@ -359,16 +359,16 @@ function handleSave() {
   gap: 10px;
   font-size: 16px;
   font-weight: 600;
-  color: #303133;
+  color: var(--el-text-color-primary);
 }
 
 .provider-icon {
-  color: #667eea;
+  color: var(--el-color-primary);
 }
 
 .provider-description {
   font-size: 13px;
-  color: #606266;
+  color: var(--el-text-color-regular);
   margin-top: 8px;
   line-height: 1.5;
 }
@@ -415,7 +415,7 @@ function handleSave() {
 
 .model-size {
   font-size: 12px;
-  color: #909399;
+  color: var(--el-text-color-secondary);
 }
 
 /* Advanced Section */
@@ -444,7 +444,7 @@ function handleSave() {
 /* Form styling */
 :deep(.el-form-item__label) {
   font-weight: 500;
-  color: #606266;
+  color: var(--el-text-color-regular);
 }
 
 :deep(.el-input__inner),
