@@ -3,28 +3,49 @@
     <div
       v-for="message in props.messages"
       :key="message.id"
-      :class="['message', `message-${message.type}`]"
+      :class="['message-wrapper', `message-${message.type}`]"
     >
-      <div class="message-content">
-        <div class="message-text">{{ message.content }}</div>
-        <div v-if="message.sql" class="message-sql">
-          <pre>{{ message.sql }}</pre>
-          <el-button
-            size="small"
-            type="primary"
-            @click="copySQL(message.sql)"
-          >
-            <el-icon><DocumentCopy /></el-icon>
-            {{ t('button.copy') }}
-          </el-button>
+      <!-- AI Message: Avatar on left -->
+      <div v-if="message.type === 'ai'" class="message-avatar">
+        <el-avatar :size="36" class="avatar-ai">
+          <el-icon :size="20"><ChatDotRound /></el-icon>
+        </el-avatar>
+      </div>
+
+      <!-- Message bubble -->
+      <div class="message-bubble">
+        <div class="message-content">
+          <div class="message-text">{{ message.content }}</div>
+          <div v-if="message.sql" class="message-sql">
+            <div class="sql-header">
+              <span class="sql-label">SQL</span>
+              <el-button
+                link
+                size="small"
+                @click="copySQL(message.sql)"
+                class="copy-btn"
+              >
+                <el-icon><DocumentCopy /></el-icon>
+                {{ t('ai.button.copy') }}
+              </el-button>
+            </div>
+            <pre class="sql-code">{{ message.sql }}</pre>
+          </div>
+          <div v-if="message.meta" class="message-meta">
+            <el-tag size="small" effect="plain">{{ message.meta.model }}</el-tag>
+            <span class="meta-time">{{ message.meta.duration }}ms</span>
+          </div>
         </div>
-        <div v-if="message.meta" class="message-meta">
-          <el-tag size="small">{{ message.meta.model }}</el-tag>
-          <span class="meta-time">{{ message.meta.duration }}ms</span>
+        <div class="message-time">
+          {{ formatTime(message.timestamp) }}
         </div>
       </div>
-      <div class="message-time">
-        {{ formatTime(message.timestamp) }}
+
+      <!-- User Message: Avatar on right -->
+      <div v-if="message.type === 'user'" class="message-avatar">
+        <el-avatar :size="36" class="avatar-user">
+          <el-icon :size="20"><User /></el-icon>
+        </el-avatar>
       </div>
     </div>
   </div>
@@ -32,7 +53,7 @@
 
 <script setup lang="ts">
 import { ref, inject, watch, nextTick } from 'vue'
-import { DocumentCopy } from '@element-plus/icons-vue'
+import { DocumentCopy, ChatDotRound, User } from '@element-plus/icons-vue'
 import { ElMessage } from 'element-plus'
 import type { AppContext, Message } from '../types'
 
@@ -79,71 +100,202 @@ async function copySQL(sql: string) {
 .chat-messages {
   flex: 1;
   overflow-y: auto;
-  padding: 16px 24px;
+  padding: 24px 40px;
+  background: linear-gradient(to bottom, #f5f7fa 0%, #e8ecf1 100%);
 }
 
-.message {
-  margin-bottom: 16px;
-  padding: 12px;
-  border-radius: 8px;
-  max-width: 80%;
+/* Message wrapper with avatar */
+.message-wrapper {
+  display: flex;
+  gap: 12px;
+  margin-bottom: 24px;
+  align-items: flex-start;
 }
 
-.message-user {
-  margin-left: auto;
-  background: #409eff;
+.message-wrapper.message-user {
+  flex-direction: row-reverse;
+}
+
+/* Avatar */
+.message-avatar {
+  flex-shrink: 0;
+}
+
+.avatar-ai {
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
   color: #fff;
 }
 
-.message-ai {
-  background: #fff;
-  border: 1px solid #e4e7ed;
+.avatar-user {
+  background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+  color: #fff;
 }
 
-.message-error {
+/* Message bubble */
+.message-bubble {
+  max-width: 70%;
+  position: relative;
+}
+
+.message-ai .message-bubble {
+  margin-right: auto;
+}
+
+.message-user .message-bubble {
+  margin-left: auto;
+}
+
+/* Bubble content */
+.message-content {
+  padding: 14px 18px;
+  border-radius: 16px;
+  position: relative;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+  animation: fadeIn 0.3s ease-in-out;
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* AI message bubble (white) */
+.message-ai .message-content {
+  background: #ffffff;
+  border-bottom-left-radius: 4px;
+}
+
+/* User message bubble (blue gradient) */
+.message-user .message-content {
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  color: #fff;
+  border-bottom-right-radius: 4px;
+}
+
+/* Error message bubble */
+.message-error .message-content {
   background: #fef0f0;
   border: 1px solid #fbc4c4;
   color: #f56c6c;
 }
 
+/* Message text */
 .message-text {
-  margin-bottom: 8px;
   line-height: 1.6;
-}
-
-.message-sql {
-  margin-top: 12px;
-  padding: 12px;
-  background: #f5f7fa;
-  border-radius: 4px;
-  position: relative;
-}
-
-.message-sql pre {
-  margin: 0;
-  font-family: 'Monaco', 'Courier New', monospace;
-  font-size: 13px;
-  white-space: pre-wrap;
+  font-size: 14px;
   word-wrap: break-word;
 }
 
-.message-sql .el-button {
-  margin-top: 8px;
+/* SQL code block */
+.message-sql {
+  margin-top: 12px;
+  background: #282c34;
+  border-radius: 8px;
+  overflow: hidden;
 }
 
+.sql-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 8px 12px;
+  background: #21252b;
+  border-bottom: 1px solid #181a1f;
+}
+
+.sql-label {
+  font-size: 11px;
+  font-weight: 600;
+  color: #abb2bf;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.copy-btn {
+  color: #61afef !important;
+  font-size: 12px;
+}
+
+.copy-btn:hover {
+  color: #84b9ef !important;
+}
+
+.sql-code {
+  margin: 0;
+  padding: 12px;
+  font-family: 'Monaco', 'Menlo', 'Courier New', monospace;
+  font-size: 13px;
+  line-height: 1.5;
+  color: #abb2bf;
+  white-space: pre-wrap;
+  word-wrap: break-word;
+  background: #282c34;
+}
+
+/* Message metadata */
 .message-meta {
   display: flex;
   gap: 8px;
   align-items: center;
   margin-top: 8px;
   font-size: 12px;
+}
+
+.message-ai .message-meta {
   color: #909399;
 }
 
+.message-user .message-meta {
+  color: rgba(255, 255, 255, 0.8);
+}
+
+.message-user .message-meta :deep(.el-tag) {
+  background: rgba(255, 255, 255, 0.2);
+  border-color: rgba(255, 255, 255, 0.3);
+  color: #fff;
+}
+
+.meta-time {
+  font-size: 11px;
+}
+
+/* Message timestamp */
 .message-time {
-  margin-top: 4px;
-  font-size: 12px;
+  margin-top: 6px;
+  font-size: 11px;
   color: #c0c4cc;
+  padding: 0 4px;
+}
+
+.message-user .message-time {
   text-align: right;
+}
+
+.message-ai .message-time {
+  text-align: left;
+}
+
+/* Scrollbar styling */
+.chat-messages::-webkit-scrollbar {
+  width: 8px;
+}
+
+.chat-messages::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.chat-messages::-webkit-scrollbar-thumb {
+  background: #c0c4cc;
+  border-radius: 4px;
+}
+
+.chat-messages::-webkit-scrollbar-thumb:hover {
+  background: #a8abb2;
 }
 </style>
