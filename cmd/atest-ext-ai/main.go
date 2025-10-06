@@ -140,8 +140,21 @@ func getSocketPath() string {
 		return path
 	}
 
-	// Use /tmp path to match main server's expectation: unix:///tmp/atest-ext-ai.sock
-	socketPath := "/tmp/" + SocketFileName
+	// Use ~/.config/atest path to match main server's expectation
+	homeDir, err := os.UserHomeDir()
+	if err != nil {
+		log.Printf("Failed to get user home directory: %v, falling back to /tmp", err)
+		return "/tmp/" + SocketFileName
+	}
+
+	configDir := filepath.Join(homeDir, ".config", "atest")
+	// Ensure config directory exists
+	if err := os.MkdirAll(configDir, 0755); err != nil {
+		log.Printf("Failed to create config directory %s: %v, falling back to /tmp", configDir, err)
+		return "/tmp/" + SocketFileName
+	}
+
+	socketPath := filepath.Join(configDir, SocketFileName)
 	log.Printf("Using default socket path: %s", socketPath)
 	return socketPath
 }
