@@ -10,7 +10,7 @@ export default defineConfig({
     lib: {
       entry: resolve(__dirname, 'src/main.ts'),
       name: 'ATestPlugin',
-      formats: ['iife'],
+      formats: ['umd'],
       // Output filename must match what Go embed expects
       fileName: () => 'ai-chat.js'
     },
@@ -23,8 +23,7 @@ export default defineConfig({
       // No external dependencies - bundle everything
       external: [],
       output: {
-        // Expose plugin on window
-        extend: true,
+        // UMD format will automatically use correct global object (window)
         globals: {},
         // CSS filename must match what Go embed expects
         assetFileNames: 'ai-chat.css'
