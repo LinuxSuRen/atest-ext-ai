@@ -121,8 +121,19 @@
                   </el-form-item>
                   <el-form-item :label="t('ai.settings.model')">
                     <el-select v-model="localConfig.model" style="width: 100%">
-                      <el-option value="gpt-4" label="GPT-4" />
-                      <el-option value="gpt-3.5-turbo" label="GPT-3.5 Turbo" />
+                      <el-option-group label="GPT-5 Series (Latest 2025)">
+                        <el-option value="gpt-5" label="GPT-5 ⭐ Recommended" />
+                        <el-option value="gpt-5-mini" label="GPT-5 Mini" />
+                        <el-option value="gpt-5-nano" label="GPT-5 Nano" />
+                      </el-option-group>
+                      <el-option-group label="GPT-4.1 Series">
+                        <el-option value="gpt-4.1-2025-04-14" label="GPT-4.1" />
+                        <el-option value="gpt-4.1-mini-2025-04-14" label="GPT-4.1 Mini" />
+                      </el-option-group>
+                      <el-option-group label="GPT-4o Series">
+                        <el-option value="gpt-4o-2024-08-06" label="GPT-4o" />
+                        <el-option value="gpt-4o-mini-2024-07-18" label="GPT-4o Mini" />
+                      </el-option-group>
                     </el-select>
                   </el-form-item>
                 </el-form>
@@ -160,8 +171,9 @@
                   </el-form-item>
                   <el-form-item :label="t('ai.settings.model')">
                     <el-select v-model="localConfig.model" style="width: 100%">
-                      <el-option value="deepseek-coder" label="DeepSeek Coder" />
+                      <el-option value="deepseek-reasoner" label="DeepSeek Reasoner ⭐" />
                       <el-option value="deepseek-chat" label="DeepSeek Chat" />
+                      <el-option value="deepseek-coder" label="DeepSeek Coder" />
                     </el-select>
                   </el-form-item>
                 </el-form>

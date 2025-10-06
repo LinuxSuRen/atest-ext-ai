@@ -71,8 +71,13 @@ export function getMockModels(provider: string): Model[] {
       { id: 'gemma2:9b', name: 'Gemma 2 9B', size: '5GB' }
     ],
     openai: [
-      { id: 'gpt-4o', name: 'GPT-4o', size: 'Cloud' },
-      { id: 'gpt-4o-mini', name: 'GPT-4o Mini', size: 'Cloud' }
+      { id: 'gpt-5', name: 'GPT-5 ⭐', size: 'Cloud' },
+      { id: 'gpt-5-mini', name: 'GPT-5 Mini', size: 'Cloud' },
+      { id: 'gpt-5-nano', name: 'GPT-5 Nano', size: 'Cloud' },
+      { id: 'gpt-4.1-2025-04-14', name: 'GPT-4.1', size: 'Cloud' },
+      { id: 'gpt-4.1-mini-2025-04-14', name: 'GPT-4.1 Mini', size: 'Cloud' },
+      { id: 'gpt-4o-2024-08-06', name: 'GPT-4o', size: 'Cloud' },
+      { id: 'gpt-4o-mini-2024-07-18', name: 'GPT-4o Mini', size: 'Cloud' }
     ],
     deepseek: [
       { id: 'deepseek-chat', name: 'DeepSeek Chat', size: 'Cloud' },
