@@ -12,7 +12,18 @@ export function useAIChat(_context: AppContext) {
 
   // Configuration management
   const config = ref<AIConfig>(loadConfig())
-  const availableModels = ref<Model[]>([])
+
+  // Store models separately for each provider to avoid cross-contamination
+  const modelsByProvider = ref<Record<string, Model[]>>({
+    ollama: [],
+    openai: [],
+    deepseek: []
+  })
+
+  // Computed property to get models for current provider
+  const availableModels = computed(() => {
+    return modelsByProvider.value[config.value.provider] || []
+  })
 
   // Check if AI is properly configured
   const isConfigured = computed(() => {
@@ -33,24 +44,40 @@ export function useAIChat(_context: AppContext) {
   }, { deep: true })
 
   // Watch provider changes and refresh models
-  watch(() => config.value.provider, async () => {
-    await refreshModels()
+  watch(() => config.value.provider, async (newProvider, oldProvider) => {
+    if (newProvider !== oldProvider) {
+      await refreshModels()
+
+      // Validate current model selection for new provider
+      const models = modelsByProvider.value[newProvider] || []
+      const currentModel = config.value.model
+      const modelExists = models.some(m => m.id === currentModel)
+
+      // If current model doesn't exist in new provider, clear selection
+      if (!modelExists && currentModel) {
+        config.value.model = models.length > 0 ? models[0].id : ''
+      }
+    }
   })
 
   /**
    * Refresh available models for current provider
    */
   async function refreshModels() {
+    const provider = config.value.provider
     try {
-      availableModels.value = await aiService.fetchModels(config.value.provider)
+      // Fetch and store models for this specific provider
+      const models = await aiService.fetchModels(provider)
+      modelsByProvider.value[provider] = models
 
       // Auto-select first model if none selected
-      if (!config.value.model && availableModels.value.length > 0) {
-        config.value.model = availableModels.value[0].id
+      if (!config.value.model && models.length > 0) {
+        config.value.model = models[0].id
       }
     } catch (error) {
       console.error('Failed to fetch models:', error)
-      availableModels.value = getMockModels(config.value.provider)
+      // Use mock models as fallback for this provider
+      modelsByProvider.value[provider] = getMockModels(provider)
     }
   }
 
