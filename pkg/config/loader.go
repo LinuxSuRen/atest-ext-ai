@@ -447,8 +447,8 @@ func setDefaults(v *viper.Viper) {
 	// AI Service defaults - Ollama
 	v.SetDefault("ai.services.ollama.enabled", true)
 	v.SetDefault("ai.services.ollama.provider", "ollama")
-	// ai.services.ollama.endpoint must be set via OLLAMA_ENDPOINT environment variable
-	// AI_MODEL will be auto-detected from available models at runtime
+	v.SetDefault("ai.services.ollama.endpoint", "http://localhost:11434") // Default Ollama endpoint
+	v.SetDefault("ai.services.ollama.model", "qwen2.5-coder:latest")      // Default model, will auto-detect if available
 	v.SetDefault("ai.services.ollama.max_tokens", 4096)
 	v.SetDefault("ai.services.ollama.priority", 1)
 	v.SetDefault("ai.services.ollama.timeout", "60s")
