@@ -79,9 +79,9 @@ type Index struct {
 type GenerateOptions struct {
 	DatabaseType       string            `json:"database_type"`
 	Model              string            `json:"model,omitempty"`
-	Provider           string            `json:"provider,omitempty"`    // Runtime provider override
-	APIKey             string            `json:"api_key,omitempty"`     // Runtime API key
-	Endpoint           string            `json:"endpoint,omitempty"`    // Runtime endpoint override
+	Provider           string            `json:"provider,omitempty"` // Runtime provider override
+	APIKey             string            `json:"api_key,omitempty"`  // Runtime API key
+	Endpoint           string            `json:"endpoint,omitempty"` // Runtime endpoint override
 	Schema             map[string]Table  `json:"schema,omitempty"`
 	Context            []string          `json:"context,omitempty"`
 	MaxTokens          int               `json:"max_tokens,omitempty"`

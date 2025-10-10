@@ -30,14 +30,14 @@ import (
 
 // ProviderInfo represents information about an AI provider
 type ProviderInfo struct {
-	Name        string                    `json:"name"`
-	Type        string                    `json:"type"`
-	Available   bool                      `json:"available"`
-	Endpoint    string                    `json:"endpoint"`
-	Models      []interfaces.ModelInfo    `json:"models"`
-	LastChecked time.Time                 `json:"last_checked"`
-	Config      map[string]interface{}    `json:"config,omitempty"`
-	Health      *interfaces.HealthStatus  `json:"health,omitempty"`
+	Name        string                   `json:"name"`
+	Type        string                   `json:"type"`
+	Available   bool                     `json:"available"`
+	Endpoint    string                   `json:"endpoint"`
+	Models      []interfaces.ModelInfo   `json:"models"`
+	LastChecked time.Time                `json:"last_checked"`
+	Config      map[string]interface{}   `json:"config,omitempty"`
+	Health      *interfaces.HealthStatus `json:"health,omitempty"`
 }
 
 // ConnectionTestResult represents the result of a connection test

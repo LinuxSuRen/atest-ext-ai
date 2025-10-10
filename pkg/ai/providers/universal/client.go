@@ -37,18 +37,18 @@ type UniversalClient struct {
 
 // Config holds configuration for the universal client
 type Config struct {
-	Provider        string                 `json:"provider"`          // Provider name (e.g., "ollama", "openai", "custom")
-	Endpoint        string                 `json:"endpoint"`          // API endpoint URL
-	APIKey          string                 `json:"api_key,omitempty"` // API key (optional for local services)
-	Model           string                 `json:"model"`             // Default model to use
-	MaxTokens       int                    `json:"max_tokens"`        // Maximum tokens for generation
-	Timeout         time.Duration          `json:"timeout"`           // Request timeout
-	Headers         map[string]string      `json:"headers,omitempty"` // Additional headers
+	Provider        string                 `json:"provider"`             // Provider name (e.g., "ollama", "openai", "custom")
+	Endpoint        string                 `json:"endpoint"`             // API endpoint URL
+	APIKey          string                 `json:"api_key,omitempty"`    // API key (optional for local services)
+	Model           string                 `json:"model"`                // Default model to use
+	MaxTokens       int                    `json:"max_tokens"`           // Maximum tokens for generation
+	Timeout         time.Duration          `json:"timeout"`              // Request timeout
+	Headers         map[string]string      `json:"headers,omitempty"`    // Additional headers
 	Parameters      map[string]interface{} `json:"parameters,omitempty"` // Provider-specific parameters
-	CompletionPath  string                 `json:"completion_path"`   // API path for completions (default: /v1/chat/completions)
-	ModelsPath      string                 `json:"models_path"`       // API path for models (default: /v1/models)
-	HealthPath      string                 `json:"health_path"`       // API path for health check
-	StreamSupported bool                   `json:"stream_supported"`  // Whether streaming is supported
+	CompletionPath  string                 `json:"completion_path"`      // API path for completions (default: /v1/chat/completions)
+	ModelsPath      string                 `json:"models_path"`          // API path for models (default: /v1/models)
+	HealthPath      string                 `json:"health_path"`          // API path for health check
+	StreamSupported bool                   `json:"stream_supported"`     // Whether streaming is supported
 }
 
 // NewUniversalClient creates a new universal OpenAI-compatible client
@@ -409,17 +409,17 @@ func (c *UniversalClient) buildOpenAIRequest(req *interfaces.GenerateRequest) ma
 // parseOllamaResponse parses an Ollama API response
 func (c *UniversalClient) parseOllamaResponse(body io.Reader, requestedModel string) (*interfaces.GenerateResponse, error) {
 	var resp struct {
-		Model              string `json:"model"`
-		Message            struct {
+		Model   string `json:"model"`
+		Message struct {
 			Content string `json:"content"`
 		} `json:"message"`
-		Done               bool   `json:"done"`
-		TotalDuration      int64  `json:"total_duration"`
-		LoadDuration       int64  `json:"load_duration"`
-		PromptEvalCount    int    `json:"prompt_eval_count"`
-		PromptEvalDuration int64  `json:"prompt_eval_duration"`
-		EvalCount          int    `json:"eval_count"`
-		EvalDuration       int64  `json:"eval_duration"`
+		Done               bool  `json:"done"`
+		TotalDuration      int64 `json:"total_duration"`
+		LoadDuration       int64 `json:"load_duration"`
+		PromptEvalCount    int   `json:"prompt_eval_count"`
+		PromptEvalDuration int64 `json:"prompt_eval_duration"`
+		EvalCount          int   `json:"eval_count"`
+		EvalDuration       int64 `json:"eval_duration"`
 	}
 
 	if err := json.NewDecoder(body).Decode(&resp); err != nil {

@@ -381,7 +381,7 @@ func (s *AIPluginService) handleAIGenerate(ctx context.Context, req *server.Data
 	// Build minimal meta information for UI display
 	metaData := map[string]interface{}{
 		"confidence": sqlResult.ConfidenceScore,
-		"model":     sqlResult.ModelUsed,
+		"model":      sqlResult.ModelUsed,
 	}
 	metaJSON, err := json.Marshal(metaData)
 	if err != nil {
@@ -786,7 +786,7 @@ func (s *AIPluginService) handleLegacyQuery(ctx context.Context, req *server.Dat
 	// Build minimal meta information for UI display
 	metaData := map[string]interface{}{
 		"confidence": sqlResult.ConfidenceScore,
-		"model":     sqlResult.ModelUsed,
+		"model":      sqlResult.ModelUsed,
 	}
 	metaJSON, err := json.Marshal(metaData)
 	if err != nil {
