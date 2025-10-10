@@ -29,6 +29,7 @@ import (
 	"github.com/linuxsuren/atest-ext-ai/pkg/ai"
 	"github.com/linuxsuren/atest-ext-ai/pkg/ai/providers/universal"
 	"github.com/linuxsuren/atest-ext-ai/pkg/config"
+	apperrors "github.com/linuxsuren/atest-ext-ai/pkg/errors"
 	"github.com/linuxsuren/atest-ext-ai/pkg/logging"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
@@ -315,12 +316,12 @@ func (s *AIPluginService) handleAIGenerate(ctx context.Context, req *server.Data
 
 	if req.Sql != "" {
 		if err := json.Unmarshal([]byte(req.Sql), &params); err != nil {
-			return nil, status.Errorf(codes.InvalidArgument, "invalid AI parameters: %v", err)
+			return nil, apperrors.ToGRPCErrorf(apperrors.ErrInvalidRequest, "failed to parse AI parameters: %v", err)
 		}
 	}
 
 	if params.Prompt == "" {
-		return nil, status.Errorf(codes.InvalidArgument, "prompt is required for ai.generate")
+		return nil, apperrors.ToGRPCError(apperrors.ErrInvalidRequest)
 	}
 
 	// Parse optional config
@@ -356,12 +357,11 @@ func (s *AIPluginService) handleAIGenerate(ctx context.Context, req *server.Data
 		Context:         context,
 	})
 	if err != nil {
-		return &server.DataQueryResult{
-			Data: []*server.Pair{
-				{Key: "error", Value: err.Error()},
-				{Key: "success", Value: "false"},
-			},
-		}, nil
+		logging.Logger.Error("SQL generation failed",
+			"error", err,
+			"database_type", databaseType,
+			"prompt_length", len(params.Prompt))
+		return nil, apperrors.ToGRPCErrorf(apperrors.ErrProviderNotAvailable, "failed to generate SQL: %v", err)
 	}
 
 	// Return in simplified format with line break
@@ -398,12 +398,8 @@ func (s *AIPluginService) handleAICapabilities(ctx context.Context, req *server.
 		CheckHealth:     false,
 	})
 	if err != nil {
-		return &server.DataQueryResult{
-			Data: []*server.Pair{
-				{Key: "error", Value: err.Error()},
-				{Key: "success", Value: "false"},
-			},
-		}, nil
+		logging.Logger.Error("Failed to get capabilities", "error", err)
+		return nil, apperrors.ToGRPCErrorf(apperrors.ErrProviderNotAvailable, "failed to retrieve capabilities: %v", err)
 	}
 
 	// Convert to JSON strings for AI interface standard
@@ -845,7 +841,7 @@ func (s *AIPluginService) handleGetModels(ctx context.Context, req *server.DataQ
 
 	if req.Sql != "" {
 		if err := json.Unmarshal([]byte(req.Sql), &params); err != nil {
-			return nil, status.Errorf(codes.InvalidArgument, "invalid parameters: %v", err)
+			return nil, apperrors.ToGRPCErrorf(apperrors.ErrInvalidRequest, "invalid parameters: %v", err)
 		}
 	}
 
@@ -885,12 +881,8 @@ func (s *AIPluginService) handleGetModels(ctx context.Context, req *server.DataQ
 
 	models, err := s.providerManager.GetModels(ctx, providerName)
 	if err != nil {
-		return &server.DataQueryResult{
-			Data: []*server.Pair{
-				{Key: "error", Value: err.Error()},
-				{Key: "success", Value: "false"},
-			},
-		}, nil
+		logging.Logger.Error("Failed to get models", "provider", providerName, "error", err)
+		return nil, apperrors.ToGRPCErrorf(apperrors.ErrModelNotFound, "failed to get models for provider %s: %v", providerName, err)
 	}
 
 	modelsJSON, _ := json.Marshal(models)
@@ -906,36 +898,34 @@ func (s *AIPluginService) handleGetModels(ctx context.Context, req *server.DataQ
 
 // handleTestConnection tests a connection with provided configuration
 func (s *AIPluginService) handleTestConnection(ctx context.Context, req *server.DataQuery) (*server.DataQueryResult, error) {
-	fmt.Printf("🔥 [DEBUG] HANDLE TEST CONNECTION called with SQL: %s\n", req.Sql)
-	logging.Logger.Info("Handling test connection request", "sql", req.Sql)
+	logging.Logger.Debug("Handling test connection request", "sql_length", len(req.Sql))
 
 	// Parse configuration from SQL field
 	var config universal.Config
 	if req.Sql != "" {
 		if err := json.Unmarshal([]byte(req.Sql), &config); err != nil {
-			fmt.Printf("🔥 [DEBUG] Failed to parse config: %v\n", err)
-			return nil, status.Errorf(codes.InvalidArgument, "invalid configuration: %v", err)
+			logging.Logger.Error("Failed to parse connection config", "error", err)
+			return nil, apperrors.ToGRPCErrorf(apperrors.ErrInvalidConfig, "invalid configuration: %v", err)
 		}
 	}
 
-	apiKeyDisplay := config.APIKey
-	if len(apiKeyDisplay) > 10 {
-		apiKeyDisplay = config.APIKey[:10] + "..."
+	// Log configuration for debugging (mask API key)
+	apiKeyDisplay := "***masked***"
+	if config.APIKey != "" && len(config.APIKey) > 4 {
+		apiKeyDisplay = config.APIKey[:4] + "***"
 	}
-	fmt.Printf("🔥 [DEBUG] Parsed config: Provider=%s, APIKey=%s, Model=%s\n", config.Provider, apiKeyDisplay, config.Model)
+	logging.Logger.Debug("Testing connection",
+		"provider", config.Provider,
+		"api_key_prefix", apiKeyDisplay,
+		"model", config.Model)
 
 	// Test the connection
-	fmt.Printf("🔥 [DEBUG] About to call providerManager.TestConnection...\n")
 	result, err := s.providerManager.TestConnection(ctx, &config)
-	fmt.Printf("🔥 [DEBUG] TestConnection returned, err=%v\n", err)
 	if err != nil {
-		fmt.Printf("🔥 [DEBUG] TestConnection failed with error: %v\n", err)
-		return &server.DataQueryResult{
-			Data: []*server.Pair{
-				{Key: "error", Value: err.Error()},
-				{Key: "success", Value: "false"},
-			},
-		}, nil
+		logging.Logger.Error("Connection test failed",
+			"provider", config.Provider,
+			"error", err)
+		return nil, apperrors.ToGRPCErrorf(apperrors.ErrConnectionFailed, "connection test failed for provider %s: %v", config.Provider, err)
 	}
 
 	resultJSON, _ := json.Marshal(result)
@@ -951,37 +941,34 @@ func (s *AIPluginService) handleTestConnection(ctx context.Context, req *server.
 
 // handleUpdateConfig updates the configuration for a provider
 func (s *AIPluginService) handleUpdateConfig(ctx context.Context, req *server.DataQuery) (*server.DataQueryResult, error) {
-	fmt.Printf("🔥 [DEBUG] HANDLE UPDATE CONFIG called with SQL: %s\n", req.Sql)
-	logging.Logger.Info("Handling update config request", "sql", req.Sql)
+	logging.Logger.Debug("Handling update config request", "sql_length", len(req.Sql))
 
 	// Parse update request from SQL field
 	var updateReq struct {
-		Provider string              `json:"provider"`
-		Config   *universal.Config   `json:"config"`
+		Provider string            `json:"provider"`
+		Config   *universal.Config `json:"config"`
 	}
 
 	if req.Sql != "" {
 		if err := json.Unmarshal([]byte(req.Sql), &updateReq); err != nil {
-			fmt.Printf("🔥 [DEBUG] Failed to parse update request: %v\n", err)
-			return nil, status.Errorf(codes.InvalidArgument, "invalid update request: %v", err)
+			logging.Logger.Error("Failed to parse update request", "error", err)
+			return nil, apperrors.ToGRPCErrorf(apperrors.ErrInvalidRequest, "invalid update request: %v", err)
 		}
 	}
 
-	fmt.Printf("🔥 [DEBUG] Parsed update request: Provider=%s, Config=%+v\n", updateReq.Provider, updateReq.Config)
-
 	if updateReq.Provider == "" || updateReq.Config == nil {
-		return nil, status.Errorf(codes.InvalidArgument, "provider and config are required")
+		return nil, apperrors.ToGRPCError(apperrors.ErrInvalidRequest)
 	}
+
+	logging.Logger.Debug("Updating provider config", "provider", updateReq.Provider)
 
 	// Update the configuration
 	err := s.providerManager.UpdateConfig(ctx, updateReq.Provider, updateReq.Config)
 	if err != nil {
-		return &server.DataQueryResult{
-			Data: []*server.Pair{
-				{Key: "error", Value: err.Error()},
-				{Key: "success", Value: "false"},
-			},
-		}, nil
+		logging.Logger.Error("Failed to update config",
+			"provider", updateReq.Provider,
+			"error", err)
+		return nil, apperrors.ToGRPCErrorf(apperrors.ErrInvalidConfig, "failed to update configuration for provider %s: %v", updateReq.Provider, err)
 	}
 
 	return &server.DataQueryResult{
