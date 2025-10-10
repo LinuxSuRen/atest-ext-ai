@@ -7,14 +7,11 @@ RUN apk add --no-cache git ca-certificates tzdata
 # Set working directory
 WORKDIR /app
 
-# Copy go mod files
-COPY go.mod go.sum ./
-
-# Download dependencies
-RUN go mod download
-
-# Copy source code
+# Copy all source code first (needed for go.mod replace directive)
 COPY . .
+
+# Download dependencies (replace directive requires source to be present)
+RUN go mod download
 
 # Build the binary
 RUN CGO_ENABLED=0 GOOS=linux go build \
@@ -37,8 +34,11 @@ WORKDIR /app
 # Copy the binary
 COPY --from=builder /app/bin/atest-ext-ai /app/atest-ext-ai
 
+# Copy config.yaml for default configuration
+COPY --from=builder /app/config.yaml /app/config.yaml
+
 # Change ownership to appuser
-RUN chown appuser:appuser /app/atest-ext-ai
+RUN chown -R appuser:appuser /app
 
 # Switch to non-root user
 USER appuser
