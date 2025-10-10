@@ -17,7 +17,6 @@ limitations under the License.
 package ai
 
 import (
-	"context"
 	"time"
 
 	"github.com/linuxsuren/atest-ext-ai/pkg/interfaces"
@@ -32,30 +31,6 @@ type ModelInfo = interfaces.ModelInfo
 type Feature = interfaces.Feature
 type RateLimits = interfaces.RateLimits
 type HealthStatus = interfaces.HealthStatus
-
-// ClientFactory creates AI clients based on provider configuration
-type ClientFactory interface {
-	// CreateClient creates a new AI client for the specified provider
-	CreateClient(provider string, config map[string]any) (interfaces.AIClient, error)
-
-	// GetSupportedProviders returns a list of supported provider names
-	GetSupportedProviders() []string
-
-	// ValidateConfig validates the configuration for a specific provider
-	ValidateConfig(provider string, config map[string]any) error
-}
-
-// RetryManager handles retry logic for failed requests
-type RetryManager interface {
-	// Execute executes a function with retry logic
-	Execute(ctx context.Context, fn func() error) error
-
-	// ShouldRetry determines if an error should trigger a retry
-	ShouldRetry(err error) bool
-
-	// GetRetryDelay calculates the delay before the next retry attempt
-	GetRetryDelay(attempt int) time.Duration
-}
 
 // ProviderConfig represents configuration for a specific AI provider
 type ProviderConfig struct {
