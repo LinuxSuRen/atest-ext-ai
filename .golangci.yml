@@ -1,0 +1,47 @@
+version: 2
+
+run:
+  timeout: 10m
+
+linters:
+  enable:
+    # Core linters
+    - errorlint
+    - gocritic
+    - gosec
+    - govet
+    - misspell
+    - revive
+    - unconvert
+    - unparam
+
+    # Default enabled (explicit)
+    - errcheck
+    - ineffassign
+    - staticcheck
+    - unused
+
+linters-settings:
+  govet:
+    enable-all: true
+    disable:
+      - shadow
+      - fieldalignment
+
+  unparam:
+    check-exported: false
+
+issues:
+  exclude-rules:
+    # Exclude generated files
+    - path: \.pb\.go$
+      linters:
+        - all
+
+    # Exclude test files
+    - path: _test\.go
+      linters:
+        - gosec
+
+  max-issues-per-linter: 0
+  max-same-issues: 0

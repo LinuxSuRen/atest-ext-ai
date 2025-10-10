@@ -1,0 +1,192 @@
+version: '3'
+
+vars:
+  BINARY_NAME: atest-ext-ai
+  BUILD_DIR: bin
+  MAIN_PACKAGE: ./cmd/atest-ext-ai
+  DOCKER_IMAGE: atest-ext-ai
+  DOCKER_REGISTRY: '{{default "ghcr.io/linuxsuren" .DOCKER_REGISTRY}}'
+  VERSION:
+    sh: git describe --tags --always --dirty 2>/dev/null || echo "dev"
+  LDFLAGS: '-s -w -X main.version={{.VERSION}}'
+
+tasks:
+  default:
+    desc: Clean, build and test
+    cmds:
+      - task: clean
+      - task: build
+      - task: test
+
+  build-frontend:
+    desc: Build frontend assets (Vue 3 + TypeScript)
+    dir: frontend
+    sources:
+      - src/**/*
+      - package.json
+      - vite.config.ts
+    generates:
+      - ../pkg/plugin/assets/**/*
+    cmds:
+      - '[ -d node_modules ] || npm install'
+      - npm run build
+    silent: false
+
+  build:
+    desc: Build the plugin binary
+    sources:
+      - '**/*.go'
+      - go.mod
+      - go.sum
+    generates:
+      - '{{.BUILD_DIR}}/{{.BINARY_NAME}}'
+    cmds:
+      - mkdir -p {{.BUILD_DIR}}
+      - CGO_ENABLED=0 go build -ldflags "{{.LDFLAGS}}" -o {{.BUILD_DIR}}/{{.BINARY_NAME}} {{.MAIN_PACKAGE}}
+    silent: false
+
+  test:
+    desc: Run tests with coverage
+    cmds:
+      - go test -v -race -coverprofile=coverage.out ./...
+      - go tool cover -func=coverage.out | tail -n 1
+    silent: false
+
+  test:watch:
+    desc: Run tests in watch mode
+    cmds:
+      - |
+        while true; do
+          go test -v ./...
+          inotifywait -r -e modify,create,delete --exclude '\.git' .
+        done
+
+  deps:
+    desc: Install and verify dependencies
+    cmds:
+      - go mod tidy
+      - go mod download
+      - go mod verify
+
+  clean:
+    desc: Clean build artifacts and caches
+    cmds:
+      - rm -rf {{.BUILD_DIR}}
+      - rm -f coverage.out
+      - go clean -cache -testcache -modcache
+
+  install:
+    desc: Install to system location (/usr/local/bin)
+    deps: [build]
+    cmds:
+      - sudo cp {{.BUILD_DIR}}/{{.BINARY_NAME}} /usr/local/bin/
+      - sudo chmod +x /usr/local/bin/{{.BINARY_NAME}}
+    silent: false
+
+  install-local:
+    desc: Install to local development directory (~/.config/atest/bin)
+    deps: [build-frontend, build]
+    cmds:
+      - mkdir -p ~/.config/atest/bin/
+      - cp {{.BUILD_DIR}}/{{.BINARY_NAME}} ~/.config/atest/bin/
+      - chmod +x ~/.config/atest/bin/{{.BINARY_NAME}}
+      - echo "Local installation completed - ~/.config/atest/bin/{{.BINARY_NAME}}"
+    silent: false
+
+  dev:
+    desc: Run in development mode with debug logging
+    cmds:
+      - |
+        AI_PROVIDER="local" \
+        OLLAMA_ENDPOINT="http://localhost:11434" \
+        AI_MODEL="gemma3:1b" \
+        LOG_LEVEL="debug" \
+        go run {{.MAIN_PACKAGE}}
+
+  fmt:
+    desc: Format Go code
+    cmds:
+      - go fmt ./...
+      - gofmt -s -w .
+
+  lint:
+    desc: Run golangci-lint
+    cmds:
+      - golangci-lint run --fix
+
+  lint:check:
+    desc: Run golangci-lint without fixes
+    cmds:
+      - golangci-lint run
+
+  vet:
+    desc: Run go vet
+    cmds:
+      - go vet ./...
+
+  check:
+    desc: Run all checks (fmt, vet, lint, test)
+    cmds:
+      - task: fmt
+      - task: vet
+      - task: lint:check
+      - task: test
+
+  benchmark:
+    desc: Run benchmark tests
+    cmds:
+      - go test -bench=. -benchmem -run=^$ ./...
+
+  docker-build:
+    desc: Build Docker image
+    cmds:
+      - docker build -t {{.DOCKER_IMAGE}}:latest .
+
+  docker-release:
+    desc: Build and push Docker image to registry
+    deps: [docker-build]
+    cmds:
+      - docker tag {{.DOCKER_IMAGE}}:latest {{.DOCKER_REGISTRY}}/{{.DOCKER_IMAGE}}:{{.VERSION}}
+      - docker tag {{.DOCKER_IMAGE}}:latest {{.DOCKER_REGISTRY}}/{{.DOCKER_IMAGE}}:latest
+      - docker push {{.DOCKER_REGISTRY}}/{{.DOCKER_IMAGE}}:{{.VERSION}}
+      - docker push {{.DOCKER_REGISTRY}}/{{.DOCKER_IMAGE}}:latest
+      - echo "Pushed to {{.DOCKER_REGISTRY}}/{{.DOCKER_IMAGE}}:{{.VERSION}}"
+
+  docker-release-github:
+    desc: Quick release to GitHub Container Registry
+    cmds:
+      - task: docker-release
+        vars:
+          DOCKER_REGISTRY: ghcr.io/linuxsuren
+
+  coverage:
+    desc: Generate and view coverage report
+    cmds:
+      - go test -coverprofile=coverage.out ./...
+      - go tool cover -html=coverage.out -o coverage.html
+      - echo "Coverage report generated - coverage.html"
+
+  integration-test:
+    desc: Run integration tests with plugin
+    cmds:
+      - task: install-local
+      - |
+        echo "Starting plugin..."
+        ~/.config/atest/bin/{{.BINARY_NAME}} &
+        PLUGIN_PID=$!
+        sleep 2
+        if [ -S /tmp/atest-ext-ai.sock ]; then
+          echo "✅ Socket created successfully"
+        else
+          echo "❌ Socket not found"
+          kill $PLUGIN_PID 2>/dev/null
+          exit 1
+        fi
+        kill $PLUGIN_PID
+        rm -f /tmp/atest-ext-ai.sock
+
+  help:
+    desc: Show available tasks
+    cmds:
+      - task --list
+    silent: true
