@@ -56,6 +56,14 @@ type AIPluginService struct {
 func NewAIPluginService() (*AIPluginService, error) {
 	logging.Logger.Info("Initializing AI plugin service...")
 
+	// Log version information for debugging and compatibility verification
+	logging.Logger.Info("Plugin version information",
+		"plugin_version", PluginVersion,
+		"api_version", APIVersion,
+		"grpc_interface_version", GRPCInterfaceVersion,
+		"min_api_testing_version", MinCompatibleAPITestingVersion)
+	logging.Logger.Info("Compatibility note: This plugin requires api-testing >= "+MinCompatibleAPITestingVersion)
+
 	cfg, err := config.LoadConfig()
 	if err != nil {
 		logging.Logger.Error("Failed to load configuration", "error", err)
@@ -348,12 +356,21 @@ func (s *AIPluginService) Verify(ctx context.Context, req *server.Empty) (*serve
 		}
 	}
 
+	// Include detailed version information for diagnostics
+	versionInfo := fmt.Sprintf("%s (API: %s, gRPC: %s, requires api-testing >= %s)",
+		PluginVersion, APIVersion, GRPCInterfaceVersion, MinCompatibleAPITestingVersion)
+
 	status := &server.ExtensionStatus{
 		Ready:    isReady,
 		ReadOnly: false,
-		Version:  PluginVersion,
+		Version:  versionInfo,
 		Message:  message,
 	}
+
+	logging.Logger.Debug("Verify response",
+		"ready", isReady,
+		"version", versionInfo,
+		"message", message)
 
 	return status, nil
 }
@@ -376,6 +393,11 @@ const (
 	APIVersion = "v1"
 	// PluginVersion is the plugin implementation version
 	PluginVersion = "1.0.0"
+	// GRPCInterfaceVersion is the expected gRPC interface version from api-testing
+	// This helps detect incompatibilities between plugin and main project
+	GRPCInterfaceVersion = "v0.0.19"
+	// MinCompatibleAPITestingVersion is the minimum api-testing version required
+	MinCompatibleAPITestingVersion = "v0.0.19"
 )
 
 // handleAIGenerate handles ai.generate calls
