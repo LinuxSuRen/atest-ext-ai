@@ -194,6 +194,10 @@ func (e *aiEngine) GenerateSQL(ctx context.Context, req *GenerateSQLRequest) (*G
 						"has_api_key", runtimeConfig["api_key"] != nil)
 					// Extract configuration for dynamic client creation
 					if provider, ok := runtimeConfig["provider"].(string); ok {
+						// Map "local" to "ollama" for consistency
+						if provider == "local" {
+							provider = "ollama"
+						}
 						options.Provider = provider
 					}
 					if apiKey, ok := runtimeConfig["api_key"].(string); ok && apiKey != "" {
