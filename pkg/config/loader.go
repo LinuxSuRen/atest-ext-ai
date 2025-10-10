@@ -444,12 +444,6 @@ func setDefaults(v *viper.Viper) {
 	v.SetDefault("ai.retry.multiplier", 2.0)
 	v.SetDefault("ai.retry.jitter", true)
 
-	// AI Cache defaults
-	v.SetDefault("ai.cache.enabled", true)
-	v.SetDefault("ai.cache.ttl", "1h")
-	v.SetDefault("ai.cache.max_size", 1000)
-	v.SetDefault("ai.cache.provider", "memory")
-
 	// AI Service defaults - Ollama
 	v.SetDefault("ai.services.ollama.enabled", true)
 	v.SetDefault("ai.services.ollama.provider", "ollama")
@@ -479,11 +473,6 @@ func setDefaults(v *viper.Viper) {
 	v.SetDefault("logging.file.max_backups", 3)
 	v.SetDefault("logging.file.max_age", 28)
 	v.SetDefault("logging.file.compress", true)
-	v.SetDefault("logging.rotation.enabled", true)
-	v.SetDefault("logging.rotation.size", "100MB")
-	v.SetDefault("logging.rotation.count", 5)
-	v.SetDefault("logging.rotation.age", "30d")
-	v.SetDefault("logging.rotation.compress", true)
 }
 
 // Helper function to check if a slice contains a string
