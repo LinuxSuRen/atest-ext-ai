@@ -2,6 +2,48 @@
 
 AI plugin for API Testing Tool that converts natural language to SQL queries.
 
+## Configuration
+
+The plugin uses a YAML configuration file. Copy `config.example.yaml` to `config.yaml` and customize:
+
+```bash
+cp config.example.yaml config.yaml
+```
+
+### Quick Start Configuration
+
+For local development with Ollama:
+
+```yaml
+ai:
+  default_service: ollama
+  services:
+    ollama:
+      enabled: true
+      endpoint: http://localhost:11434
+      model: qwen2.5-coder:7b
+```
+
+### Environment Variables
+
+You can override configuration with environment variables:
+
+```bash
+# AI Provider
+export ATEST_EXT_AI_AI_PROVIDER=ollama
+export ATEST_EXT_AI_OLLAMA_ENDPOINT=http://localhost:11434
+export ATEST_EXT_AI_AI_MODEL=qwen2.5-coder:7b
+
+# For OpenAI
+export ATEST_EXT_AI_OPENAI_API_KEY=sk-...
+export ATEST_EXT_AI_OPENAI_MODEL=gpt-4
+
+# Logging
+export ATEST_EXT_AI_LOG_LEVEL=debug
+```
+
+See `config.example.yaml` for all available options.
+
 ## Development
 
 ### Local Development

@@ -1,0 +1,66 @@
+# atest-ext-ai Configuration Example
+# Copy this file to config.yaml and customize for your environment
+
+# Plugin metadata
+plugin:
+  name: atest-ext-ai
+  version: 1.0.0
+  log_level: info  # debug, info, warn, error
+  environment: production
+
+# AI Service Configuration
+ai:
+  default_service: ollama  # Primary AI provider: ollama, openai, deepseek, custom
+  timeout: 60s
+
+  # Configure AI services (only enabled services need configuration)
+  services:
+    # Local Ollama (recommended for development)
+    ollama:
+      enabled: true
+      provider: ollama
+      endpoint: http://localhost:11434
+      model: qwen2.5-coder:7b  # Or any installed Ollama model
+      max_tokens: 4096
+      timeout: 60s
+
+    # OpenAI (requires API key)
+    # openai:
+    #   enabled: false
+    #   provider: openai
+    #   api_key: ${OPENAI_API_KEY}  # Use environment variable
+    #   model: gpt-4
+    #   endpoint: https://api.openai.com/v1
+    #   max_tokens: 8192
+
+    # DeepSeek (OpenAI-compatible)
+    # deepseek:
+    #   enabled: false
+    #   provider: deepseek
+    #   api_key: ${DEEPSEEK_API_KEY}
+    #   model: deepseek-coder
+    #   max_tokens: 4096
+
+  # Retry configuration
+  retry:
+    enabled: true
+    max_attempts: 3
+    initial_delay: 1s
+    max_delay: 30s
+
+  # Rate limiting
+  rate_limit:
+    enabled: true
+    requests_per_minute: 60
+
+# Server configuration (usually defaults are fine)
+server:
+  host: 0.0.0.0
+  port: 8080
+  socket_path: /tmp/atest-ext-ai.sock
+
+# Logging configuration
+logging:
+  level: info
+  format: json
+  output: stdout
