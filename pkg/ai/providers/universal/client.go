@@ -21,7 +21,6 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"io"
 	"net/http"
 	"strings"
 	"time"
@@ -33,6 +32,7 @@ import (
 type UniversalClient struct {
 	config     *Config
 	httpClient *http.Client
+	strategy   ProviderStrategy // Strategy pattern to handle provider-specific logic
 }
 
 // Config holds configuration for the universal client
@@ -44,7 +44,7 @@ type Config struct {
 	MaxTokens       int                    `json:"max_tokens"`           // Maximum tokens for generation
 	Timeout         time.Duration          `json:"timeout"`              // Request timeout
 	Headers         map[string]string      `json:"headers,omitempty"`    // Additional headers
-	Parameters      map[string]interface{} `json:"parameters,omitempty"` // Provider-specific parameters
+	Parameters      map[string]any         `json:"parameters,omitempty"` // Provider-specific parameters
 	CompletionPath  string                 `json:"completion_path"`      // API path for completions (default: /v1/chat/completions)
 	ModelsPath      string                 `json:"models_path"`          // API path for models (default: /v1/models)
 	HealthPath      string                 `json:"health_path"`          // API path for health check
@@ -67,55 +67,27 @@ func NewUniversalClient(config *Config) (*UniversalClient, error) {
 		config.Provider = "custom"
 	}
 
-	// Apply provider-specific defaults
-	switch config.Provider {
-	case "ollama":
-		if config.Endpoint == "" {
-			return nil, fmt.Errorf("endpoint is required for ollama provider - set OLLAMA_ENDPOINT environment variable")
-		}
-		if config.CompletionPath == "" {
-			config.CompletionPath = "/api/chat"
-		}
-		if config.ModelsPath == "" {
-			config.ModelsPath = "/api/tags"
-		}
-		config.StreamSupported = true
+	// Get strategy for this provider
+	strategy := GetStrategy(config.Provider)
 
-	case "openai":
-		if config.Endpoint == "" {
-			config.Endpoint = "https://api.openai.com"
-		}
-		if config.CompletionPath == "" {
-			config.CompletionPath = "/v1/chat/completions"
-		}
-		if config.ModelsPath == "" {
-			config.ModelsPath = "/v1/models"
-		}
-		config.StreamSupported = true
+	// Apply provider-specific defaults using strategy
+	paths := strategy.GetDefaultPaths()
+	if config.CompletionPath == "" {
+		config.CompletionPath = paths.CompletionPath
+	}
+	if config.ModelsPath == "" {
+		config.ModelsPath = paths.ModelsPath
+	}
+	if config.HealthPath == "" {
+		config.HealthPath = paths.HealthPath
+	}
+	config.StreamSupported = strategy.SupportsStreaming()
 
-	case "deepseek":
-		if config.Endpoint == "" {
-			config.Endpoint = "https://api.deepseek.com"
-		}
-		if config.CompletionPath == "" {
-			config.CompletionPath = "/v1/chat/completions"
-		}
-		if config.ModelsPath == "" {
-			config.ModelsPath = "/v1/models"
-		}
-		config.StreamSupported = true
-
-	default: // custom or unknown provider
-		// Use OpenAI-compatible defaults
-		if config.CompletionPath == "" {
-			config.CompletionPath = "/v1/chat/completions"
-		}
-		if config.ModelsPath == "" {
-			config.ModelsPath = "/v1/models"
-		}
-		if !config.StreamSupported {
-			config.StreamSupported = true // Assume streaming is supported by default
-		}
+	// Apply endpoint defaults for specific providers
+	if config.Provider == "openai" && config.Endpoint == "" {
+		config.Endpoint = "https://api.openai.com"
+	} else if config.Provider == "deepseek" && config.Endpoint == "" {
+		config.Endpoint = "https://api.deepseek.com"
 	}
 
 	// Set other defaults
@@ -134,9 +106,10 @@ func NewUniversalClient(config *Config) (*UniversalClient, error) {
 		config.Headers = make(map[string]string)
 	}
 
-	// Create HTTP client
+	// Create HTTP client with strategy
 	client := &UniversalClient{
-		config: config,
+		config:   config,
+		strategy: strategy,
 		httpClient: &http.Client{
 			Timeout: config.Timeout,
 		},
@@ -149,15 +122,10 @@ func NewUniversalClient(config *Config) (*UniversalClient, error) {
 func (c *UniversalClient) Generate(ctx context.Context, req *interfaces.GenerateRequest) (*interfaces.GenerateResponse, error) {
 	start := time.Now()
 
-	// Build the request based on provider type
-	var requestBody interface{}
-
-	if c.config.Provider == "ollama" {
-		// Ollama-specific format
-		requestBody = c.buildOllamaRequest(req)
-	} else {
-		// OpenAI-compatible format
-		requestBody = c.buildOpenAIRequest(req)
+	// Build request using strategy pattern
+	requestBody, err := c.strategy.BuildRequest(req, c.config)
+	if err != nil {
+		return nil, fmt.Errorf("failed to build request: %w", err)
 	}
 
 	// Marshal request
@@ -193,14 +161,8 @@ func (c *UniversalClient) Generate(ctx context.Context, req *interfaces.Generate
 		return nil, fmt.Errorf("API returned status %d", resp.StatusCode)
 	}
 
-	// Parse response based on provider
-	var response *interfaces.GenerateResponse
-	if c.config.Provider == "ollama" {
-		response, err = c.parseOllamaResponse(resp.Body, req.Model)
-	} else {
-		response, err = c.parseOpenAIResponse(resp.Body)
-	}
-
+	// Parse response using strategy pattern
+	response, err := c.strategy.ParseResponse(resp.Body, req.Model)
 	if err != nil {
 		return nil, fmt.Errorf("failed to parse response: %w", err)
 	}
@@ -307,181 +269,6 @@ func (c *UniversalClient) Close() error {
 	return nil
 }
 
-// buildOllamaRequest builds an Ollama-specific request
-func (c *UniversalClient) buildOllamaRequest(req *interfaces.GenerateRequest) map[string]interface{} {
-	model := req.Model
-	if model == "" {
-		model = c.config.Model
-	}
-
-	maxTokens := req.MaxTokens
-	if maxTokens == 0 {
-		maxTokens = c.config.MaxTokens
-	}
-
-	// Build messages for chat format
-	messages := []map[string]string{}
-
-	if req.SystemPrompt != "" {
-		messages = append(messages, map[string]string{
-			"role":    "system",
-			"content": req.SystemPrompt,
-		})
-	}
-
-	// Add context as previous messages
-	for _, ctx := range req.Context {
-		messages = append(messages, map[string]string{
-			"role":    "assistant",
-			"content": ctx,
-		})
-	}
-
-	// Add the main prompt
-	messages = append(messages, map[string]string{
-		"role":    "user",
-		"content": req.Prompt,
-	})
-
-	return map[string]interface{}{
-		"model":    model,
-		"messages": messages,
-		"stream":   req.Stream,
-		"options": map[string]interface{}{
-			"num_predict": maxTokens,
-		},
-	}
-}
-
-// buildOpenAIRequest builds an OpenAI-compatible request
-func (c *UniversalClient) buildOpenAIRequest(req *interfaces.GenerateRequest) map[string]interface{} {
-	model := req.Model
-	if model == "" {
-		model = c.config.Model
-	}
-
-	maxTokens := req.MaxTokens
-	if maxTokens == 0 {
-		maxTokens = c.config.MaxTokens
-	}
-
-	// Build messages
-	messages := []map[string]string{}
-
-	if req.SystemPrompt != "" {
-		messages = append(messages, map[string]string{
-			"role":    "system",
-			"content": req.SystemPrompt,
-		})
-	}
-
-	// Add context
-	for _, ctx := range req.Context {
-		messages = append(messages, map[string]string{
-			"role":    "assistant",
-			"content": ctx,
-		})
-	}
-
-	// Add the main prompt
-	messages = append(messages, map[string]string{
-		"role":    "user",
-		"content": req.Prompt,
-	})
-
-	request := map[string]interface{}{
-		"model":      model,
-		"messages":   messages,
-		"max_tokens": maxTokens,
-		"stream":     req.Stream,
-	}
-
-	// Add any additional parameters
-	for k, v := range c.config.Parameters {
-		if _, exists := request[k]; !exists {
-			request[k] = v
-		}
-	}
-
-	return request
-}
-
-// parseOllamaResponse parses an Ollama API response
-func (c *UniversalClient) parseOllamaResponse(body io.Reader, requestedModel string) (*interfaces.GenerateResponse, error) {
-	var resp struct {
-		Model   string `json:"model"`
-		Message struct {
-			Content string `json:"content"`
-		} `json:"message"`
-		Done               bool  `json:"done"`
-		TotalDuration      int64 `json:"total_duration"`
-		LoadDuration       int64 `json:"load_duration"`
-		PromptEvalCount    int   `json:"prompt_eval_count"`
-		PromptEvalDuration int64 `json:"prompt_eval_duration"`
-		EvalCount          int   `json:"eval_count"`
-		EvalDuration       int64 `json:"eval_duration"`
-	}
-
-	if err := json.NewDecoder(body).Decode(&resp); err != nil {
-		return nil, err
-	}
-
-	return &interfaces.GenerateResponse{
-		Text:      resp.Message.Content,
-		Model:     resp.Model,
-		RequestID: fmt.Sprintf("ollama-%d", time.Now().Unix()),
-		Metadata: map[string]any{
-			"total_duration":   resp.TotalDuration,
-			"load_duration":    resp.LoadDuration,
-			"prompt_eval_time": resp.PromptEvalDuration,
-			"eval_time":        resp.EvalDuration,
-			// Token usage information available in metadata if needed
-			"prompt_eval_count": resp.PromptEvalCount,
-			"eval_count":        resp.EvalCount,
-		},
-	}, nil
-}
-
-// parseOpenAIResponse parses an OpenAI-compatible API response
-func (c *UniversalClient) parseOpenAIResponse(body io.Reader) (*interfaces.GenerateResponse, error) {
-	var resp struct {
-		ID      string `json:"id"`
-		Model   string `json:"model"`
-		Choices []struct {
-			Message struct {
-				Content string `json:"content"`
-			} `json:"message"`
-			FinishReason string `json:"finish_reason"`
-		} `json:"choices"`
-		Usage struct {
-			PromptTokens     int `json:"prompt_tokens"`
-			CompletionTokens int `json:"completion_tokens"`
-			TotalTokens      int `json:"total_tokens"`
-		} `json:"usage"`
-	}
-
-	if err := json.NewDecoder(body).Decode(&resp); err != nil {
-		return nil, err
-	}
-
-	if len(resp.Choices) == 0 {
-		return nil, fmt.Errorf("no choices in response")
-	}
-
-	return &interfaces.GenerateResponse{
-		Text:      resp.Choices[0].Message.Content,
-		Model:     resp.Model,
-		RequestID: resp.ID,
-		Metadata: map[string]any{
-			"finish_reason": resp.Choices[0].FinishReason,
-			// Token usage information available in metadata if needed
-			"prompt_tokens":     resp.Usage.PromptTokens,
-			"completion_tokens": resp.Usage.CompletionTokens,
-			"total_tokens":      resp.Usage.TotalTokens,
-		},
-	}, nil
-}
-
 // getModels retrieves available models from the API
 func (c *UniversalClient) getModels(ctx context.Context) ([]interfaces.ModelInfo, error) {
 	req, err := http.NewRequestWithContext(ctx, "GET", c.config.Endpoint+c.config.ModelsPath, nil)
@@ -503,170 +290,25 @@ func (c *UniversalClient) getModels(ctx context.Context) ([]interfaces.ModelInfo
 		return nil, fmt.Errorf("failed to get models: status %d", resp.StatusCode)
 	}
 
-	// Parse response based on provider
-	if c.config.Provider == "ollama" {
-		return c.parseOllamaModels(resp.Body)
-	}
-	return c.parseOpenAIModels(resp.Body)
+	// Parse response using strategy pattern
+	return c.strategy.ParseModels(resp.Body, c.config.MaxTokens)
 }
 
-// parseOllamaModels parses Ollama's model list response
-func (c *UniversalClient) parseOllamaModels(body io.Reader) ([]interfaces.ModelInfo, error) {
-	var resp struct {
-		Models []struct {
-			Name       string `json:"name"`
-			ModifiedAt string `json:"modified_at"`
-			Size       int64  `json:"size"`
-			Details    struct {
-				ParameterSize string `json:"parameter_size"`
-			} `json:"details"`
-		} `json:"models"`
-	}
-
-	if err := json.NewDecoder(body).Decode(&resp); err != nil {
-		return nil, err
-	}
-
-	models := make([]interfaces.ModelInfo, 0, len(resp.Models))
-	for _, m := range resp.Models {
-		models = append(models, interfaces.ModelInfo{
-			ID:          m.Name,
-			Name:        m.Name,
-			Description: fmt.Sprintf("Ollama model (size: %.2f GB)", float64(m.Size)/(1024*1024*1024)),
-			MaxTokens:   c.config.MaxTokens,
-		})
-	}
-
-	return models, nil
-}
-
-// parseOpenAIModels parses OpenAI's model list response
-func (c *UniversalClient) parseOpenAIModels(body io.Reader) ([]interfaces.ModelInfo, error) {
-	var resp struct {
-		Data []struct {
-			ID      string `json:"id"`
-			Created int64  `json:"created"`
-			OwnedBy string `json:"owned_by"`
-		} `json:"data"`
-	}
-
-	if err := json.NewDecoder(body).Decode(&resp); err != nil {
-		return nil, err
-	}
-
-	models := make([]interfaces.ModelInfo, 0, len(resp.Data))
-	for _, m := range resp.Data {
-		// Include models that are likely to be chat/completion models
-		// Supports model name patterns from various providers (DeepSeek, OpenAI, custom, etc.)
-		if c.isValidChatModel(m.ID) {
-			models = append(models, interfaces.ModelInfo{
-				ID:          m.ID,
-				Name:        m.ID,
-				Description: fmt.Sprintf("AI model (owner: %s)", m.OwnedBy),
-				MaxTokens:   c.config.MaxTokens,
-			})
-		}
-	}
-
-	return models, nil
-}
-
-// isValidChatModel determines if a model ID represents a valid chat/completion model
-func (c *UniversalClient) isValidChatModel(modelID string) bool {
-	modelID = strings.ToLower(modelID)
-
-	// Common patterns for chat/completion models
-	chatKeywords := []string{
-		"gpt", "chat", "turbo", "instruct",
-		"deepseek", "moonshot", "glm", "chatglm",
-		"baichuan", "qwen", "claude", "llama",
-		"yi", "internlm", "mistral", "gemma",
-		"codeqwen", "codechat", "assistant",
-		"completion", "text", "dialogue",
-	}
-
-	for _, keyword := range chatKeywords {
-		if strings.Contains(modelID, keyword) {
-			return true
-		}
-	}
-
-	// Exclude models that are clearly not for chat/completion
-	excludeKeywords := []string{
-		"embedding", "whisper", "dall-e", "tts",
-		"moderation", "edit", "similarity",
-		"search", "classification", "fine-tune",
-	}
-
-	for _, keyword := range excludeKeywords {
-		if strings.Contains(modelID, keyword) {
-			return false
-		}
-	}
-
-	// If no specific patterns match, include by default for compatibility
-	return true
-}
-
-// getDefaultModelsForProvider returns default models for specific providers
+// getDefaultModelsForProvider returns default models using strategy pattern
 func (c *UniversalClient) getDefaultModelsForProvider() []interfaces.ModelInfo {
-	switch c.config.Provider {
-	case "deepseek":
+	models := c.strategy.GetDefaultModels(c.config.MaxTokens)
+
+	// If strategy returns empty list and we have a configured model, use it as fallback
+	if len(models) == 0 && c.config.Model != "" {
 		return []interfaces.ModelInfo{
 			{
-				ID:          "deepseek-chat",
-				Name:        "DeepSeek Chat",
-				Description: "DeepSeek's flagship conversational AI model",
-				MaxTokens:   32768,
-			},
-			{
-				ID:          "deepseek-reasoner",
-				Name:        "DeepSeek Reasoner",
-				Description: "DeepSeek's reasoning model with thinking capabilities",
-				MaxTokens:   32768,
-			},
-		}
-	case "openai":
-		return []interfaces.ModelInfo{
-			{
-				ID:          "gpt-3.5-turbo",
-				Name:        "GPT-3.5 Turbo",
-				Description: "OpenAI's GPT-3.5 Turbo model",
-				MaxTokens:   16385,
-			},
-			{
-				ID:          "gpt-4",
-				Name:        "GPT-4",
-				Description: "OpenAI's GPT-4 model",
-				MaxTokens:   8192,
-			},
-			{
-				ID:          "gpt-4-turbo",
-				Name:        "GPT-4 Turbo",
-				Description: "Latest GPT-4 Turbo model",
-				MaxTokens:   128000,
-			},
-		}
-	default:
-		// If we have a configured model, include it
-		if c.config.Model != "" {
-			return []interfaces.ModelInfo{
-				{
-					ID:          c.config.Model,
-					Name:        c.config.Model,
-					Description: "Default configured model",
-					MaxTokens:   c.config.MaxTokens,
-				},
-			}
-		}
-		// Otherwise, provide a generic fallback
-		return []interfaces.ModelInfo{
-			{
-				ID:          "default",
-				Name:        "Default Model",
-				Description: "Default model for this provider",
-				MaxTokens:   4096,
+				ID:          c.config.Model,
+				Name:        c.config.Model,
+				Description: "Default configured model",
+				MaxTokens:   c.config.MaxTokens,
 			},
 		}
 	}
+
+	return models
 }
