@@ -157,7 +157,7 @@ func convertAIConfigToServiceConfig(cfg config.AIConfig) *AIServiceConfig {
 		retryConfig.MaxDelay = cfg.Retry.MaxDelay.Duration
 	}
 	if cfg.Retry.Multiplier > 0 {
-		retryConfig.BackoffMultiplier = cfg.Retry.Multiplier
+		retryConfig.BackoffMultiplier = float64(cfg.Retry.Multiplier)
 	}
 	retryConfig.Jitter = cfg.Retry.Jitter
 
