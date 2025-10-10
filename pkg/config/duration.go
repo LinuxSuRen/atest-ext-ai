@@ -20,11 +20,9 @@ import (
 	"encoding/json"
 	"fmt"
 	"time"
-
-	"github.com/pelletier/go-toml/v2"
 )
 
-// Duration is a custom type that supports parsing from string in YAML/JSON/TOML
+// Duration is a custom type that supports parsing from string in YAML/JSON
 type Duration struct {
 	time.Duration
 }
@@ -97,11 +95,6 @@ func (d Duration) MarshalYAML() (interface{}, error) {
 // MarshalJSON implements json.Marshaler interface
 func (d Duration) MarshalJSON() ([]byte, error) {
 	return json.Marshal(d.Duration.String())
-}
-
-// MarshalTOML implements toml.Marshaler interface
-func (d Duration) MarshalTOML() ([]byte, error) {
-	return toml.Marshal(d.Duration.String())
 }
 
 // String returns the string representation of the duration

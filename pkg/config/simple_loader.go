@@ -14,6 +14,8 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
+// Package config provides simplified configuration loading using YAML and environment variables.
+// This replaces the previous Viper-based configuration system with a lightweight, direct approach.
 package config
 
 import (
@@ -363,120 +365,87 @@ func applyDefaults(cfg *Config) {
 	}
 }
 
-// validateConfig validates the configuration
+// validateConfig validates the configuration with relaxed rules
+// Only critical configuration errors cause failure - the plugin can start with minimal config
 func validateConfig(cfg *Config) error {
 	var errors []string
 
-	// Validate server configuration
+	// Critical validations only - allow minimal configuration to work
+
+	// Validate server port is in valid range (but allow defaults to work)
 	if cfg.Server.Port < 1 || cfg.Server.Port > 65535 {
 		errors = append(errors, fmt.Sprintf("invalid server port: %d (must be 1-65535)", cfg.Server.Port))
 	}
-	if cfg.Server.Host == "" {
-		errors = append(errors, "server host cannot be empty")
-	}
-	if cfg.Server.SocketPath == "" {
-		errors = append(errors, "server socket_path cannot be empty")
-	}
 
-	// Validate plugin configuration
-	if cfg.Plugin.Name == "" {
-		errors = append(errors, "plugin name cannot be empty")
-	}
-	if cfg.Plugin.Version == "" {
-		errors = append(errors, "plugin version cannot be empty")
-	}
-	validLogLevels := []string{"debug", "info", "warn", "error"}
-	if !contains(validLogLevels, cfg.Plugin.LogLevel) {
-		errors = append(errors, fmt.Sprintf("invalid log level: %s (must be one of: %s)", cfg.Plugin.LogLevel, strings.Join(validLogLevels, ", ")))
-	}
-	validEnvironments := []string{"development", "staging", "production"}
-	if !contains(validEnvironments, cfg.Plugin.Environment) {
-		errors = append(errors, fmt.Sprintf("invalid environment: %s (must be one of: %s)", cfg.Plugin.Environment, strings.Join(validEnvironments, ", ")))
-	}
+	// Note: Other server fields have defaults, no validation needed
 
-	// Validate AI configuration
-	if cfg.AI.DefaultService == "" {
-		errors = append(errors, "AI default_service cannot be empty")
-	}
+	// Plugin configuration has defaults, no validation needed
 
-	if len(cfg.AI.Services) == 0 {
-		errors = append(errors, "at least one AI service must be configured")
-	}
+	// AI configuration - only validate if services are configured
+	if len(cfg.AI.Services) > 0 {
+		validProviders := []string{"ollama", "openai", "claude", "deepseek", "local", "custom"}
+		for name, svc := range cfg.AI.Services {
+			if !svc.Enabled {
+				continue
+			}
 
-	// Check if default service exists
-	if _, exists := cfg.AI.Services[cfg.AI.DefaultService]; !exists {
-		errors = append(errors, fmt.Sprintf("default service '%s' not found in services", cfg.AI.DefaultService))
-	}
+			// Validate provider is recognized (but allow unknown providers to pass through)
+			if svc.Provider != "" && !contains(validProviders, svc.Provider) {
+				// Warning only - don't fail
+				fmt.Fprintf(os.Stderr, "Warning: service '%s' has unknown provider '%s' (known: %s)\n",
+					name, svc.Provider, strings.Join(validProviders, ", "))
+			}
 
-	// Validate each enabled AI service
-	validProviders := []string{"ollama", "openai", "claude", "deepseek", "local", "custom"}
-	for name, svc := range cfg.AI.Services {
-		if !svc.Enabled {
-			continue
-		}
+			// API key validation is now a warning, not an error (graceful degradation)
+			if svc.Provider == "openai" || svc.Provider == "claude" || svc.Provider == "deepseek" {
+				if svc.APIKey == "" {
+					fmt.Fprintf(os.Stderr, "Warning: service '%s' (provider '%s') has no API key configured - it may not work\n",
+						name, svc.Provider)
+				}
+			}
 
-		if svc.Provider == "" {
-			errors = append(errors, fmt.Sprintf("service '%s': provider cannot be empty", name))
-		}
-		if !contains(validProviders, svc.Provider) {
-			errors = append(errors, fmt.Sprintf("service '%s': invalid provider '%s' (must be one of: %s)", name, svc.Provider, strings.Join(validProviders, ", ")))
-		}
-		if svc.Model == "" {
-			errors = append(errors, fmt.Sprintf("service '%s': model cannot be empty", name))
-		}
-		if svc.MaxTokens < 1 || svc.MaxTokens > 100000 {
-			errors = append(errors, fmt.Sprintf("service '%s': max_tokens %d out of range (1-100000)", name, svc.MaxTokens))
-		}
-
-		// Validate provider-specific requirements
-		if svc.Provider == "openai" || svc.Provider == "claude" || svc.Provider == "deepseek" {
-			if svc.APIKey == "" {
-				errors = append(errors, fmt.Sprintf("service '%s': API key required for provider '%s'", name, svc.Provider))
+			// MaxTokens validation relaxed - only check if set to unreasonable values
+			if svc.MaxTokens < 0 || svc.MaxTokens > 1000000 {
+				fmt.Fprintf(os.Stderr, "Warning: service '%s' has unusual max_tokens value: %d\n", name, svc.MaxTokens)
 			}
 		}
 	}
 
-	// Validate retry configuration
-	if cfg.AI.Retry.MaxAttempts < 1 || cfg.AI.Retry.MaxAttempts > 10 {
-		errors = append(errors, fmt.Sprintf("AI retry max_attempts %d out of range (1-10)", cfg.AI.Retry.MaxAttempts))
-	}
-	if cfg.AI.Retry.Multiplier < 1 {
-		errors = append(errors, fmt.Sprintf("AI retry multiplier %.2f must be >= 1", cfg.AI.Retry.Multiplier))
+	// Retry configuration - relax validation
+	if cfg.AI.Retry.MaxAttempts > 100 {
+		fmt.Fprintf(os.Stderr, "Warning: AI retry max_attempts is very high: %d\n", cfg.AI.Retry.MaxAttempts)
 	}
 
-	// Validate rate limit configuration
-	if cfg.AI.RateLimit.Enabled {
-		if cfg.AI.RateLimit.RequestsPerMinute < 1 {
-			errors = append(errors, fmt.Sprintf("AI rate_limit requests_per_minute %d must be >= 1", cfg.AI.RateLimit.RequestsPerMinute))
-		}
-		if cfg.AI.RateLimit.BurstSize < 1 {
-			errors = append(errors, fmt.Sprintf("AI rate_limit burst_size %d must be >= 1", cfg.AI.RateLimit.BurstSize))
-		}
-	}
-
-	// Validate database configuration
+	// Database configuration - only validate if enabled
 	if cfg.Database.Enabled {
 		validDrivers := []string{"sqlite", "mysql", "postgresql"}
-		if !contains(validDrivers, cfg.Database.Driver) {
-			errors = append(errors, fmt.Sprintf("invalid database driver: %s (must be one of: %s)", cfg.Database.Driver, strings.Join(validDrivers, ", ")))
+		if cfg.Database.Driver != "" && !contains(validDrivers, cfg.Database.Driver) {
+			errors = append(errors, fmt.Sprintf("invalid database driver: %s (must be one of: %s)",
+				cfg.Database.Driver, strings.Join(validDrivers, ", ")))
 		}
 		if cfg.Database.DSN == "" {
 			errors = append(errors, "database DSN cannot be empty when database is enabled")
 		}
 	}
 
-	// Validate logging configuration
+	// Logging configuration validation - warnings only
 	validFormats := []string{"json", "text"}
-	if !contains(validFormats, cfg.Logging.Format) {
-		errors = append(errors, fmt.Sprintf("invalid logging format: %s (must be one of: %s)", cfg.Logging.Format, strings.Join(validFormats, ", ")))
+	if cfg.Logging.Format != "" && !contains(validFormats, cfg.Logging.Format) {
+		fmt.Fprintf(os.Stderr, "Warning: unknown logging format '%s' (known: %s), will use default\n",
+			cfg.Logging.Format, strings.Join(validFormats, ", "))
+		cfg.Logging.Format = "json" // Fix it instead of failing
 	}
 	validOutputs := []string{"stdout", "stderr", "file"}
-	if !contains(validOutputs, cfg.Logging.Output) {
-		errors = append(errors, fmt.Sprintf("invalid logging output: %s (must be one of: %s)", cfg.Logging.Output, strings.Join(validOutputs, ", ")))
+	if cfg.Logging.Output != "" && !contains(validOutputs, cfg.Logging.Output) {
+		fmt.Fprintf(os.Stderr, "Warning: unknown logging output '%s' (known: %s), will use default\n",
+			cfg.Logging.Output, strings.Join(validOutputs, ", "))
+		cfg.Logging.Output = "stdout" // Fix it instead of failing
 	}
 
+	// Only fail if there are critical errors
 	if len(errors) > 0 {
-		return fmt.Errorf("configuration validation errors:\n  - %s", strings.Join(errors, "\n  - "))
+		return fmt.Errorf("configuration validation failed (critical errors only):\n  - %s",
+			strings.Join(errors, "\n  - "))
 	}
 
 	return nil
