@@ -26,7 +26,6 @@ import (
 	"time"
 
 	"github.com/mitchellh/mapstructure"
-	"github.com/pelletier/go-toml/v2"
 	"github.com/spf13/viper"
 	"gopkg.in/yaml.v2"
 )
@@ -205,7 +204,7 @@ func (l *Loader) Merge(other *Config) error {
 	return nil
 }
 
-// Export exports configuration in the specified format
+// Export exports configuration in the specified format (YAML or JSON)
 func (l *Loader) Export(format string) ([]byte, error) {
 	format = strings.ToLower(format)
 
@@ -214,10 +213,8 @@ func (l *Loader) Export(format string) ([]byte, error) {
 		return yaml.Marshal(l.config)
 	case "json":
 		return json.MarshalIndent(l.config, "", "  ")
-	case "toml":
-		return toml.Marshal(l.config)
 	default:
-		return nil, fmt.Errorf("unsupported export format: %s", format)
+		return nil, fmt.Errorf("unsupported export format: %s (supported: yaml, json)", format)
 	}
 }
 
@@ -295,7 +292,7 @@ func (l *Loader) loadFromDirectory(dirPath string) error {
 		return fmt.Errorf("error reading directory %s: %w", dirPath, err)
 	}
 
-	supportedExtensions := []string{".yaml", ".yml", ".json", ".toml"}
+	supportedExtensions := []string{".yaml", ".yml", ".json"}
 
 	for _, entry := range entries {
 		if entry.IsDir() {
@@ -338,12 +335,8 @@ func (l *Loader) parseContent(data []byte, format string) error {
 		if err := json.Unmarshal(data, &configMap); err != nil {
 			return fmt.Errorf("error parsing JSON: %w", err)
 		}
-	case "toml":
-		if err := toml.Unmarshal(data, &configMap); err != nil {
-			return fmt.Errorf("error parsing TOML: %w", err)
-		}
 	default:
-		return fmt.Errorf("unsupported format: %s", format)
+		return fmt.Errorf("unsupported format: %s (supported: yaml, json)", format)
 	}
 
 	// Convert map to Config struct using mapstructure with custom hooks
@@ -396,8 +389,6 @@ func (l *Loader) detectFormat(filePath string) string {
 		return "yaml"
 	case ".json":
 		return "json"
-	case ".toml":
-		return "toml"
 	default:
 		return ""
 	}
@@ -405,7 +396,7 @@ func (l *Loader) detectFormat(filePath string) string {
 
 // isSupportedFormat checks if the format is supported
 func (l *Loader) isSupportedFormat(format string) bool {
-	supportedFormats := []string{"yaml", "yml", "json", "toml"}
+	supportedFormats := []string{"yaml", "yml", "json"}
 	return contains(supportedFormats, strings.ToLower(format))
 }
 
