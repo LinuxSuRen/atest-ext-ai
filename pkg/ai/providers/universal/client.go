@@ -23,10 +23,77 @@ import (
 	"fmt"
 	"net/http"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/linuxsuren/atest-ext-ai/pkg/interfaces"
+	"github.com/linuxsuren/atest-ext-ai/pkg/logging"
 )
+
+// Global HTTP client pool for connection reuse across providers
+// Using sync.Map for concurrent-safe access without explicit locking on read
+var (
+	httpClientPool = &sync.Map{} // key: provider name (string), value: *http.Client
+	httpClientMu   sync.Mutex    // Mutex for client creation to prevent duplicate creation
+)
+
+// getOrCreateHTTPClient retrieves an existing HTTP client from the pool or creates a new one
+// This implements connection pooling to improve performance and resource utilization
+// Based on Go net/http best practices for Transport configuration
+func getOrCreateHTTPClient(provider string, timeout time.Duration) *http.Client {
+	// Try to get existing client from pool (fast path, no locking)
+	if client, ok := httpClientPool.Load(provider); ok {
+		logging.Logger.Debug("Reusing HTTP client from pool",
+			"provider", provider)
+		return client.(*http.Client)
+	}
+
+	// Client not found, need to create (slow path with locking)
+	httpClientMu.Lock()
+	defer httpClientMu.Unlock()
+
+	// Double-check: another goroutine might have created the client while we waited for the lock
+	if client, ok := httpClientPool.Load(provider); ok {
+		logging.Logger.Debug("HTTP client created by another goroutine",
+			"provider", provider)
+		return client.(*http.Client)
+	}
+
+	// Create new HTTP client with optimized transport settings
+	// Configuration follows Go net/http best practices:
+	// - MaxIdleConns: Total maximum idle connections across all hosts
+	// - MaxIdleConnsPerHost: Maximum idle connections per host (important for AI APIs)
+	// - IdleConnTimeout: How long idle connections remain in the pool
+	// - DisableCompression: Disabled for better compatibility with AI APIs
+	client := &http.Client{
+		Timeout: timeout,
+		Transport: &http.Transport{
+			MaxIdleConns:        100,              // Total pool size across all hosts
+			MaxIdleConnsPerHost: 10,               // Per-host idle connection limit (AI APIs typically use 1 host)
+			IdleConnTimeout:     90 * time.Second, // Keep idle connections for 90s
+			DisableCompression:  false,            // Enable compression for better bandwidth utilization
+			// Additional recommended settings for production use:
+			MaxConnsPerHost:        0,                // No limit on active connections (0 = unlimited)
+			ResponseHeaderTimeout:  30 * time.Second, // Timeout for reading response headers
+			ExpectContinueTimeout:  1 * time.Second,  // Timeout for 100-Continue handshake
+			ForceAttemptHTTP2:      true,             // Enable HTTP/2 when available
+			DisableKeepAlives:      false,            // Enable keep-alives for connection reuse
+			TLSHandshakeTimeout:    10 * time.Second, // Timeout for TLS handshake
+		},
+	}
+
+	// Store in pool for reuse
+	httpClientPool.Store(provider, client)
+
+	logging.Logger.Info("Created new HTTP client with connection pooling",
+		"provider", provider,
+		"timeout", timeout,
+		"max_idle_conns", 100,
+		"max_idle_conns_per_host", 10,
+		"idle_conn_timeout", "90s")
+
+	return client
+}
 
 // UniversalClient implements a universal OpenAI-compatible API client
 type UniversalClient struct {
@@ -106,14 +173,21 @@ func NewUniversalClient(config *Config) (*UniversalClient, error) {
 		config.Headers = make(map[string]string)
 	}
 
-	// Create HTTP client with strategy
+	// Create HTTP client using connection pool for better performance
+	// This reuses connections across requests to the same provider
+	httpClient := getOrCreateHTTPClient(config.Provider, config.Timeout)
+
 	client := &UniversalClient{
-		config:   config,
-		strategy: strategy,
-		httpClient: &http.Client{
-			Timeout: config.Timeout,
-		},
+		config:     config,
+		strategy:   strategy,
+		httpClient: httpClient,
 	}
+
+	logging.Logger.Debug("Universal client created",
+		"provider", config.Provider,
+		"endpoint", config.Endpoint,
+		"model", config.Model,
+		"timeout", config.Timeout)
 
 	return client, nil
 }
