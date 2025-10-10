@@ -1195,7 +1195,7 @@ func (s *AIPluginService) handleUpdateConfig(ctx context.Context, req *server.Da
 		serviceConfig.Timeout = config.Duration{Duration: updateReq.Config.Timeout}
 	}
 
-	err := s.aiManager.AddClient(ctx, updateReq.Provider, serviceConfig)
+	err := s.aiManager.AddClient(ctx, updateReq.Provider, serviceConfig, nil)
 	if err != nil {
 		logging.Logger.Error("Failed to update config",
 			"provider", updateReq.Provider,

@@ -33,6 +33,7 @@ import (
 	"github.com/linuxsuren/atest-ext-ai/pkg/ai/providers/universal"
 	"github.com/linuxsuren/atest-ext-ai/pkg/config"
 	"github.com/linuxsuren/atest-ext-ai/pkg/interfaces"
+	"github.com/linuxsuren/atest-ext-ai/pkg/logging"
 )
 
 var (
@@ -69,6 +70,12 @@ type ConnectionTestResult struct {
 	Provider     string        `json:"provider"`
 	Model        string        `json:"model,omitempty"`
 	Error        string        `json:"error,omitempty"`
+}
+
+// AddClientOptions configures how a client is added to the manager
+type AddClientOptions struct {
+	SkipHealthCheck    bool          // If true, skip health check during client addition
+	HealthCheckTimeout time.Duration // Timeout for health check (default: 5 seconds)
 }
 
 // AIManager is the unified manager for all AI clients
@@ -249,16 +256,42 @@ func (m *AIManager) GetPrimaryClient() interfaces.AIClient {
 }
 
 // AddClient adds a new client with the given configuration
-func (m *AIManager) AddClient(ctx context.Context, name string, svc config.AIService) error {
+func (m *AIManager) AddClient(ctx context.Context, name string, svc config.AIService, opts *AddClientOptions) error {
+	// Set default options if not provided
+	if opts == nil {
+		opts = &AddClientOptions{
+			SkipHealthCheck:    false,
+			HealthCheckTimeout: 5 * time.Second,
+		}
+	}
+
+	// Set default timeout if not specified
+	if opts.HealthCheckTimeout == 0 {
+		opts.HealthCheckTimeout = 5 * time.Second
+	}
+
 	client, err := createClient(name, svc)
 	if err != nil {
 		return fmt.Errorf("failed to create client: %w", err)
 	}
 
-	// Test the client
-	_, err = client.HealthCheck(ctx)
-	if err != nil {
-		return fmt.Errorf("health check failed: %w", err)
+	// Optional health check
+	if !opts.SkipHealthCheck {
+		healthCtx, cancel := context.WithTimeout(ctx, opts.HealthCheckTimeout)
+		defer cancel()
+
+		health, err := client.HealthCheck(healthCtx)
+		if err != nil {
+			logging.Logger.Warn("Health check failed during client addition",
+				"client", name,
+				"error", err,
+				"action", "client will be added but may be unhealthy")
+			// Don't return error, just log warning
+		} else if health != nil && !health.Healthy {
+			logging.Logger.Warn("Client added but reports unhealthy status",
+				"client", name,
+				"status", health.Status)
+		}
 	}
 
 	m.mu.Lock()
@@ -270,6 +303,10 @@ func (m *AIManager) AddClient(ctx context.Context, name string, svc config.AISer
 	}
 
 	m.clients[name] = client
+	logging.Logger.Info("AI client added successfully",
+		"client", name,
+		"skip_health_check", opts.SkipHealthCheck)
+
 	return nil
 }
 
