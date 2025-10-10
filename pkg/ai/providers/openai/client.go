@@ -120,21 +120,29 @@ func NewClient(config *Config) (*Client, error) {
 func (c *Client) Generate(ctx context.Context, req *interfaces.GenerateRequest) (*interfaces.GenerateResponse, error) {
 	start := time.Now()
 
-	// Build messages for chat format
+	// Apply timeout if configured
+	if c.config.Timeout > 0 {
+		var cancel context.CancelFunc
+		ctx, cancel = context.WithTimeout(ctx, c.config.Timeout)
+		defer cancel()
+	}
+
+	// Build messages in proper MessageContent format
 	messages := c.buildMessages(req)
 
 	// Build generation options
 	opts := c.buildGenerationOptions(req)
 
 	var responseText string
+	var requestID string
 	var err error
 
 	if req.Stream {
 		// Handle streaming
-		responseText, err = c.generateStream(ctx, messages, opts)
+		responseText, requestID, err = c.generateStream(ctx, messages, opts)
 	} else {
-		// Non-streaming generation
-		responseText, err = c.llm.Call(ctx, messages, opts...)
+		// Non-streaming generation using GenerateContent
+		responseText, requestID, err = c.generateContent(ctx, messages, opts)
 	}
 
 	if err != nil {
@@ -142,20 +150,12 @@ func (c *Client) Generate(ctx context.Context, req *interfaces.GenerateRequest) 
 	}
 
 	// Build response
-	// Note: langchaingo doesn't expose detailed token usage in basic Call,
-	// so we estimate or use zero values
 	aiResponse := &interfaces.GenerateResponse{
 		Text:            responseText,
 		Model:           c.getModel(req),
 		ProcessingTime:  time.Since(start),
+		RequestID:       requestID,
 		ConfidenceScore: 1.0,
-		Usage: interfaces.TokenUsage{
-			// Token usage not directly available from langchaingo Call
-			// Would need to use lower-level API or estimate
-			PromptTokens:     0,
-			CompletionTokens: 0,
-			TotalTokens:      0,
-		},
 		Metadata: map[string]any{
 			"streaming": req.Stream,
 			"provider":  "openai",
@@ -263,27 +263,29 @@ func (c *Client) Close() error {
 	return nil
 }
 
-// buildMessages constructs chat messages from the request
-func (c *Client) buildMessages(req *interfaces.GenerateRequest) string {
-	var messages strings.Builder
+// buildMessages constructs chat messages from the request in proper MessageContent format
+func (c *Client) buildMessages(req *interfaces.GenerateRequest) []llms.MessageContent {
+	var messages []llms.MessageContent
 
 	// Add system prompt if provided
 	if req.SystemPrompt != "" {
-		messages.WriteString("System: ")
-		messages.WriteString(req.SystemPrompt)
-		messages.WriteString("\n\n")
+		messages = append(messages, llms.TextParts(llms.ChatMessageTypeSystem, req.SystemPrompt))
 	}
 
-	// Add context messages
-	for _, contextMsg := range req.Context {
-		messages.WriteString(contextMsg)
-		messages.WriteString("\n")
+	// Add context messages as alternating user/assistant messages
+	for i, contextMsg := range req.Context {
+		role := llms.ChatMessageTypeHuman
+		if i%2 == 1 {
+			// Alternate between user and assistant for conversation context
+			role = llms.ChatMessageTypeAI
+		}
+		messages = append(messages, llms.TextParts(role, contextMsg))
 	}
 
-	// Add the main prompt
-	messages.WriteString(req.Prompt)
+	// Add the main prompt as user message
+	messages = append(messages, llms.TextParts(llms.ChatMessageTypeHuman, req.Prompt))
 
-	return messages.String()
+	return messages
 }
 
 // buildGenerationOptions constructs generation options from the request
@@ -296,12 +298,6 @@ func (c *Client) buildGenerationOptions(req *interfaces.GenerateRequest) []llms.
 		opts = append(opts, llms.WithMaxTokens(maxTokens))
 	}
 
-	// Set temperature
-	temperature := c.getTemperature(req)
-	if temperature > 0 {
-		opts = append(opts, llms.WithTemperature(temperature))
-	}
-
 	// Set model if specified in request
 	if req.Model != "" {
 		opts = append(opts, llms.WithModel(req.Model))
@@ -310,8 +306,35 @@ func (c *Client) buildGenerationOptions(req *interfaces.GenerateRequest) []llms.
 	return opts
 }
 
+// generateContent handles non-streaming generation using GenerateContent
+func (c *Client) generateContent(ctx context.Context, messages []llms.MessageContent, opts []llms.CallOption) (string, string, error) {
+	resp, err := c.llm.GenerateContent(ctx, messages, opts...)
+	if err != nil {
+		return "", "", fmt.Errorf("GenerateContent failed: %w", err)
+	}
+
+	// Extract response text and metadata
+	var responseText string
+	var requestID string
+
+	if len(resp.Choices) > 0 {
+		responseText = resp.Choices[0].Content
+
+		// Try to extract request ID from generation info
+		if genInfo := resp.Choices[0].GenerationInfo; genInfo != nil {
+			if id, ok := genInfo["request_id"].(string); ok {
+				requestID = id
+			} else if id, ok := genInfo["RequestID"].(string); ok {
+				requestID = id
+			}
+		}
+	}
+
+	return responseText, requestID, nil
+}
+
 // generateStream handles streaming generation using langchaingo
-func (c *Client) generateStream(ctx context.Context, messages string, opts []llms.CallOption) (string, error) {
+func (c *Client) generateStream(ctx context.Context, messages []llms.MessageContent, opts []llms.CallOption) (string, string, error) {
 	var responseText strings.Builder
 
 	// Add streaming callback
@@ -322,13 +345,25 @@ func (c *Client) generateStream(ctx context.Context, messages string, opts []llm
 
 	opts = append(opts, llms.WithStreamingFunc(streamingFunc))
 
-	// Call with streaming enabled
-	_, err := c.llm.Call(ctx, messages, opts...)
+	// Call GenerateContent with streaming enabled
+	resp, err := c.llm.GenerateContent(ctx, messages, opts...)
 	if err != nil {
-		return "", fmt.Errorf("streaming generation failed: %w", err)
+		return "", "", fmt.Errorf("streaming generation failed: %w", err)
 	}
 
-	return responseText.String(), nil
+	// Extract request ID if available
+	var requestID string
+	if len(resp.Choices) > 0 {
+		if genInfo := resp.Choices[0].GenerationInfo; genInfo != nil {
+			if id, ok := genInfo["request_id"].(string); ok {
+				requestID = id
+			} else if id, ok := genInfo["RequestID"].(string); ok {
+				requestID = id
+			}
+		}
+	}
+
+	return responseText.String(), requestID, nil
 }
 
 // getModel returns the model to use for the request
@@ -345,12 +380,4 @@ func (c *Client) getMaxTokens(req *interfaces.GenerateRequest) int {
 		return req.MaxTokens
 	}
 	return c.config.MaxTokens
-}
-
-// getTemperature returns the temperature for the request
-func (c *Client) getTemperature(req *interfaces.GenerateRequest) float64 {
-	if req.Temperature > 0 {
-		return req.Temperature
-	}
-	return 0.7 // Default temperature
 }

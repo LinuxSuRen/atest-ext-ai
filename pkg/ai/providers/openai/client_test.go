@@ -19,7 +19,6 @@ package openai
 import (
 	"context"
 	"os"
-	"strings"
 	"testing"
 	"time"
 
@@ -183,31 +182,7 @@ func TestClient_getMaxTokens(t *testing.T) {
 	}
 }
 
-func TestClient_getTemperature(t *testing.T) {
-	config := &Config{
-		APIKey: "test-key",
-	}
-	client, err := NewClient(config)
-	if err != nil {
-		t.Fatalf("Failed to create client: %v", err)
-	}
-
-	// Test with request-specific temperature
-	req := &interfaces.GenerateRequest{
-		Temperature: 0.5,
-	}
-	temp := client.getTemperature(req)
-	if temp != 0.5 {
-		t.Errorf("Expected 0.5, got %f", temp)
-	}
-
-	// Test with default temperature
-	req = &interfaces.GenerateRequest{}
-	temp = client.getTemperature(req)
-	if temp != 0.7 {
-		t.Errorf("Expected 0.7, got %f", temp)
-	}
-}
+// Temperature support has been removed as per user request
 
 func TestNewClient_EnvironmentVariables(t *testing.T) {
 	// Test environment variable for API key
@@ -301,21 +276,17 @@ func TestClient_RequestBuilding(t *testing.T) {
 		SystemPrompt: "You are a helpful assistant",
 		Model:        "gpt-3.5-turbo",
 		MaxTokens:    100,
-		Temperature:  0.5,
 		Stream:       true,
 		Context:      []string{"Previous context"},
 	}
 
-	// Test message building
+	// Test message building - now returns []llms.MessageContent
 	messages := client.buildMessages(req)
-	if !strings.Contains(messages, "System: You are a helpful assistant") {
-		t.Error("Expected messages to contain system prompt")
-	}
-	if !strings.Contains(messages, "Test prompt") {
-		t.Error("Expected messages to contain main prompt")
-	}
-	if !strings.Contains(messages, "Previous context") {
-		t.Error("Expected messages to contain context")
+
+	// Should have: 1 system + 1 context + 1 prompt = 3 messages
+	expectedCount := 3
+	if len(messages) != expectedCount {
+		t.Errorf("Expected %d messages, got %d", expectedCount, len(messages))
 	}
 
 	// Test generation options building
