@@ -239,13 +239,17 @@ func (g *SQLGenerator) Generate(ctx context.Context, naturalLanguage string, opt
 		}
 
 		// Create runtime client directly
-		runtimeClient, clientErr := createRuntimeClient(options.Provider, runtimeConfig)
-		if clientErr != nil {
-			logging.Logger.Warn("Runtime client creation failed, using default client", "provider", options.Provider, "error", clientErr)
-		} else {
-			aiClient = runtimeClient
-			logging.Logger.Info("Runtime AI client created successfully", "provider", options.Provider)
+		runtimeClient, err := createRuntimeClient(options.Provider, runtimeConfig)
+		if err != nil {
+			logging.Logger.Error("Failed to create runtime client",
+				"provider", options.Provider,
+				"error", err)
+			return nil, fmt.Errorf("runtime client creation failed for provider %s: %w",
+				options.Provider, err)
 		}
+
+		aiClient = runtimeClient
+		logging.Logger.Info("Runtime AI client created successfully", "provider", options.Provider)
 	}
 
 	// Call AI service
