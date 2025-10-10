@@ -157,7 +157,7 @@ func cleanupSocketFile(path string) error {
 	return nil
 }
 
-// createSocketListener creates and configures Unix socket listener
+// createSocketListener creates and configures Unix socket listener with flexible permissions
 func createSocketListener(path string) (net.Listener, error) {
 	// Ensure the parent directory exists
 	dir := filepath.Dir(path)
@@ -170,11 +170,47 @@ func createSocketListener(path string) (net.Listener, error) {
 		return nil, fmt.Errorf("failed to create Unix socket listener: %w", err)
 	}
 
-	// Set appropriate permissions for the socket file
-	// 0660 is required to allow group access for main project integration
-	if err := os.Chmod(path, 0660); err != nil { //nolint:gosec // G302: Unix socket needs group access
+	// Get socket permissions from environment or use default
+	// SOCKET_PERMISSIONS can be set to customize permissions (e.g., "0666" for world-writable)
+	// Default is 0666 to allow connections from different users/groups
+	perms := os.FileMode(0666)
+	if permStr := os.Getenv("SOCKET_PERMISSIONS"); permStr != "" {
+		// Parse octal permission string (e.g., "0660", "0666")
+		var permInt uint32
+		if _, err := fmt.Sscanf(permStr, "%o", &permInt); err == nil {
+			perms = os.FileMode(permInt)
+			log.Printf("Using custom socket permissions from SOCKET_PERMISSIONS: %04o", perms)
+		} else {
+			log.Printf("Warning: invalid SOCKET_PERMISSIONS '%s', using default 0666: %v", permStr, err)
+		}
+	}
+
+	// Set socket permissions
+	if err := os.Chmod(path, perms); err != nil { //nolint:gosec // G302: Socket permissions configurable via env
 		_ = listener.Close()
-		return nil, fmt.Errorf("failed to set socket permissions: %w", err)
+		return nil, fmt.Errorf("failed to set socket permissions to %04o: %w", perms, err)
+	}
+
+	// Print diagnostic information for troubleshooting
+	if fileInfo, err := os.Stat(path); err == nil {
+		log.Printf("Socket created successfully:")
+		log.Printf("  Path: %s", path)
+		log.Printf("  Permissions: %04o (%s)", fileInfo.Mode().Perm(), fileInfo.Mode().String())
+		log.Printf("  Size: %d bytes", fileInfo.Size())
+
+		// Print owner information if possible (Unix-specific)
+		if stat, ok := fileInfo.Sys().(*syscall.Stat_t); ok {
+			log.Printf("  Owner UID: %d, GID: %d", stat.Uid, stat.Gid)
+		}
+
+		log.Printf("Troubleshooting tips:")
+		log.Printf("  - If connection fails with 'permission denied', check:")
+		log.Printf("    1. Client process user has read/write access (permissions: %04o)", fileInfo.Mode().Perm())
+		log.Printf("    2. Client process user is in the same group (or use SOCKET_PERMISSIONS=0666)")
+		log.Printf("    3. SELinux/AppArmor policies allow socket access")
+		log.Printf("  - Set SOCKET_PERMISSIONS environment variable to customize (e.g., SOCKET_PERMISSIONS=0666)")
+	} else {
+		log.Printf("Warning: could not stat socket file for diagnostics: %v", err)
 	}
 
 	return listener, nil
