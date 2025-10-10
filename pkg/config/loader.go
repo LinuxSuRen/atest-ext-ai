@@ -25,6 +25,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/linuxsuren/atest-ext-ai/pkg/logging"
 	"github.com/mitchellh/mapstructure"
 	"github.com/pelletier/go-toml/v2"
 	"github.com/spf13/viper"
@@ -69,10 +70,20 @@ func (l *Loader) Load(paths ...string) error {
 	l.setupEnvironmentVariables()
 
 	// Try to read configuration file
+	var configFilePath string
 	if err := l.viper.ReadInConfig(); err != nil {
 		// If no config file found, that's ok - we'll use defaults and env vars
 		if _, ok := err.(viper.ConfigFileNotFoundError); !ok {
 			return fmt.Errorf("error reading config file: %w", err)
+		}
+	} else {
+		configFilePath = l.viper.ConfigFileUsed()
+
+		// Detect and warn about configuration version
+		if configFilePath != "" {
+			if err := l.checkConfigVersion(configFilePath); err != nil {
+				logging.Logger.Warn("Configuration version check failed", "error", err)
+			}
 		}
 	}
 
@@ -120,6 +131,11 @@ func (l *Loader) LoadFromFile(filePath string) error {
 	// Check if file exists
 	if _, err := os.Stat(filePath); os.IsNotExist(err) {
 		return fmt.Errorf("config file does not exist: %s", filePath)
+	}
+
+	// Detect and warn about configuration version
+	if err := l.checkConfigVersion(filePath); err != nil {
+		logging.Logger.Warn("Configuration version check failed", "file", filePath, "error", err)
 	}
 
 	// Detect format based on file extension
@@ -600,4 +616,31 @@ func (l *Loader) mergeConfigs(dst, src *Config) *Config {
 	}
 
 	return &result
+}
+
+// checkConfigVersion detects the configuration version and displays migration recommendations if needed
+func (l *Loader) checkConfigVersion(filePath string) error {
+	version, err := DetectConfigVersion(filePath)
+	if err != nil {
+		return fmt.Errorf("failed to detect config version: %w", err)
+	}
+
+	logging.Logger.Info("Configuration version detected", "version", version, "file", filePath)
+
+	// Display migration recommendation if using legacy format
+	if version == LegacyConfigVersion {
+		recommendation := GetMigrationRecommendation(version)
+		// Log as warning with the full recommendation message
+		logging.Logger.Warn("Legacy configuration detected - migration recommended",
+			"version", version,
+			"file", filePath,
+			"recommendation", recommendation)
+		// Also print to stderr for visibility
+		fmt.Fprintf(os.Stderr, "%s\n", recommendation)
+	} else {
+		// For current version, just log success
+		logging.Logger.Debug("Configuration is up to date", "version", version)
+	}
+
+	return nil
 }
