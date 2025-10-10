@@ -494,7 +494,7 @@ func (s *AIPluginService) handleAIGenerate(ctx context.Context, req *server.Data
 	return &server.DataQueryResult{
 		Data: []*server.Pair{
 			{Key: "api_version", Value: APIVersion},
-			{Key: "content", Value: simpleFormat},
+			{Key: "generated_sql", Value: simpleFormat},
 			{Key: "success", Value: "true"},
 			{Key: "meta", Value: string(metaJSON)},
 		},
@@ -974,7 +974,7 @@ func (s *AIPluginService) handleLegacyQuery(ctx context.Context, req *server.Dat
 	result := &server.DataQueryResult{
 		Data: []*server.Pair{
 			{
-				Key:   "content",
+				Key:   "generated_sql",
 				Value: simpleFormat,
 			},
 			{
