@@ -557,7 +557,7 @@ func (c *UniversalClient) parseOpenAIModels(body io.Reader) ([]interfaces.ModelI
 	models := make([]interfaces.ModelInfo, 0, len(resp.Data))
 	for _, m := range resp.Data {
 		// Include models that are likely to be chat/completion models
-		// Expanded to support more providers like DeepSeek, Moonshot, etc.
+		// Supports model name patterns from various providers (DeepSeek, OpenAI, custom, etc.)
 		if c.isValidChatModel(m.ID) {
 			models = append(models, interfaces.ModelInfo{
 				ID:          m.ID,

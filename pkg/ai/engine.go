@@ -113,8 +113,8 @@ func NewEngine(cfg config.AIConfig) (Engine, error) {
 	if err != nil {
 		// Check if this is an unsupported provider error
 		if IsProviderNotSupported(err) {
-			logging.Logger.Error("Provider not supported - please use one of: openai, anthropic, local, deepseek, moonshot, zhipu, baichuan, custom", "error", err, "provider", cfg.DefaultService)
-			return nil, fmt.Errorf("unsupported AI provider '%s': %w. Supported providers: openai, anthropic, local, deepseek, moonshot, zhipu, baichuan, custom", cfg.DefaultService, err)
+			logging.Logger.Error("Provider not supported - please use one of: openai, local, deepseek, custom", "error", err, "provider", cfg.DefaultService)
+			return nil, fmt.Errorf("unsupported AI provider '%s': %w. Supported providers: openai, local (ollama), deepseek, custom", cfg.DefaultService, err)
 		}
 		// For other errors, also fail instead of silent fallback
 		logging.Logger.Error("Failed to create AI client", "error", err, "provider", cfg.DefaultService)
