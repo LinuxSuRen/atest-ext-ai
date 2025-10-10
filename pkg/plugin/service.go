@@ -31,6 +31,7 @@ import (
 	"github.com/linuxsuren/atest-ext-ai/pkg/config"
 	apperrors "github.com/linuxsuren/atest-ext-ai/pkg/errors"
 	"github.com/linuxsuren/atest-ext-ai/pkg/logging"
+	"github.com/linuxsuren/atest-ext-ai/pkg/metrics"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 )
@@ -573,6 +574,18 @@ const (
 
 // handleAIGenerate handles ai.generate calls
 func (s *AIPluginService) handleAIGenerate(ctx context.Context, req *server.DataQuery) (*server.DataQueryResult, error) {
+	// Metrics: record start time and concurrent requests
+	start := time.Now()
+	provider := s.config.AI.DefaultService
+	metrics.IncrementConcurrentRequests(provider)
+
+	// Metrics: defer cleanup - record duration and decrement concurrent requests
+	defer func() {
+		duration := time.Since(start).Seconds()
+		metrics.RecordDuration("generate", provider, duration)
+		metrics.DecrementConcurrentRequests(provider)
+	}()
+
 	// Parse parameters from SQL field
 	var params struct {
 		Model  string `json:"model"`
@@ -625,6 +638,9 @@ func (s *AIPluginService) handleAIGenerate(ctx context.Context, req *server.Data
 		Context:         context,
 	})
 	if err != nil {
+		// Metrics: record failed request
+		metrics.RecordRequest("generate", provider, "error")
+
 		logging.Logger.Error("SQL generation failed",
 			"error", err,
 			"database_type", databaseType,
@@ -660,6 +676,9 @@ func (s *AIPluginService) handleAIGenerate(ctx context.Context, req *server.Data
 		"confidence", sqlResult.ConfidenceScore,
 		"model", sqlResult.ModelUsed,
 		"sql_length", len(sqlResult.SQL))
+
+	// Metrics: record successful request
+	metrics.RecordRequest("generate", provider, "success")
 
 	return &server.DataQueryResult{
 		Data: []*server.Pair{
@@ -1431,6 +1450,9 @@ func (s *AIPluginService) handleHealthCheck(ctx context.Context, req *server.Dat
 	default:
 		// Check completed
 	}
+
+	// Metrics: update health status gauge
+	metrics.SetHealthStatus(provider, healthy)
 
 	return &server.DataQueryResult{
 		Data: []*server.Pair{
