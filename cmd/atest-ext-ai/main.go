@@ -46,45 +46,49 @@ func main() {
 
 	// Setup structured logging
 	log.SetFlags(log.LstdFlags | log.Lshortfile)
-	log.Printf("Starting atest-ext-ai plugin v1.0.0")
+	log.Printf("=== Starting atest-ext-ai plugin v1.0.0 ===")
+	log.Printf("Build info: Go version %s, OS %s, Arch %s", runtime.Version(), runtime.GOOS, runtime.GOARCH)
+	log.Printf("Process PID: %d", os.Getpid())
 
 	socketPath := getSocketPath()
-	log.Printf("Using Unix socket path: %s", socketPath)
+	log.Printf("Socket configuration: %s", socketPath)
 
 	// Clean up any existing socket file
+	log.Printf("Step 1/4: Cleaning up any existing socket file...")
 	if err := cleanupSocketFile(socketPath); err != nil {
-		log.Fatalf("Failed to cleanup existing socket file: %v", err)
+		log.Fatalf("FATAL: Failed to cleanup existing socket file at %s: %v\nTroubleshooting: Check file permissions and ensure no other process is using the socket", socketPath, err)
 	}
 
 	// Create Unix socket listener
+	log.Printf("Step 2/4: Creating Unix socket listener...")
 	listener, err := createSocketListener(socketPath)
 	if err != nil {
-		log.Fatalf("Failed to create socket listener at %s: %v", socketPath, err)
+		log.Fatalf("FATAL: Failed to create socket listener at %s: %v\nTroubleshooting: Check directory permissions, disk space, and SELinux/AppArmor policies", socketPath, err)
 	}
 	defer func() {
+		log.Println("Performing cleanup...")
 		if err := listener.Close(); err != nil {
-			log.Printf("Error closing listener: %v", err)
+			log.Printf("Warning: Error closing listener: %v", err)
 		}
 		if err := cleanupSocketFile(socketPath); err != nil {
-			log.Printf("Error during socket cleanup: %v", err)
+			log.Printf("Warning: Error during socket cleanup: %v", err)
 		}
 		log.Println("Socket cleanup completed")
 	}()
 
 	// Initialize AI plugin service
+	log.Printf("Step 3/4: Initializing AI plugin service...")
 	aiPlugin, err := plugin.NewAIPluginService()
 	if err != nil {
-		log.Fatalf("Failed to initialize AI plugin service: %v", err)
+		log.Fatalf("FATAL: Failed to initialize AI plugin service: %v\nTroubleshooting: Check configuration file, AI service connectivity, and logs above for details", err)
 	}
-	log.Println("AI plugin service initialized successfully")
+	log.Println("✓ AI plugin service initialized successfully")
 
 	// Create gRPC server with enhanced configuration
+	log.Printf("Step 4/4: Registering gRPC server...")
 	grpcServer := createGRPCServer()
 	remote.RegisterLoaderServer(grpcServer, aiPlugin)
-	log.Println("gRPC server configured with LoaderServer")
-
-	// Add debug logging for all gRPC calls
-	log.Println("🎯 gRPC server registered and ready to accept calls")
+	log.Println("✓ gRPC server configured with LoaderServer")
 
 	// Handle graceful shutdown
 	ctx, cancel := context.WithCancel(context.Background())
@@ -96,13 +100,15 @@ func main() {
 
 	go func() {
 		sig := <-signalChan
-		log.Printf("Received signal: %v, initiating graceful shutdown...", sig)
+		log.Printf("\n=== Received signal: %v, initiating graceful shutdown ===", sig)
 
 		// Shutdown AI plugin first
+		log.Println("Shutting down AI plugin service...")
 		aiPlugin.Shutdown()
-		log.Println("AI plugin service shutdown completed")
+		log.Println("✓ AI plugin service shutdown completed")
 
 		// Stop gRPC server gracefully with timeout
+		log.Println("Stopping gRPC server...")
 		done := make(chan struct{})
 		go func() {
 			grpcServer.GracefulStop()
@@ -112,17 +118,20 @@ func main() {
 		// Force shutdown if graceful shutdown takes too long
 		select {
 		case <-done:
-			log.Println("gRPC server shutdown completed gracefully")
+			log.Println("✓ gRPC server shutdown completed gracefully")
 		case <-time.After(30 * time.Second):
-			log.Println("Forcing gRPC server shutdown due to timeout")
+			log.Println("⚠ Forcing gRPC server shutdown due to timeout (30s exceeded)")
 			grpcServer.Stop()
 		}
 
 		cancel()
 	}()
 
-	log.Printf("AI Plugin listening on Unix socket: %s", socketPath)
-	log.Printf("Plugin ready to accept gRPC connections")
+	log.Printf("\n=== Plugin startup completed successfully ===")
+	log.Printf("Socket path: %s", socketPath)
+	log.Printf("Status: Ready to accept gRPC connections from api-testing")
+	log.Printf("To test: Use api-testing to connect to unix://%s", socketPath)
+	log.Printf("\n")
 
 	// Start serving
 	if err := grpcServer.Serve(listener); err != nil {
@@ -130,7 +139,8 @@ func main() {
 	}
 
 	<-ctx.Done()
-	log.Println("AI Plugin shutdown complete")
+	log.Println("\n=== AI Plugin shutdown complete ===")
+
 }
 
 // getSocketPath returns the socket path from environment or default

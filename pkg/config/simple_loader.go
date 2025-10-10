@@ -65,15 +65,27 @@ func loadConfigFile() (*Config, error) {
 	}
 
 	var lastErr error
+	var attemptedPaths []string
+
 	for _, path := range searchPaths {
+		attemptedPaths = append(attemptedPaths, path)
 		cfg, err := loadYAMLFile(path)
 		if err == nil {
+			fmt.Fprintf(os.Stderr, "Configuration loaded from: %s\n", path)
 			return cfg, nil
 		}
 		lastErr = err
 	}
 
-	return nil, fmt.Errorf("no config file found: %w", lastErr)
+	// Log all attempted paths for troubleshooting
+	fmt.Fprintf(os.Stderr, "Warning: No configuration file found. Attempted paths:\n")
+	for i, path := range attemptedPaths {
+		fmt.Fprintf(os.Stderr, "  %d. %s\n", i+1, path)
+	}
+	fmt.Fprintf(os.Stderr, "Using default configuration. Last error: %v\n", lastErr)
+	fmt.Fprintf(os.Stderr, "To customize: Create config.yaml in current directory or ~/.config/atest/\n")
+
+	return nil, fmt.Errorf("no config file found (tried %d paths): %w", len(attemptedPaths), lastErr)
 }
 
 // loadYAMLFile loads configuration from a YAML file
