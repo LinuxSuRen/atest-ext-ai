@@ -41,6 +41,19 @@ var aiChatJS string
 //go:embed assets/ai-chat.css
 var aiChatCSS string
 
+// InitializationError captures detailed context about component initialization failures
+// This allows us to provide comprehensive diagnostic information in error responses
+type InitializationError struct {
+	Component string            // Component that failed (e.g., "AI Engine", "AI Manager")
+	Reason    string            // Error message explaining the failure
+	Details   map[string]string // Additional diagnostic information
+}
+
+// Global initialization error tracking for enhanced error messages
+// This is populated during service initialization and used to provide detailed context
+// when operations fail due to unavailable services
+var initErrors []InitializationError
+
 // AIPluginService implements the Loader gRPC service for AI functionality
 type AIPluginService struct {
 	remote.UnimplementedLoaderServer
@@ -81,6 +94,24 @@ func NewAIPluginService() (*AIPluginService, error) {
 		logging.Logger.Warn("AI engine initialization failed - plugin will start in degraded mode",
 			"error", err,
 			"impact", "AI generation features will be unavailable until AI service is available")
+
+		// Collect detailed initialization error for diagnostic messages
+		initErr := InitializationError{
+			Component: "AI Engine",
+			Reason:    err.Error(),
+			Details: map[string]string{
+				"default_service": cfg.AI.DefaultService,
+				"provider_count":  fmt.Sprintf("%d", len(cfg.AI.Services)),
+			},
+		}
+		// Add specific provider details if available
+		if cfg.AI.DefaultService != "" {
+			if svc, ok := cfg.AI.Services[cfg.AI.DefaultService]; ok {
+				initErr.Details["provider_endpoint"] = svc.Endpoint
+				initErr.Details["provider_model"] = svc.Model
+			}
+		}
+		initErrors = append(initErrors, initErr)
 		service.aiEngine = nil
 	} else {
 		logging.Logger.Info("AI engine initialized successfully")
@@ -93,6 +124,25 @@ func NewAIPluginService() (*AIPluginService, error) {
 		logging.Logger.Warn("AI manager initialization failed - plugin will start in degraded mode",
 			"error", err,
 			"impact", "Provider discovery and model listing will be unavailable")
+
+		// Collect detailed initialization error for diagnostic messages
+		initErr := InitializationError{
+			Component: "AI Manager",
+			Reason:    err.Error(),
+			Details: map[string]string{
+				"default_service":  cfg.AI.DefaultService,
+				"configured_count": fmt.Sprintf("%d", len(cfg.AI.Services)),
+			},
+		}
+		// Add list of configured services
+		if len(cfg.AI.Services) > 0 {
+			var services []string
+			for name := range cfg.AI.Services {
+				services = append(services, name)
+			}
+			initErr.Details["configured_services"] = strings.Join(services, ", ")
+		}
+		initErrors = append(initErrors, initErr)
 		service.aiManager = nil
 	} else {
 		logging.Logger.Info("AI manager initialized successfully")
@@ -150,8 +200,27 @@ func (s *AIPluginService) Query(ctx context.Context, req *server.DataQuery) (*se
 		// Check AI engine availability for generation requests
 		if s.aiEngine == nil {
 			logging.Logger.Error("AI generation requested but AI engine is not available")
-			return nil, status.Errorf(codes.FailedPrecondition,
-				"AI generation service is currently unavailable. Please check AI provider configuration and connectivity.")
+
+			// Build enhanced error message with initialization details
+			errMsg := "AI generation service is currently unavailable."
+
+			// Add specific initialization error information if available
+			if len(initErrors) > 0 {
+				errMsg += " Initialization errors:"
+				for _, initErr := range initErrors {
+					errMsg += fmt.Sprintf("\n- %s: %s", initErr.Component, initErr.Reason)
+					// Add relevant details
+					if len(initErr.Details) > 0 {
+						for key, value := range initErr.Details {
+							errMsg += fmt.Sprintf("\n  %s: %s", key, value)
+						}
+					}
+				}
+			} else {
+				errMsg += " Please check AI provider configuration and connectivity."
+			}
+
+			return nil, status.Errorf(codes.FailedPrecondition, errMsg)
 		}
 		return s.handleAIGenerate(ctx, req)
 	case "capabilities":
@@ -160,24 +229,78 @@ func (s *AIPluginService) Query(ctx context.Context, req *server.DataQuery) (*se
 		// Check AI manager availability for provider operations
 		if s.aiManager == nil {
 			logging.Logger.Error("Provider discovery requested but AI manager is not available")
-			return nil, status.Errorf(codes.FailedPrecondition,
-				"AI provider discovery is currently unavailable. Please check AI service configuration.")
+
+			// Build enhanced error message with initialization details
+			errMsg := "AI provider discovery is currently unavailable."
+			if len(initErrors) > 0 {
+				errMsg += " Initialization errors:"
+				for _, initErr := range initErrors {
+					if initErr.Component == "AI Manager" {
+						errMsg += fmt.Sprintf("\n- %s: %s", initErr.Component, initErr.Reason)
+						if len(initErr.Details) > 0 {
+							for key, value := range initErr.Details {
+								errMsg += fmt.Sprintf("\n  %s: %s", key, value)
+							}
+						}
+					}
+				}
+			} else {
+				errMsg += " Please check AI service configuration."
+			}
+
+			return nil, status.Errorf(codes.FailedPrecondition, errMsg)
 		}
 		return s.handleGetProviders(ctx, req)
 	case "models":
 		// Check AI manager availability for model operations
 		if s.aiManager == nil {
 			logging.Logger.Error("Model listing requested but AI manager is not available")
-			return nil, status.Errorf(codes.FailedPrecondition,
-				"AI model listing is currently unavailable. Please check AI service configuration.")
+
+			// Build enhanced error message with initialization details
+			errMsg := "AI model listing is currently unavailable."
+			if len(initErrors) > 0 {
+				errMsg += " Initialization errors:"
+				for _, initErr := range initErrors {
+					if initErr.Component == "AI Manager" {
+						errMsg += fmt.Sprintf("\n- %s: %s", initErr.Component, initErr.Reason)
+						if len(initErr.Details) > 0 {
+							for key, value := range initErr.Details {
+								errMsg += fmt.Sprintf("\n  %s: %s", key, value)
+							}
+						}
+					}
+				}
+			} else {
+				errMsg += " Please check AI service configuration."
+			}
+
+			return nil, status.Errorf(codes.FailedPrecondition, errMsg)
 		}
 		return s.handleGetModels(ctx, req)
 	case "test_connection":
 		// Connection testing can work even without initialized services
 		if s.aiManager == nil {
 			logging.Logger.Error("Connection test requested but AI manager is not available")
-			return nil, status.Errorf(codes.FailedPrecondition,
-				"AI connection testing is currently unavailable. Please check AI service configuration.")
+
+			// Build enhanced error message with initialization details
+			errMsg := "AI connection testing is currently unavailable."
+			if len(initErrors) > 0 {
+				errMsg += " Initialization errors:"
+				for _, initErr := range initErrors {
+					if initErr.Component == "AI Manager" {
+						errMsg += fmt.Sprintf("\n- %s: %s", initErr.Component, initErr.Reason)
+						if len(initErr.Details) > 0 {
+							for key, value := range initErr.Details {
+								errMsg += fmt.Sprintf("\n  %s: %s", key, value)
+							}
+						}
+					}
+				}
+			} else {
+				errMsg += " Please check AI service configuration."
+			}
+
+			return nil, status.Errorf(codes.FailedPrecondition, errMsg)
 		}
 		return s.handleTestConnection(ctx, req)
 	case "health_check":
@@ -185,8 +308,26 @@ func (s *AIPluginService) Query(ctx context.Context, req *server.DataQuery) (*se
 	case "update_config":
 		if s.aiManager == nil {
 			logging.Logger.Error("Config update requested but AI manager is not available")
-			return nil, status.Errorf(codes.FailedPrecondition,
-				"AI configuration update is currently unavailable. Please check AI service configuration.")
+
+			// Build enhanced error message with initialization details
+			errMsg := "AI configuration update is currently unavailable."
+			if len(initErrors) > 0 {
+				errMsg += " Initialization errors:"
+				for _, initErr := range initErrors {
+					if initErr.Component == "AI Manager" {
+						errMsg += fmt.Sprintf("\n- %s: %s", initErr.Component, initErr.Reason)
+						if len(initErr.Details) > 0 {
+							for key, value := range initErr.Details {
+								errMsg += fmt.Sprintf("\n  %s: %s", key, value)
+							}
+						}
+					}
+				}
+			} else {
+				errMsg += " Please check AI service configuration."
+			}
+
+			return nil, status.Errorf(codes.FailedPrecondition, errMsg)
 		}
 		return s.handleUpdateConfig(ctx, req)
 	default:
@@ -194,8 +335,27 @@ func (s *AIPluginService) Query(ctx context.Context, req *server.DataQuery) (*se
 		// Check AI engine availability for legacy queries
 		if s.aiEngine == nil {
 			logging.Logger.Error("AI query requested but AI engine is not available")
-			return nil, status.Errorf(codes.FailedPrecondition,
-				"AI service is currently unavailable. Please check AI provider configuration and connectivity.")
+
+			// Build enhanced error message with initialization details
+			errMsg := "AI service is currently unavailable."
+
+			// Add specific initialization error information if available
+			if len(initErrors) > 0 {
+				errMsg += " Initialization errors:"
+				for _, initErr := range initErrors {
+					errMsg += fmt.Sprintf("\n- %s: %s", initErr.Component, initErr.Reason)
+					// Add relevant details
+					if len(initErr.Details) > 0 {
+						for key, value := range initErr.Details {
+							errMsg += fmt.Sprintf("\n  %s: %s", key, value)
+						}
+					}
+				}
+			} else {
+				errMsg += " Please check AI provider configuration and connectivity."
+			}
+
+			return nil, status.Errorf(codes.FailedPrecondition, errMsg)
 		}
 		return s.handleLegacyQuery(ctx, req)
 	}
