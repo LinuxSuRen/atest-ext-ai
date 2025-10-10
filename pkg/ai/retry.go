@@ -18,27 +18,13 @@ package ai
 
 import (
 	"context"
-	"crypto/rand"
-	"encoding/binary"
 	"errors"
-	"fmt"
-	"math"
 	"net"
 	"syscall"
 	"time"
-)
 
-// secureRandFloat64 generates a cryptographically secure random float64 between 0 and 1
-func secureRandFloat64() float64 {
-	var b [8]byte
-	if _, err := rand.Read(b[:]); err != nil {
-		// Fallback to 0.05 if crypto/rand fails (very unlikely)
-		return 0.05
-	}
-	// Convert to uint64 and then to float64 in range [0, 1)
-	val := binary.BigEndian.Uint64(b[:])
-	return float64(val) / float64(^uint64(0))
-}
+	"github.com/cenkalti/backoff/v4"
+)
 
 // retryableError is an error that can be retried
 type retryableError struct {
@@ -59,7 +45,7 @@ func (e *retryableError) IsRetryable() bool {
 	return e.retryable
 }
 
-// defaultRetryManager implements the RetryManager interface
+// defaultRetryManager implements the RetryManager interface using cenkalti/backoff
 type defaultRetryManager struct {
 	config RetryConfig
 }
@@ -85,92 +71,66 @@ func NewDefaultRetryManager(config RetryConfig) RetryManager {
 	}
 }
 
+// createBackoff creates a backoff strategy from config
+func (rm *defaultRetryManager) createBackoff(ctx context.Context) backoff.BackOff {
+	expBackoff := backoff.NewExponentialBackOff()
+	expBackoff.InitialInterval = rm.config.BaseDelay
+	expBackoff.MaxInterval = rm.config.MaxDelay
+	expBackoff.Multiplier = rm.config.BackoffMultiplier
+	expBackoff.MaxElapsedTime = 0 // No max elapsed time, use max attempts instead
+
+	// Apply jitter if enabled (backoff lib uses jitter by default)
+	if !rm.config.Jitter {
+		// Disable randomization if jitter is disabled
+		expBackoff.RandomizationFactor = 0
+	}
+
+	// Wrap with context
+	return backoff.WithContext(expBackoff, ctx)
+}
+
 // Execute executes a function with retry logic
 func (rm *defaultRetryManager) Execute(ctx context.Context, fn func() error) error {
-	var lastErr error
-
-	for attempt := 0; attempt < rm.config.MaxAttempts; attempt++ {
-		// Check if context is cancelled
-		select {
-		case <-ctx.Done():
-			return ctx.Err()
-		default:
-		}
-
-		// Execute the function
+	operation := func() error {
 		err := fn()
 		if err == nil {
 			return nil
 		}
 
-		lastErr = err
-
 		// Check if we should retry
 		if !rm.ShouldRetry(err) {
-			return err
+			return backoff.Permanent(err)
 		}
 
-		// Don't wait after the last attempt
-		if attempt == rm.config.MaxAttempts-1 {
-			break
-		}
-
-		// Calculate delay
-		delay := rm.GetRetryDelay(attempt)
-
-		// Wait before retrying
-		select {
-		case <-ctx.Done():
-			return ctx.Err()
-		case <-time.After(delay):
-		}
+		return err
 	}
 
-	return fmt.Errorf("all retry attempts failed, last error: %w", lastErr)
+	b := rm.createBackoff(ctx)
+	return backoff.Retry(operation, backoff.WithMaxRetries(b, uint64(rm.config.MaxAttempts-1)))
 }
 
 // ExecuteWithResult executes a function with retry logic and returns a result
 func (rm *defaultRetryManager) ExecuteWithResult(ctx context.Context, fn func() (*GenerateResponse, error)) (*GenerateResponse, error) {
-	var lastErr error
+	var result *GenerateResponse
 
-	for attempt := 0; attempt < rm.config.MaxAttempts; attempt++ {
-		// Check if context is cancelled
-		select {
-		case <-ctx.Done():
-			return nil, ctx.Err()
-		default:
-		}
-
-		// Execute the function
-		result, err := fn()
+	operation := func() error {
+		res, err := fn()
 		if err == nil {
-			return result, nil
+			result = res
+			return nil
 		}
-
-		lastErr = err
 
 		// Check if we should retry
 		if !rm.ShouldRetry(err) {
-			return nil, err
+			return backoff.Permanent(err)
 		}
 
-		// Don't wait after the last attempt
-		if attempt == rm.config.MaxAttempts-1 {
-			break
-		}
-
-		// Calculate delay
-		delay := rm.GetRetryDelay(attempt)
-
-		// Wait before retrying
-		select {
-		case <-ctx.Done():
-			return nil, ctx.Err()
-		case <-time.After(delay):
-		}
+		return err
 	}
 
-	return nil, fmt.Errorf("all retry attempts failed, last error: %w", lastErr)
+	b := rm.createBackoff(ctx)
+	err := backoff.Retry(operation, backoff.WithMaxRetries(b, uint64(rm.config.MaxAttempts-1)))
+	return result, err
 }
 
 // ShouldRetry determines if an error should trigger a retry
@@ -190,21 +150,24 @@ func (rm *defaultRetryManager) ShouldRetry(err error) bool {
 }
 
 // GetRetryDelay calculates the delay before the next retry attempt
+// Note: This is now handled by backoff library, but kept for interface compatibility
 func (rm *defaultRetryManager) GetRetryDelay(attempt int) time.Duration {
-	delay := float64(rm.config.BaseDelay) * math.Pow(rm.config.BackoffMultiplier, float64(attempt))
+	// Create a temporary backoff to calculate delay
+	expBackoff := backoff.NewExponentialBackOff()
+	expBackoff.InitialInterval = rm.config.BaseDelay
+	expBackoff.MaxInterval = rm.config.MaxDelay
+	expBackoff.Multiplier = rm.config.BackoffMultiplier
 
-	// Apply jitter if enabled
-	if rm.config.Jitter {
-		jitter := secureRandFloat64() * 0.1 // 10% jitter
-		delay = delay * (1 + jitter)
+	if !rm.config.Jitter {
+		expBackoff.RandomizationFactor = 0
 	}
 
-	// Ensure we don't exceed max delay
-	if time.Duration(delay) > rm.config.MaxDelay {
-		delay = float64(rm.config.MaxDelay)
+	// Calculate delay for the given attempt
+	for i := 0; i < attempt; i++ {
+		_ = expBackoff.NextBackOff()
 	}
 
-	return time.Duration(delay)
+	return expBackoff.NextBackOff()
 }
 
 // isRetryableError checks if an error is retryable based on error type
