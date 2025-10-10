@@ -469,7 +469,17 @@ func (s *AIPluginService) handleAIGenerate(ctx context.Context, req *server.Data
 			"error", err,
 			"database_type", databaseType,
 			"prompt_length", len(params.Prompt))
-		return nil, apperrors.ToGRPCErrorf(apperrors.ErrProviderNotAvailable, "failed to generate SQL: %v", err)
+
+		// Business logic error: return error in response data, not as gRPC error
+		// This allows the main project to handle it gracefully
+		return &server.DataQueryResult{
+			Data: []*server.Pair{
+				{Key: "api_version", Value: APIVersion},
+				{Key: "success", Value: "false"},
+				{Key: "error", Value: err.Error()},
+				{Key: "error_code", Value: "GENERATION_FAILED"},
+			},
+		}, nil
 	}
 
 	// Return in simplified format with line break
@@ -949,7 +959,15 @@ func (s *AIPluginService) handleLegacyQuery(ctx context.Context, req *server.Dat
 	})
 	if err != nil {
 		logging.Logger.Error("Failed to generate SQL", "error", err)
-		return nil, status.Errorf(codes.Internal, "failed to generate SQL: %v", err)
+
+		// Business logic error: return error in response data, not as gRPC error
+		return &server.DataQueryResult{
+			Data: []*server.Pair{
+				{Key: "success", Value: "false"},
+				{Key: "error", Value: err.Error()},
+				{Key: "error_code", Value: "GENERATION_FAILED"},
+			},
+		}, nil
 	}
 
 	// Create response in simplified format with line break

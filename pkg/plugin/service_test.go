@@ -192,6 +192,7 @@ func TestSuccessFieldConsistency(t *testing.T) {
 
 		var hasSuccess bool
 		var hasError bool
+		var hasErrorCode bool
 		var successValue string
 
 		for _, pair := range mockErrorResponse.Data {
@@ -202,11 +203,47 @@ func TestSuccessFieldConsistency(t *testing.T) {
 			if pair.Key == "error" {
 				hasError = true
 			}
+			if pair.Key == "error_code" {
+				hasErrorCode = true
+			}
 		}
 
 		assert.True(t, hasSuccess, "success field must be present even on error")
 		assert.Equal(t, "false", successValue, "success should be 'false' on error")
 		assert.True(t, hasError, "error field should be present on error")
+		assert.True(t, hasErrorCode, "error_code field should be present on error")
+	})
+
+	t.Run("success response must not contain error fields", func(t *testing.T) {
+		// Verify successful responses don't accidentally include error fields
+		mockSuccessResponse := &server.DataQueryResult{
+			Data: []*server.Pair{
+				{Key: "api_version", Value: "v1"},
+				{Key: "generated_sql", Value: "sql:SELECT * FROM users;"},
+				{Key: "success", Value: "true"},
+				{Key: "meta", Value: `{"confidence": 0.9}`},
+			},
+		}
+
+		var hasError bool
+		var hasErrorCode bool
+		var successValue string
+
+		for _, pair := range mockSuccessResponse.Data {
+			if pair.Key == "success" {
+				successValue = pair.Value
+			}
+			if pair.Key == "error" {
+				hasError = true
+			}
+			if pair.Key == "error_code" {
+				hasErrorCode = true
+			}
+		}
+
+		assert.Equal(t, "true", successValue, "success should be 'true'")
+		assert.False(t, hasError, "error field must not be present in successful response")
+		assert.False(t, hasErrorCode, "error_code field must not be present in successful response")
 	})
 }
 
