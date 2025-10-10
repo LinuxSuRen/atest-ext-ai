@@ -574,16 +574,12 @@ const (
 
 // handleAIGenerate handles ai.generate calls
 func (s *AIPluginService) handleAIGenerate(ctx context.Context, req *server.DataQuery) (*server.DataQueryResult, error) {
-	// Metrics: record start time and concurrent requests
 	start := time.Now()
 	provider := s.config.AI.DefaultService
-	metrics.IncrementConcurrentRequests(provider)
 
-	// Metrics: defer cleanup - record duration and decrement concurrent requests
 	defer func() {
 		duration := time.Since(start).Seconds()
 		metrics.RecordDuration("generate", provider, duration)
-		metrics.DecrementConcurrentRequests(provider)
 	}()
 
 	// Parse parameters from SQL field
@@ -1450,9 +1446,6 @@ func (s *AIPluginService) handleHealthCheck(ctx context.Context, req *server.Dat
 	default:
 		// Check completed
 	}
-
-	// Metrics: update health status gauge
-	metrics.SetHealthStatus(provider, healthy)
 
 	return &server.DataQueryResult{
 		Data: []*server.Pair{
