@@ -23,8 +23,8 @@ import (
 	"sync"
 	"time"
 
-	"github.com/linuxsuren/atest-ext-ai/pkg/ai/providers/local"
 	"github.com/linuxsuren/atest-ext-ai/pkg/ai/providers/openai"
+	"github.com/linuxsuren/atest-ext-ai/pkg/ai/providers/universal"
 	"github.com/linuxsuren/atest-ext-ai/pkg/config"
 	"github.com/linuxsuren/atest-ext-ai/pkg/interfaces"
 )
@@ -500,28 +500,30 @@ func (f *defaultClientFactory) createOpenAIClient(config map[string]any) (interf
 	return openai.NewClient(openaiConfig)
 }
 
-// createLocalClient creates a local client from config
+// createLocalClient creates a local/ollama client using UniversalClient
 func (f *defaultClientFactory) createLocalClient(config map[string]any) (interfaces.AIClient, error) {
-	localConfig := &local.Config{}
+	universalConfig := &universal.Config{
+		Provider: "ollama",
+	}
 
 	if baseURL, ok := config["base_url"].(string); ok {
-		localConfig.BaseURL = baseURL
+		universalConfig.Endpoint = baseURL
 	}
 	if model, ok := config["model"].(string); ok {
-		localConfig.Model = model
+		universalConfig.Model = model
 	}
 	if timeout, ok := config["timeout"].(time.Duration); ok {
-		localConfig.Timeout = timeout
+		universalConfig.Timeout = timeout
 	} else if timeoutStr, ok := config["timeout"].(string); ok {
 		if duration, err := time.ParseDuration(timeoutStr); err == nil {
-			localConfig.Timeout = duration
+			universalConfig.Timeout = duration
 		}
 	}
 	if maxTokens, ok := config["max_tokens"].(int); ok {
-		localConfig.MaxTokens = maxTokens
+		universalConfig.MaxTokens = maxTokens
 	}
 
-	return local.NewClient(localConfig)
+	return universal.NewUniversalClient(universalConfig)
 }
 
 // createDeepSeekClient creates a DeepSeek client using OpenAI-compatible interface
