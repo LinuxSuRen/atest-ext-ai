@@ -27,6 +27,7 @@ import (
 	"github.com/linuxsuren/atest-ext-ai/pkg/ai/providers/universal"
 	"github.com/linuxsuren/atest-ext-ai/pkg/config"
 	"github.com/linuxsuren/atest-ext-ai/pkg/interfaces"
+	"github.com/linuxsuren/atest-ext-ai/pkg/logging"
 )
 
 // SQLGenerator handles SQL generation from natural language
@@ -224,7 +225,7 @@ func (g *SQLGenerator) Generate(ctx context.Context, naturalLanguage string, opt
 
 	// Check if we need to create a runtime client with API key
 	if options.Provider != "" && options.APIKey != "" {
-		fmt.Printf("🔑 [DEBUG] Creating runtime AI client for provider: %s\n", options.Provider)
+		logging.Logger.Info("Creating runtime AI client", "provider", options.Provider, "has_api_key", options.APIKey != "")
 
 		// Create runtime client configuration
 		runtimeConfig := map[string]any{
@@ -240,10 +241,10 @@ func (g *SQLGenerator) Generate(ctx context.Context, naturalLanguage string, opt
 		// Create runtime client directly
 		runtimeClient, clientErr := createRuntimeClient(options.Provider, runtimeConfig)
 		if clientErr != nil {
-			fmt.Printf("⚠️ [DEBUG] Failed to create runtime client: %v, falling back to default\n", clientErr)
+			logging.Logger.Warn("Runtime client creation failed, using default client", "provider", options.Provider, "error", clientErr)
 		} else {
 			aiClient = runtimeClient
-			fmt.Printf("✅ [DEBUG] Successfully created runtime AI client for %s\n", options.Provider)
+			logging.Logger.Info("Runtime AI client created successfully", "provider", options.Provider)
 		}
 	}
 
@@ -434,7 +435,7 @@ func (g *SQLGenerator) extractSQLFromResponse(responseText string) (*SQLResponse
 	responseText = strings.TrimSpace(responseText)
 
 	// DEBUG: Log the raw AI response to understand what we're getting
-	fmt.Printf("🔍 [DEBUG] Raw AI Response: %s\n", responseText)
+	logging.Logger.Debug("AI response received", "response_length", len(responseText), "response_preview", truncateString(responseText, 100))
 
 	// First try to parse the new simple format: "sql:...\nexplanation:..."
 	if strings.HasPrefix(responseText, "sql:") {
@@ -699,4 +700,12 @@ func createRuntimeClient(provider string, runtimeConfig map[string]any) (interfa
 	default:
 		return nil, fmt.Errorf("%w: %s", ErrProviderNotSupported, provider)
 	}
+}
+
+// truncateString truncates a string to the specified length, adding "..." if truncated
+func truncateString(s string, maxLen int) string {
+	if len(s) <= maxLen {
+		return s
+	}
+	return s[:maxLen] + "..."
 }
