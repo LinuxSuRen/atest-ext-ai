@@ -168,5 +168,8 @@ pids/
 # IDE Configuration files
 .claude/
 
-# Environment files  
+# Environment files
 .env.local*
+
+# Task runner cache
+.task/

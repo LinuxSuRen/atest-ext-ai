@@ -42,7 +42,7 @@ export ATEST_EXT_AI_OPENAI_MODEL=gpt-4
 export ATEST_EXT_AI_LOG_LEVEL=debug
 ```
 
-See `config.example.yaml` for all available options.
+See `config.yaml` for available configuration options.
 
 ## Development
 
@@ -50,7 +50,7 @@ See `config.example.yaml` for all available options.
 
 ```bash
 # Build and install plugin for local development (single command)
-make install-local
+task install-local
 
 # The plugin binary will be installed to ~/.config/atest/bin/
 # and automatically discovered by the API Testing Server
@@ -61,10 +61,10 @@ make install-local
 
 ```bash
 # Build and push OCI image to GitHub Container Registry (single command)
-make docker-release-github
+task docker-release-github
 
 # Or push to custom registry
-make docker-release DOCKER_REGISTRY=your-registry.com
+task docker-release DOCKER_REGISTRY=your-registry.com
 
 # This will:
 # 1. Build the Docker image
@@ -74,9 +74,9 @@ make docker-release DOCKER_REGISTRY=your-registry.com
 
 ### Available Commands
 
-- `make install-local` - Build and install for local development (replaces existing)
-- `make docker-release-github` - Build and push OCI image to GitHub Container Registry
-- `make docker-release` - Build and push OCI image to custom registry
-- `make test` - Run tests
-- `make clean` - Clean build artifacts
-- `make help` - Show all available commands
+- `task install-local` - Build and install for local development (replaces existing)
+- `task docker-release-github` - Build and push OCI image to GitHub Container Registry
+- `task docker-release` - Build and push OCI image to custom registry
+- `task test` - Run tests
+- `task clean` - Clean build artifacts
+- `task help` - Show all available commands (or just run `task --list`)

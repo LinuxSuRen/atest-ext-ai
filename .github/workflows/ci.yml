@@ -41,12 +41,16 @@ jobs:
         restore-keys: |
           ${{ runner.os }}-go-
 
+    - name: Install Task
+      run: |
+        go install github.com/go-task/task/v3/cmd/task@latest
+
     - name: Install dependencies
-      run: make deps
+      run: task deps
 
     - name: Format check
       run: |
-        make fmt
+        task fmt
         if [ -n "$(git status --porcelain)" ]; then
           echo "Code is not formatted properly"
           git diff
@@ -71,7 +75,7 @@ jobs:
         echo "Gosec scan completed"
 
     - name: Verify Go modules
-      run: make mod-verify
+      run: go mod verify
 
   # Comprehensive testing
   test:
@@ -143,11 +147,15 @@ jobs:
           ~/go/pkg/mod
         key: ${{ runner.os }}-go-${{ matrix.go-version }}-${{ hashFiles('**/go.sum') }}
 
+    - name: Install Task
+      run: |
+        go install github.com/go-task/task/v3/cmd/task@latest
+
     - name: Install dependencies
-      run: make deps
+      run: task deps
 
     - name: Run unit tests
-      run: make test
+      run: task test
       env:
         POSTGRES_URL: postgres://testuser:testpass@localhost:5432/testdb?sslmode=disable
         MYSQL_URL: testuser:testpass@tcp(localhost:3306)/testdb
@@ -156,11 +164,11 @@ jobs:
     - name: Verify plugin functionality
       run: |
         echo "Testing plugin build and basic functionality..."
-        make build
+        task build
         echo "Plugin built successfully"
 
     - name: Run benchmarks
-      run: make benchmark
+      run: task benchmark
 
     - name: Upload coverage to Codecov
       if: matrix.go-version == '1.22'

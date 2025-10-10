@@ -5,9 +5,7 @@ go 1.23.0
 toolchain go1.24.2
 
 require (
-	github.com/cenkalti/backoff/v4 v4.3.0
 	github.com/linuxsuren/api-testing v0.0.19
-	github.com/pelletier/go-toml/v2 v2.2.4
 	github.com/tmc/langchaingo v0.1.13
 	google.golang.org/grpc v1.73.0
 	gopkg.in/yaml.v2 v2.4.0
