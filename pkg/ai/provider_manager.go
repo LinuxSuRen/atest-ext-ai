@@ -86,10 +86,25 @@ func (pm *ProviderManager) DiscoverProviders(ctx context.Context) ([]*ProviderIn
 
 	// Check for Ollama
 	if pm.discovery.IsAvailable(ctx) {
-		models, err := pm.discovery.GetModels(ctx)
+		endpoint := pm.discovery.GetBaseURL()
+
+		// Create Ollama client
+		config := &universal.Config{
+			Provider:        "ollama",
+			Endpoint:        endpoint,
+			Model:           "llama2",
+			MaxTokens:       4096,
+			StreamSupported: true,
+		}
+		client, err := universal.NewUniversalClient(config)
 		if err == nil {
-			// Get the configured endpoint from discovery
-			endpoint := pm.discovery.GetBaseURL()
+			pm.clients["ollama"] = client
+
+			// Get models through the AIClient interface
+			var models []interfaces.ModelInfo
+			if caps, err := client.GetCapabilities(ctx); err == nil {
+				models = caps.Models
+			}
 
 			provider := &ProviderInfo{
 				Name:        "ollama",
@@ -101,17 +116,6 @@ func (pm *ProviderManager) DiscoverProviders(ctx context.Context) ([]*ProviderIn
 			}
 			pm.providers["ollama"] = provider
 			providers = append(providers, provider)
-
-			// Create Ollama client
-			config := &universal.Config{
-				Provider:        "ollama",
-				Endpoint:        endpoint,
-				Model:           "llama2",
-				MaxTokens:       4096,
-				StreamSupported: true,
-			}
-			client, _ := universal.NewUniversalClient(config)
-			pm.clients["ollama"] = client
 		}
 	}
 
@@ -169,32 +173,29 @@ func (pm *ProviderManager) GetModels(ctx context.Context, providerName string) (
 		return provider.Models, nil
 	}
 
-	// Otherwise, refresh models
-	if providerName == "ollama" {
-		models, err := pm.discovery.GetModels(ctx)
-		if err != nil {
-			return nil, err
-		}
-
-		pm.mu.Lock()
-		provider.Models = models
-		provider.LastChecked = time.Now()
-		pm.mu.Unlock()
-
-		return models, nil
-	}
-
-	// For other providers, use the client's GetCapabilities
+	// Refresh models through the AIClient interface (unified for all providers)
 	client, exists := pm.clients[providerName]
-	if exists {
-		caps, err := client.GetCapabilities(ctx)
-		if err != nil {
-			return nil, err
-		}
-		return caps.Models, nil
+	if !exists {
+		// If no client exists, return cached models
+		return provider.Models, nil
 	}
 
-	return provider.Models, nil
+	caps, err := client.GetCapabilities(ctx)
+	if err != nil {
+		// On error, return cached models if available
+		if len(provider.Models) > 0 {
+			return provider.Models, nil
+		}
+		return nil, err
+	}
+
+	// Update cache
+	pm.mu.Lock()
+	provider.Models = caps.Models
+	provider.LastChecked = time.Now()
+	pm.mu.Unlock()
+
+	return caps.Models, nil
 }
 
 // TestConnection tests the connection to a provider
