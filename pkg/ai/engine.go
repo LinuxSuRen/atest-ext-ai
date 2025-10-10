@@ -165,7 +165,6 @@ func NewClaudeEngine(cfg config.AIConfig) (Engine, error) {
 	return NewEngine(cfg)
 }
 
-
 // GenerateSQL implements Engine.GenerateSQL with full AI integration
 func (e *aiEngine) GenerateSQL(ctx context.Context, req *GenerateSQLRequest) (*GenerateSQLResponse, error) {
 	if e.generator == nil {
@@ -248,7 +247,6 @@ func (e *aiEngine) GenerateSQL(ctx context.Context, req *GenerateSQLRequest) (*G
 	}, nil
 }
 
-
 // GetCapabilities implements Engine.GetCapabilities for AI engine
 func (e *aiEngine) GetCapabilities() *SQLCapabilities {
 	if e.generator != nil {
@@ -266,7 +264,6 @@ func (e *aiEngine) GetCapabilities() *SQLCapabilities {
 		},
 	}
 }
-
 
 // IsHealthy implements Engine.IsHealthy for AI engine
 func (e *aiEngine) IsHealthy() bool {
