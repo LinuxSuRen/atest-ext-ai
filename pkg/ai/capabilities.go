@@ -136,7 +136,7 @@ type ProcessingLimits struct {
 // CapabilityDetector handles dynamic capability detection and reporting
 type CapabilityDetector struct {
 	config         config.AIConfig
-	client         *Client
+	manager        *AIManager
 	cache          *capabilityCache
 	healthChecker  *CapabilityHealthChecker
 	mu             sync.RWMutex
@@ -160,10 +160,10 @@ type CapabilityHealthChecker struct {
 }
 
 // NewCapabilityDetector creates a new capability detector
-func NewCapabilityDetector(cfg config.AIConfig, client *Client) *CapabilityDetector {
+func NewCapabilityDetector(cfg config.AIConfig, manager *AIManager) *CapabilityDetector {
 	detector := &CapabilityDetector{
 		config:         cfg,
-		client:         client,
+		manager:        manager,
 		updateInterval: 5 * time.Minute, // Default update interval
 		cache: &capabilityCache{
 			ttl: 5 * time.Minute, // Default cache TTL
@@ -175,8 +175,8 @@ func NewCapabilityDetector(cfg config.AIConfig, client *Client) *CapabilityDetec
 	}
 
 	// Initialize health checker with available clients
-	if client != nil {
-		for name, client := range client.GetAllClients() {
+	if manager != nil {
+		for name, client := range manager.GetAllClients() {
 			detector.healthChecker.providers[name] = client
 		}
 	}
@@ -252,8 +252,8 @@ func (d *CapabilityDetector) GetCapabilities(ctx context.Context, req *Capabilit
 func (d *CapabilityDetector) detectModelCapabilities(ctx context.Context) ([]ModelCapability, error) {
 	var capabilities []ModelCapability
 
-	if d.client == nil {
-		// Return default capabilities if no client available
+	if d.manager == nil {
+		// Return default capabilities if no manager available
 		return []ModelCapability{
 			{
 				Name:        "basic",
@@ -268,7 +268,7 @@ func (d *CapabilityDetector) detectModelCapabilities(ctx context.Context) ([]Mod
 	}
 
 	// Get all available clients
-	clients := d.client.GetAllClients()
+	clients := d.manager.GetAllClients()
 	for providerName, client := range clients {
 		// Get capabilities from each provider
 		clientCaps, err := client.GetCapabilities(ctx)
@@ -408,7 +408,7 @@ func (d *CapabilityDetector) detectFeatureCapabilities() []FeatureCapability {
 	}
 
 	// Dynamically adjust feature status based on configuration
-	if d.client != nil && d.client.GetPrimaryClient() != nil {
+	if d.manager != nil && d.manager.GetPrimaryClient() != nil {
 		// If we have a working AI client, enable more features
 		for i := range features {
 			if features[i].Name == "sql-optimization" && len(features[i].Dependencies) == 1 {
@@ -465,18 +465,18 @@ func (d *CapabilityDetector) performHealthChecks(ctx context.Context) (*HealthSt
 func (d *CapabilityDetector) checkEngineHealth(ctx context.Context) HealthInfo {
 	start := time.Now()
 
-	if d.client == nil {
+	if d.manager == nil {
 		return HealthInfo{
 			Status:       "unavailable",
 			Healthy:      false,
 			ResponseTime: time.Since(start),
 			LastCheck:    time.Now(),
-			Errors:       []string{"no AI client available"},
-			Message:      "AI client not initialized",
+			Errors:       []string{"no AI manager available"},
+			Message:      "AI manager not initialized",
 		}
 	}
 
-	primaryClient := d.client.GetPrimaryClient()
+	primaryClient := d.manager.GetPrimaryClient()
 	if primaryClient == nil {
 		return HealthInfo{
 			Status:       "degraded",

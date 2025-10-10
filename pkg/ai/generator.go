@@ -23,6 +23,8 @@ import (
 	"strings"
 	"time"
 
+	"github.com/linuxsuren/atest-ext-ai/pkg/ai/providers/openai"
+	"github.com/linuxsuren/atest-ext-ai/pkg/ai/providers/universal"
 	"github.com/linuxsuren/atest-ext-ai/pkg/config"
 	"github.com/linuxsuren/atest-ext-ai/pkg/interfaces"
 )
@@ -235,19 +237,13 @@ func (g *SQLGenerator) Generate(ctx context.Context, naturalLanguage string, opt
 			runtimeConfig["model"] = options.Model
 		}
 
-		// Create client factory and runtime client
-		factory, factoryErr := NewDefaultClientFactory()
-		if factoryErr != nil {
-			fmt.Printf("⚠️ [DEBUG] Failed to create client factory: %v, falling back to default\n", factoryErr)
+		// Create runtime client directly
+		runtimeClient, clientErr := createRuntimeClient(options.Provider, runtimeConfig)
+		if clientErr != nil {
+			fmt.Printf("⚠️ [DEBUG] Failed to create runtime client: %v, falling back to default\n", clientErr)
 		} else {
-			// Create runtime client using the factory
-			runtimeClient, clientErr := factory.CreateClient(options.Provider, runtimeConfig)
-			if clientErr != nil {
-				fmt.Printf("⚠️ [DEBUG] Failed to create runtime client: %v, falling back to default\n", clientErr)
-			} else {
-				aiClient = runtimeClient
-				fmt.Printf("✅ [DEBUG] Successfully created runtime AI client for %s\n", options.Provider)
-			}
+			aiClient = runtimeClient
+			fmt.Printf("✅ [DEBUG] Successfully created runtime AI client for %s\n", options.Provider)
 		}
 	}
 
@@ -628,4 +624,79 @@ func contains(slice []string, item string) bool {
 		}
 	}
 	return false
+}
+
+// createRuntimeClient creates an AI client from runtime configuration
+func createRuntimeClient(provider string, runtimeConfig map[string]any) (interfaces.AIClient, error) {
+	// Normalize provider name (local -> ollama)
+	provider = strings.ToLower(strings.TrimSpace(provider))
+	if provider == "local" {
+		provider = "ollama"
+	}
+
+	// Extract common configuration values
+	apiKey := ""
+	if val, ok := runtimeConfig["api_key"].(string); ok {
+		apiKey = val
+	}
+
+	baseURL := ""
+	if val, ok := runtimeConfig["base_url"].(string); ok {
+		baseURL = val
+	}
+
+	model := ""
+	if val, ok := runtimeConfig["model"].(string); ok {
+		model = val
+	}
+
+	maxTokens := 2000
+	if val, ok := runtimeConfig["max_tokens"].(float64); ok {
+		maxTokens = int(val)
+	} else if val, ok := runtimeConfig["max_tokens"].(int); ok {
+		maxTokens = val
+	}
+
+	// Create client based on provider type
+	switch provider {
+	case "openai", "deepseek", "custom":
+		// Create OpenAI-compatible client
+		config := &openai.Config{
+			APIKey:    apiKey,
+			BaseURL:   baseURL,
+			Model:     model,
+			MaxTokens: maxTokens,
+		}
+
+		// Set default endpoints for known providers
+		if provider == "deepseek" && config.BaseURL == "" {
+			config.BaseURL = "https://api.deepseek.com/v1"
+		}
+
+		// Custom provider requires endpoint
+		if provider == "custom" && config.BaseURL == "" {
+			return nil, fmt.Errorf("endpoint is required for custom provider")
+		}
+
+		return openai.NewClient(config)
+
+	case "ollama":
+		// Create Ollama client (using universal provider)
+		config := &universal.Config{
+			Provider:  "ollama",
+			Endpoint:  baseURL,
+			Model:     model,
+			MaxTokens: maxTokens,
+		}
+
+		// Default endpoint for Ollama
+		if config.Endpoint == "" {
+			config.Endpoint = "http://localhost:11434"
+		}
+
+		return universal.NewUniversalClient(config)
+
+	default:
+		return nil, fmt.Errorf("%w: %s", ErrProviderNotSupported, provider)
+	}
 }

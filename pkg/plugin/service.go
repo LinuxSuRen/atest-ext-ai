@@ -47,7 +47,7 @@ type AIPluginService struct {
 	aiEngine           ai.Engine
 	config             *config.Config
 	capabilityDetector *ai.CapabilityDetector
-	providerManager    *ai.ProviderManager
+	aiManager          *ai.AIManager
 }
 
 // NewAIPluginService creates a new AI plugin service instance
@@ -68,27 +68,23 @@ func NewAIPluginService() (*AIPluginService, error) {
 	}
 	logging.Logger.Info("AI engine initialized successfully")
 
-	// Create AI client for capability detection
-	var aiClient *ai.Client
-	aiClient, err = ai.NewClient(cfg.AI)
+	// Initialize unified AI manager
+	aiManager, err := ai.NewAIManager(cfg.AI)
 	if err != nil {
-		logging.Logger.Warn("Failed to create AI client for capabilities", "error", err)
-		// Continue without AI client - capability detector will work with limited functionality
+		logging.Logger.Error("Failed to initialize AI manager", "error", err)
+		return nil, fmt.Errorf("failed to initialize AI manager: %w", err)
 	}
+	logging.Logger.Info("AI manager initialized successfully")
 
-	// Initialize capability detector
-	capabilityDetector := ai.NewCapabilityDetector(cfg.AI, aiClient)
+	// Initialize capability detector with AI manager
+	capabilityDetector := ai.NewCapabilityDetector(cfg.AI, aiManager)
 	logging.Logger.Info("Capability detector initialized")
-
-	// Initialize provider manager
-	providerManager := ai.NewProviderManager()
-	logging.Logger.Info("Provider manager initialized")
 
 	// Auto-discover providers in background
 	go func() {
 		ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 		defer cancel()
-		if providers, err := providerManager.DiscoverProviders(ctx); err == nil {
+		if providers, err := aiManager.DiscoverProviders(ctx); err == nil {
 			logging.Logger.Info("Discovered AI providers", "count", len(providers))
 			for _, p := range providers {
 				logging.Logger.Debug("Provider models available", "provider", p.Name, "model_count", len(p.Models))
@@ -100,7 +96,7 @@ func NewAIPluginService() (*AIPluginService, error) {
 		aiEngine:           aiEngine,
 		config:             cfg,
 		capabilityDetector: capabilityDetector,
-		providerManager:    providerManager,
+		aiManager:          aiManager,
 	}
 
 	logging.Logger.Info("AI plugin service creation completed")
@@ -268,7 +264,7 @@ func (s *AIPluginService) Verify(ctx context.Context, req *server.Empty) (*serve
 
 	// Plugin Ready check: only verify core components are initialized
 	// This allows the plugin to be "Ready" even without active AI services (e.g., cloud-only users)
-	isReady := s.aiEngine != nil && s.config != nil && s.providerManager != nil
+	isReady := s.aiEngine != nil && s.config != nil && s.aiManager != nil
 
 	message := "AI Plugin ready"
 	if !isReady {
@@ -276,8 +272,8 @@ func (s *AIPluginService) Verify(ctx context.Context, req *server.Empty) (*serve
 			message = "AI engine not initialized"
 		} else if s.config == nil {
 			message = "Configuration not loaded"
-		} else if s.providerManager == nil {
-			message = "Provider manager not initialized"
+		} else if s.aiManager == nil {
+			message = "AI manager not initialized"
 		}
 		logging.Logger.Warn("Health check failed", "message", message)
 	} else {
@@ -826,12 +822,11 @@ func (s *AIPluginService) handleLegacyQuery(ctx context.Context, req *server.Dat
 func (s *AIPluginService) handleGetProviders(ctx context.Context, req *server.DataQuery) (*server.DataQueryResult, error) {
 	logging.Logger.Debug("Getting AI providers list")
 
-	// Ensure providers are discovered
-	providers, err := s.providerManager.DiscoverProviders(ctx)
+	// Discover providers
+	providers, err := s.aiManager.DiscoverProviders(ctx)
 	if err != nil {
 		logging.Logger.Error("Failed to discover providers", "error", err)
-		// Continue with cached providers
-		providers = s.providerManager.GetProviders()
+		return nil, status.Errorf(codes.Internal, "failed to discover providers: %v", err)
 	}
 
 	// Convert to JSON
@@ -865,15 +860,16 @@ func (s *AIPluginService) handleGetModels(ctx context.Context, req *server.DataQ
 	if params.Provider == "" {
 		// If no provider specified, return all models from all providers
 		allModels := make(map[string][]interface{})
-		providers := s.providerManager.GetProviders()
 
-		for _, provider := range providers {
-			if models, err := s.providerManager.GetModels(ctx, provider.Name); err == nil {
+		// Get all configured clients
+		clients := s.aiManager.GetAllClients()
+		for providerName := range clients {
+			if models, err := s.aiManager.GetModels(ctx, providerName); err == nil {
 				modelList := make([]interface{}, len(models))
 				for i, m := range models {
 					modelList[i] = m
 				}
-				allModels[provider.Name] = modelList
+				allModels[providerName] = modelList
 			}
 		}
 
@@ -896,7 +892,7 @@ func (s *AIPluginService) handleGetModels(ctx context.Context, req *server.DataQ
 		providerName = "deepseek"
 	}
 
-	models, err := s.providerManager.GetModels(ctx, providerName)
+	models, err := s.aiManager.GetModels(ctx, providerName)
 	if err != nil {
 		logging.Logger.Error("Failed to get models", "provider", providerName, "error", err)
 		return nil, apperrors.ToGRPCErrorf(apperrors.ErrModelNotFound, "failed to get models for provider %s: %v", providerName, err)
@@ -942,7 +938,7 @@ func (s *AIPluginService) handleTestConnection(ctx context.Context, req *server.
 		"model", config.Model)
 
 	// Test the connection
-	result, err := s.providerManager.TestConnection(ctx, &config)
+	result, err := s.aiManager.TestConnection(ctx, &config)
 	if err != nil {
 		logging.Logger.Error("Connection test failed",
 			"provider", config.Provider,
@@ -992,8 +988,20 @@ func (s *AIPluginService) handleUpdateConfig(ctx context.Context, req *server.Da
 
 	logging.Logger.Debug("Updating provider config", "provider", updateReq.Provider)
 
-	// Update the configuration
-	err := s.providerManager.UpdateConfig(ctx, updateReq.Provider, updateReq.Config)
+	// Update the configuration by adding/updating the client
+	serviceConfig := config.AIService{
+		Enabled:   true,
+		Provider:  updateReq.Config.Provider,
+		Endpoint:  updateReq.Config.Endpoint,
+		Model:     updateReq.Config.Model,
+		APIKey:    updateReq.Config.APIKey,
+		MaxTokens: updateReq.Config.MaxTokens,
+	}
+	if updateReq.Config.Timeout > 0 {
+		serviceConfig.Timeout = config.Duration{Duration: updateReq.Config.Timeout}
+	}
+
+	err := s.aiManager.AddClient(ctx, updateReq.Provider, serviceConfig)
 	if err != nil {
 		logging.Logger.Error("Failed to update config",
 			"provider", updateReq.Provider,

@@ -96,13 +96,13 @@ type aiEngine struct {
 	config    config.AIConfig
 	generator *SQLGenerator
 	aiClient  interfaces.AIClient
-	client    *Client
+	manager   *AIManager
 }
 
 // NewEngine creates a new AI engine based on configuration
 func NewEngine(cfg config.AIConfig) (Engine, error) {
-	// Try to create a full AI client first
-	client, err := NewClient(cfg)
+	// Create unified AI manager
+	manager, err := NewAIManager(cfg)
 	if err != nil {
 		// Check if this is an unsupported provider error
 		if IsProviderNotSupported(err) {
@@ -110,15 +110,28 @@ func NewEngine(cfg config.AIConfig) (Engine, error) {
 			return nil, fmt.Errorf("unsupported AI provider '%s': %w. Supported providers: openai, local (ollama), deepseek, custom", cfg.DefaultService, err)
 		}
 		// For other errors, also fail instead of silent fallback
-		logging.Logger.Error("Failed to create AI client", "error", err, "provider", cfg.DefaultService)
-		return nil, fmt.Errorf("failed to create AI client for provider '%s': %w", cfg.DefaultService, err)
+		logging.Logger.Error("Failed to create AI manager", "error", err, "provider", cfg.DefaultService)
+		return nil, fmt.Errorf("failed to create AI manager for provider '%s': %w", cfg.DefaultService, err)
 	}
 
-	// Get the AI client from the Client
-	aiClient := client.GetPrimaryClient()
-	if aiClient == nil {
-		logging.Logger.Error("No primary AI client available - check your configuration", "provider", cfg.DefaultService)
-		return nil, fmt.Errorf("no primary AI client available for provider '%s' - please check your configuration", cfg.DefaultService)
+	// Get the primary AI client from the manager
+	var aiClient interfaces.AIClient
+	if cfg.DefaultService != "" {
+		aiClient, err = manager.GetClient(cfg.DefaultService)
+		if err != nil {
+			logging.Logger.Error("No primary AI client available - check your configuration", "provider", cfg.DefaultService)
+			return nil, fmt.Errorf("no primary AI client available for provider '%s' - please check your configuration: %w", cfg.DefaultService, err)
+		}
+	} else {
+		// Get any available client
+		clients := manager.GetAllClients()
+		for _, client := range clients {
+			aiClient = client
+			break
+		}
+		if aiClient == nil {
+			return nil, fmt.Errorf("no AI clients available - please check your configuration")
+		}
 	}
 
 	// Create SQL generator with AI client
@@ -133,7 +146,7 @@ func NewEngine(cfg config.AIConfig) (Engine, error) {
 		config:    cfg,
 		generator: generator,
 		aiClient:  aiClient,
-		client:    client,
+		manager:   manager,
 	}, nil
 }
 
@@ -257,7 +270,7 @@ func (e *aiEngine) GetCapabilities() *SQLCapabilities {
 
 // IsHealthy implements Engine.IsHealthy for AI engine
 func (e *aiEngine) IsHealthy() bool {
-	if e.client != nil {
+	if e.manager != nil && e.aiClient != nil {
 		// Check if primary client is healthy
 		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 		defer cancel()
@@ -270,10 +283,7 @@ func (e *aiEngine) IsHealthy() bool {
 
 // Close implements Engine.Close for AI engine
 func (e *aiEngine) Close() {
-	if e.client != nil {
-		_ = e.client.Close()
-	}
-	if e.aiClient != nil {
-		_ = e.aiClient.Close()
+	if e.manager != nil {
+		_ = e.manager.Close()
 	}
 }
