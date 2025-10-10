@@ -97,7 +97,7 @@ tasks:
     desc: Run in development mode with debug logging
     cmds:
       - |
-        AI_PROVIDER="local" \
+        AI_PROVIDER="ollama" \
         OLLAMA_ENDPOINT="http://localhost:11434" \
         AI_MODEL="gemma3:1b" \
         LOG_LEVEL="debug" \

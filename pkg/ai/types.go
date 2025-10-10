@@ -59,7 +59,8 @@ type RetryManager interface {
 
 // ProviderConfig represents configuration for a specific AI provider
 type ProviderConfig struct {
-	// Name is the provider name (openai, local, deepseek, custom, etc.)
+	// Name is the provider name (openai, ollama, deepseek, custom, etc.)
+	// Note: "local" is accepted as an alias for "ollama" for backward compatibility
 	Name string `json:"name"`
 
 	// Enabled indicates if this provider is enabled

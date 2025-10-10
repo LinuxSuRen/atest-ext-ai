@@ -257,7 +257,7 @@ func (d *CapabilityDetector) detectModelCapabilities(ctx context.Context) ([]Mod
 		return []ModelCapability{
 			{
 				Name:        "basic",
-				Provider:    "local",
+				Provider:    "ollama",
 				Available:   true,
 				Features:    []string{"sql-generation", "text-generation"},
 				Limitations: []string{"limited-model-capabilities"},
