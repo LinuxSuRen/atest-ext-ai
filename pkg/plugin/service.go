@@ -362,7 +362,7 @@ func (s *AIPluginService) Verify(ctx context.Context, req *server.Empty) (*serve
 
 	status := &server.ExtensionStatus{
 		Ready:    isReady,
-		ReadOnly: false,
+		ReadOnly: true, // AI plugin is read-only - only provides AI query and UI features, not data storage
 		Version:  versionInfo,
 		Message:  message,
 	}
@@ -386,6 +386,17 @@ func (s *AIPluginService) Shutdown() {
 	}
 
 	logging.Logger.Info("AI plugin service shutdown complete")
+}
+
+// GetVersion returns the plugin version information
+func (s *AIPluginService) GetVersion(ctx context.Context, req *server.Empty) (*server.Version, error) {
+	logging.Logger.Debug("GetVersion called")
+
+	return &server.Version{
+		Version: fmt.Sprintf("%s (API: %s, gRPC: %s)", PluginVersion, APIVersion, GRPCInterfaceVersion),
+		Commit:  "HEAD", // Could be set during build time via ldflags
+		Date:    time.Now().Format(time.RFC3339),
+	}, nil
 }
 
 const (
@@ -846,6 +857,55 @@ func (s *AIPluginService) GetPageOfStatic(ctx context.Context, req *server.Simpl
 	return &server.CommonResult{
 		Success: false,
 		Message: "Static files not supported",
+	}, nil
+}
+
+// GetThemes returns the list of available themes (AI plugin doesn't provide themes)
+func (s *AIPluginService) GetThemes(ctx context.Context, req *server.Empty) (*server.SimpleList, error) {
+	logging.Logger.Debug("GetThemes called - AI plugin does not provide themes")
+
+	return &server.SimpleList{
+		Data: []*server.Pair{}, // Empty list - AI plugin doesn't provide themes
+	}, nil
+}
+
+// GetTheme returns a specific theme (AI plugin doesn't provide themes)
+func (s *AIPluginService) GetTheme(ctx context.Context, req *server.SimpleName) (*server.CommonResult, error) {
+	logging.Logger.Debug("GetTheme called", "theme", req.Name)
+
+	return &server.CommonResult{
+		Success: false,
+		Message: "AI plugin does not provide themes",
+	}, nil
+}
+
+// GetBindings returns the list of available bindings (AI plugin doesn't provide bindings)
+func (s *AIPluginService) GetBindings(ctx context.Context, req *server.Empty) (*server.SimpleList, error) {
+	logging.Logger.Debug("GetBindings called - AI plugin does not provide bindings")
+
+	return &server.SimpleList{
+		Data: []*server.Pair{}, // Empty list - AI plugin doesn't provide bindings
+	}, nil
+}
+
+// GetBinding returns a specific binding (AI plugin doesn't provide bindings)
+func (s *AIPluginService) GetBinding(ctx context.Context, req *server.SimpleName) (*server.CommonResult, error) {
+	logging.Logger.Debug("GetBinding called", "binding", req.Name)
+
+	return &server.CommonResult{
+		Success: false,
+		Message: "AI plugin does not provide bindings",
+	}, nil
+}
+
+// PProf returns profiling data for the AI plugin
+func (s *AIPluginService) PProf(ctx context.Context, req *server.PProfRequest) (*server.PProfData, error) {
+	logging.Logger.Debug("PProf called", "profile_type", req.Name)
+
+	// For now, return empty profiling data
+	// In the future, this could be extended to provide actual profiling information
+	return &server.PProfData{
+		Data: []byte{}, // Empty profiling data
 	}, nil
 }
 
