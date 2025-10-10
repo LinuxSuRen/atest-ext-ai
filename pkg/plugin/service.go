@@ -109,8 +109,10 @@ func NewAIPluginService() (*AIPluginService, error) {
 
 // Query handles AI query requests from the main API testing system
 func (s *AIPluginService) Query(ctx context.Context, req *server.DataQuery) (*server.DataQueryResult, error) {
-	fmt.Printf("🔥🔥🔥 [DEBUG] QUERY RECEIVED! Type: %s, Key: %s, SQL: %s\n", req.Type, req.Key, req.Sql)
-	logging.Logger.Info("Received query request", "type", req.Type, "key", req.Key, "sql_length", len(req.Sql))
+	logging.Logger.Debug("Query received",
+		"type", req.Type,
+		"key", req.Key,
+		"sql_length", len(req.Sql))
 
 	// Accept both empty type (for backward compatibility) and explicit "ai" type
 	// The main project doesn't always send the type field
@@ -332,14 +334,16 @@ func (s *AIPluginService) handleAIGenerate(ctx context.Context, req *server.Data
 		}
 	}
 
-	fmt.Printf("🎯 [DEBUG] AI GENERATE PARAMS: Model='%s', Prompt Length=%d, Config='%s'\n", params.Model, len(params.Prompt), params.Config)
-	logging.Logger.Info("Generating SQL with AI interface standard", "model", params.Model, "prompt_length", len(params.Prompt))
+	logging.Logger.Debug("AI generate parameters",
+		"model", params.Model,
+		"prompt_length", len(params.Prompt),
+		"has_config", params.Config != "")
 
 	// Generate using AI engine
 	context := map[string]string{}
 	if params.Model != "" {
 		context["preferred_model"] = params.Model
-		fmt.Printf("🎯 [DEBUG] Setting preferred_model in context: '%s'\n", params.Model)
+		logging.Logger.Debug("Setting preferred model", "model", params.Model)
 	}
 	if params.Config != "" {
 		context["config"] = params.Config
@@ -378,8 +382,10 @@ func (s *AIPluginService) handleAIGenerate(ctx context.Context, req *server.Data
 			sqlResult.ConfidenceScore, sqlResult.ModelUsed))
 	}
 
-	// DEBUG: Log the meta content we're returning
-	fmt.Printf("📊 [DEBUG] Returning meta: %s\n", string(metaJSON))
+	logging.Logger.Debug("Returning SQL generation result",
+		"confidence", sqlResult.ConfidenceScore,
+		"model", sqlResult.ModelUsed,
+		"sql_length", len(sqlResult.SQL))
 
 	return &server.DataQueryResult{
 		Data: []*server.Pair{
@@ -779,8 +785,10 @@ func (s *AIPluginService) handleLegacyQuery(ctx context.Context, req *server.Dat
 			sqlResult.ConfidenceScore, sqlResult.ModelUsed))
 	}
 
-	// DEBUG: Log the meta content we're returning
-	fmt.Printf("📊 [DEBUG] Returning meta: %s\n", string(metaJSON))
+	logging.Logger.Debug("Legacy query result",
+		"confidence", sqlResult.ConfidenceScore,
+		"model", sqlResult.ModelUsed,
+		"request_id", sqlResult.RequestID)
 
 	result := &server.DataQueryResult{
 		Data: []*server.Pair{

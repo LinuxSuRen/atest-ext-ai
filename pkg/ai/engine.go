@@ -199,13 +199,15 @@ func (e *aiEngine) GenerateSQL(ctx context.Context, req *GenerateSQLRequest) (*G
 			if key == "preferred_model" {
 				// Set the preferred model directly in options
 				options.Model = value
-				fmt.Printf("🎯 [DEBUG] AI ENGINE: Setting model from context: '%s'\n", value)
+				logging.Logger.Debug("AI engine: setting model from context", "model", value)
 			} else if key == "config" {
 				// Parse runtime configuration for API keys etc.
 				if err := json.Unmarshal([]byte(value), &runtimeConfig); err != nil {
 					logging.Logger.Warn("Failed to parse runtime config", "error", err)
 				} else {
-					fmt.Printf("🔑 [DEBUG] AI ENGINE: Parsed runtime config: %+v\n", runtimeConfig)
+					logging.Logger.Debug("AI engine: parsed runtime config",
+						"provider", runtimeConfig["provider"],
+						"has_api_key", runtimeConfig["api_key"] != nil)
 					// Extract configuration for dynamic client creation
 					if provider, ok := runtimeConfig["provider"].(string); ok {
 						options.Provider = provider
