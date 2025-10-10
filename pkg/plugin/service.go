@@ -287,7 +287,7 @@ func (s *AIPluginService) Verify(ctx context.Context, req *server.Empty) (*serve
 	status := &server.ExtensionStatus{
 		Ready:    isReady,
 		ReadOnly: false,
-		Version:  "1.0.0",
+		Version:  PluginVersion,
 		Message:  message,
 	}
 
@@ -306,6 +306,13 @@ func (s *AIPluginService) Shutdown() {
 
 	logging.Logger.Info("AI plugin service shutdown complete")
 }
+
+const (
+	// APIVersion is the current API version for the AI plugin
+	APIVersion = "v1"
+	// PluginVersion is the plugin implementation version
+	PluginVersion = "1.0.0"
+)
 
 // handleAIGenerate handles ai.generate calls
 func (s *AIPluginService) handleAIGenerate(ctx context.Context, req *server.DataQuery) (*server.DataQueryResult, error) {
@@ -389,6 +396,7 @@ func (s *AIPluginService) handleAIGenerate(ctx context.Context, req *server.Data
 
 	return &server.DataQueryResult{
 		Data: []*server.Pair{
+			{Key: "api_version", Value: APIVersion},
 			{Key: "content", Value: simpleFormat},
 			{Key: "success", Value: "true"},
 			{Key: "meta", Value: string(metaJSON)},
@@ -415,11 +423,12 @@ func (s *AIPluginService) handleAICapabilities(ctx context.Context, req *server.
 
 	return &server.DataQueryResult{
 		Data: []*server.Pair{
+			{Key: "api_version", Value: APIVersion},
 			{Key: "capabilities", Value: string(capabilitiesJSON)},
 			{Key: "models", Value: string(modelsJSON)},
 			{Key: "features", Value: string(featuresJSON)},
 			{Key: "description", Value: "AI Extension Plugin for intelligent SQL generation"},
-			{Key: "version", Value: "1.0.0"},
+			{Key: "version", Value: PluginVersion},
 			{Key: "success", Value: "true"},
 		},
 	}, nil
