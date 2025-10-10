@@ -49,7 +49,7 @@ type PluginConfig struct {
 
 // AIConfig contains AI service configuration
 type AIConfig struct {
-	DefaultService string               `mapstructure:"default_service" yaml:"default_service" json:"default_service" toml:"default_service" validate:"required,oneof=ollama openai claude"`
+	DefaultService string               `mapstructure:"default_service" yaml:"default_service" json:"default_service" toml:"default_service" validate:"required,oneof=ollama openai claude deepseek local custom"`
 	Services       map[string]AIService `mapstructure:"services" yaml:"services" json:"services" toml:"services" validate:"required,dive"`
 	Fallback       []string             `mapstructure:"fallback_order" yaml:"fallback_order" json:"fallback_order" toml:"fallback_order"`
 	Timeout        Duration             `mapstructure:"timeout" yaml:"timeout" json:"timeout" toml:"timeout" validate:"required"`
@@ -60,7 +60,7 @@ type AIConfig struct {
 // AIService represents configuration for a specific AI service
 type AIService struct {
 	Enabled   bool              `mapstructure:"enabled" yaml:"enabled" json:"enabled" toml:"enabled"`
-	Provider  string            `mapstructure:"provider" yaml:"provider" json:"provider" toml:"provider" validate:"required,oneof=ollama openai claude"`
+	Provider  string            `mapstructure:"provider" yaml:"provider" json:"provider" toml:"provider" validate:"required,oneof=ollama openai claude deepseek local custom"`
 	Endpoint  string            `mapstructure:"endpoint" yaml:"endpoint" json:"endpoint" toml:"endpoint"`
 	APIKey    string            `mapstructure:"api_key" yaml:"api_key" json:"api_key" toml:"api_key"`
 	Model     string            `mapstructure:"model" yaml:"model" json:"model" toml:"model" validate:"required,min=1"`
