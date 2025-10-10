@@ -19,6 +19,7 @@ package openai
 import (
 	"context"
 	"os"
+	"strings"
 	"testing"
 	"time"
 
@@ -275,9 +276,9 @@ func TestClient_CloseWithConnectionPool(t *testing.T) {
 		t.Fatalf("Failed to create client: %v", err)
 	}
 
-	// Verify the client has an HTTP transport
-	if client.httpClient.Transport == nil {
-		t.Error("Expected HTTP transport to be configured")
+	// Verify the client has a langchaingo LLM
+	if client.llm == nil {
+		t.Error("Expected LLM to be configured")
 	}
 
 	err = client.Close()
@@ -286,7 +287,7 @@ func TestClient_CloseWithConnectionPool(t *testing.T) {
 	}
 }
 
-func TestClient_StreamingRequest(t *testing.T) {
+func TestClient_RequestBuilding(t *testing.T) {
 	config := &Config{
 		APIKey: "test-key",
 	}
@@ -296,32 +297,31 @@ func TestClient_StreamingRequest(t *testing.T) {
 	}
 
 	req := &interfaces.GenerateRequest{
-		Prompt:      "Test prompt",
-		Model:       "gpt-3.5-turbo",
-		MaxTokens:   100,
-		Temperature: 0.5,
-		Stream:      true,
+		Prompt:       "Test prompt",
+		SystemPrompt: "You are a helpful assistant",
+		Model:        "gpt-3.5-turbo",
+		MaxTokens:    100,
+		Temperature:  0.5,
+		Stream:       true,
+		Context:      []string{"Previous context"},
 	}
 
-	// Test that streaming flag is properly handled in the request building
-	openaiReq := &ChatCompletionRequest{
-		Model:       client.getModel(req),
-		MaxTokens:   client.getMaxTokens(req),
-		Temperature: client.getTemperature(req),
-		Stream:      req.Stream,
+	// Test message building
+	messages := client.buildMessages(req)
+	if !strings.Contains(messages, "System: You are a helpful assistant") {
+		t.Error("Expected messages to contain system prompt")
+	}
+	if !strings.Contains(messages, "Test prompt") {
+		t.Error("Expected messages to contain main prompt")
+	}
+	if !strings.Contains(messages, "Previous context") {
+		t.Error("Expected messages to contain context")
 	}
 
-	if openaiReq.Stream != true {
-		t.Errorf("Expected Stream to be true, got %v", openaiReq.Stream)
-	}
-	if openaiReq.Model != "gpt-3.5-turbo" {
-		t.Errorf("Expected Model to be 'gpt-3.5-turbo', got '%s'", openaiReq.Model)
-	}
-	if openaiReq.Temperature != 0.5 {
-		t.Errorf("Expected temperature to be 0.5, got %v", openaiReq.Temperature)
-	}
-	if openaiReq.MaxTokens != 100 {
-		t.Errorf("Expected MaxTokens to be 100, got %v", openaiReq.MaxTokens)
+	// Test generation options building
+	opts := client.buildGenerationOptions(req)
+	if len(opts) == 0 {
+		t.Error("Expected generation options to be built")
 	}
 }
 

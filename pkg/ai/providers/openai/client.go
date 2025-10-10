@@ -17,42 +17,40 @@ limitations under the License.
 package openai
 
 import (
-	"bufio"
-	"bytes"
 	"context"
-	"encoding/json"
 	"fmt"
-	"io"
-	"net"
-	"net/http"
 	"os"
 	"strings"
 	"time"
 
 	"github.com/linuxsuren/atest-ext-ai/pkg/interfaces"
+	"github.com/tmc/langchaingo/llms"
+	"github.com/tmc/langchaingo/llms/openai"
 )
 
 // Client implements the AIClient interface for OpenAI
 type Client struct {
-	config     *Config
-	httpClient *http.Client
+	config *Config
+	llm    *openai.LLM
 }
 
 // Config holds OpenAI-specific configuration
 type Config struct {
-	APIKey          string        `json:"api_key"`
-	BaseURL         string        `json:"base_url"`
-	Timeout         time.Duration `json:"timeout"`
-	MaxTokens       int           `json:"max_tokens"`
-	Model           string        `json:"model"`
-	OrgID           string        `json:"org_id,omitempty"`
+	APIKey    string        `json:"api_key"`
+	BaseURL   string        `json:"base_url"`
+	Timeout   time.Duration `json:"timeout"`
+	MaxTokens int           `json:"max_tokens"`
+	Model     string        `json:"model"`
+	OrgID     string        `json:"org_id,omitempty"`
+
+	// Legacy fields for backward compatibility
 	UserAgent       string        `json:"user_agent,omitempty"`
 	MaxIdleConns    int           `json:"max_idle_conns,omitempty"`
 	MaxConnsPerHost int           `json:"max_conns_per_host,omitempty"`
 	IdleConnTimeout time.Duration `json:"idle_conn_timeout,omitempty"`
 }
 
-// NewClient creates a new OpenAI client
+// NewClient creates a new OpenAI client using langchaingo
 func NewClient(config *Config) (*Client, error) {
 	if config == nil {
 		return nil, fmt.Errorf("config cannot be nil")
@@ -84,109 +82,83 @@ func NewClient(config *Config) (*Client, error) {
 	if config.Model == "" {
 		config.Model = "gpt-3.5-turbo"
 	}
-	if config.UserAgent == "" {
-		config.UserAgent = "atest-ext-ai/1.0"
-	}
-	if config.MaxIdleConns == 0 {
-		config.MaxIdleConns = 100
-	}
-	if config.MaxConnsPerHost == 0 {
-		config.MaxConnsPerHost = 10
-	}
-	if config.IdleConnTimeout == 0 {
-		config.IdleConnTimeout = 90 * time.Second
-	}
 
 	// Get organization ID from environment if not provided
 	if config.OrgID == "" {
 		config.OrgID = os.Getenv("OPENAI_ORG_ID")
 	}
 
-	// Create HTTP transport with connection pooling
-	transport := &http.Transport{
-		MaxIdleConns:        config.MaxIdleConns,
-		MaxIdleConnsPerHost: config.MaxConnsPerHost,
-		IdleConnTimeout:     config.IdleConnTimeout,
-		DialContext: (&net.Dialer{
-			Timeout:   30 * time.Second,
-			KeepAlive: 30 * time.Second,
-		}).DialContext,
-		TLSHandshakeTimeout:   10 * time.Second,
-		ResponseHeaderTimeout: 30 * time.Second,
-		ExpectContinueTimeout: 1 * time.Second,
+	// Build langchaingo options
+	opts := []openai.Option{
+		openai.WithToken(config.APIKey),
+		openai.WithModel(config.Model),
+	}
+
+	// Add optional configurations
+	if config.BaseURL != "" && config.BaseURL != "https://api.openai.com/v1" {
+		opts = append(opts, openai.WithBaseURL(config.BaseURL))
+	}
+	if config.OrgID != "" {
+		opts = append(opts, openai.WithOrganization(config.OrgID))
+	}
+
+	// Create langchaingo OpenAI LLM
+	llm, err := openai.New(opts...)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create OpenAI LLM: %w", err)
 	}
 
 	client := &Client{
 		config: config,
-		httpClient: &http.Client{
-			Timeout:   config.Timeout,
-			Transport: transport,
-		},
+		llm:    llm,
 	}
 
 	return client, nil
 }
 
-// Generate executes a generation request
+// Generate executes a generation request using langchaingo
 func (c *Client) Generate(ctx context.Context, req *interfaces.GenerateRequest) (*interfaces.GenerateResponse, error) {
 	start := time.Now()
 
-	// Build the OpenAI request
-	openaiReq := &ChatCompletionRequest{
-		Model:       c.getModel(req),
-		MaxTokens:   c.getMaxTokens(req),
-		Temperature: c.getTemperature(req),
-		Stream:      req.Stream,
-	}
+	// Build messages for chat format
+	messages := c.buildMessages(req)
 
-	// Build messages
-	if req.SystemPrompt != "" {
-		openaiReq.Messages = append(openaiReq.Messages, Message{
-			Role:    "system",
-			Content: req.SystemPrompt,
-		})
-	}
+	// Build generation options
+	opts := c.buildGenerationOptions(req)
 
-	// Add context messages
-	for _, contextMsg := range req.Context {
-		openaiReq.Messages = append(openaiReq.Messages, Message{
-			Role:    "user",
-			Content: contextMsg,
-		})
-	}
-
-	// Add the main prompt
-	openaiReq.Messages = append(openaiReq.Messages, Message{
-		Role:    "user",
-		Content: req.Prompt,
-	})
+	var responseText string
+	var err error
 
 	if req.Stream {
-		return c.generateStream(ctx, openaiReq, start)
+		// Handle streaming
+		responseText, err = c.generateStream(ctx, messages, opts)
+	} else {
+		// Non-streaming generation
+		responseText, err = c.llm.Call(ctx, messages, opts...)
 	}
 
-	// Make the HTTP request for non-streaming
-	response, err := c.makeRequest(ctx, "/chat/completions", openaiReq)
 	if err != nil {
-		return nil, fmt.Errorf("failed to make request: %w", err)
+		return nil, fmt.Errorf("generation failed: %w", err)
 	}
 
-	// Convert response
+	// Build response
+	// Note: langchaingo doesn't expose detailed token usage in basic Call,
+	// so we estimate or use zero values
 	aiResponse := &interfaces.GenerateResponse{
-		Text:            response.Choices[0].Message.Content,
-		Model:           response.Model,
+		Text:            responseText,
+		Model:           c.getModel(req),
 		ProcessingTime:  time.Since(start),
-		RequestID:       response.ID,
-		ConfidenceScore: 1.0, // OpenAI doesn't provide confidence scores
+		ConfidenceScore: 1.0,
 		Usage: interfaces.TokenUsage{
-			PromptTokens:     response.Usage.PromptTokens,
-			CompletionTokens: response.Usage.CompletionTokens,
-			TotalTokens:      response.Usage.TotalTokens,
+			// Token usage not directly available from langchaingo Call
+			// Would need to use lower-level API or estimate
+			PromptTokens:     0,
+			CompletionTokens: 0,
+			TotalTokens:      0,
 		},
 		Metadata: map[string]any{
-			"finish_reason": response.Choices[0].FinishReason,
-			"created":       response.Created,
-			"streaming":     false,
+			"streaming": req.Stream,
+			"provider":  "openai",
 		},
 	}
 
@@ -287,127 +259,76 @@ func (c *Client) HealthCheck(ctx context.Context) (*interfaces.HealthStatus, err
 
 // Close releases any resources held by the client
 func (c *Client) Close() error {
-	// Close idle connections in the transport
-	if transport, ok := c.httpClient.Transport.(*http.Transport); ok {
-		transport.CloseIdleConnections()
-	}
+	// No resources to clean up with langchaingo
 	return nil
 }
 
-// generateStream handles streaming generation requests
-func (c *Client) generateStream(ctx context.Context, openaiReq *ChatCompletionRequest, start time.Time) (*interfaces.GenerateResponse, error) {
-	// Marshal the request body
-	jsonBody, err := json.Marshal(openaiReq)
-	if err != nil {
-		return nil, fmt.Errorf("failed to marshal request: %w", err)
+// buildMessages constructs chat messages from the request
+func (c *Client) buildMessages(req *interfaces.GenerateRequest) string {
+	var messages strings.Builder
+
+	// Add system prompt if provided
+	if req.SystemPrompt != "" {
+		messages.WriteString("System: ")
+		messages.WriteString(req.SystemPrompt)
+		messages.WriteString("\n\n")
 	}
 
-	// Create HTTP request
-	req, err := http.NewRequestWithContext(ctx, "POST", c.config.BaseURL+"/chat/completions", bytes.NewBuffer(jsonBody))
-	if err != nil {
-		return nil, fmt.Errorf("failed to create request: %w", err)
+	// Add context messages
+	for _, contextMsg := range req.Context {
+		messages.WriteString(contextMsg)
+		messages.WriteString("\n")
 	}
 
-	// Set headers
-	req.Header.Set("Content-Type", "application/json")
-	req.Header.Set("Authorization", "Bearer "+c.config.APIKey)
-	req.Header.Set("User-Agent", c.config.UserAgent)
-	req.Header.Set("Accept", "text/event-stream")
-	req.Header.Set("Cache-Control", "no-cache")
+	// Add the main prompt
+	messages.WriteString(req.Prompt)
 
-	if c.config.OrgID != "" {
-		req.Header.Set("OpenAI-Organization", c.config.OrgID)
+	return messages.String()
+}
+
+// buildGenerationOptions constructs generation options from the request
+func (c *Client) buildGenerationOptions(req *interfaces.GenerateRequest) []llms.CallOption {
+	opts := []llms.CallOption{}
+
+	// Set max tokens
+	maxTokens := c.getMaxTokens(req)
+	if maxTokens > 0 {
+		opts = append(opts, llms.WithMaxTokens(maxTokens))
 	}
 
-	// Make the request
-	resp, err := c.httpClient.Do(req)
-	if err != nil {
-		return nil, fmt.Errorf("request failed: %w", err)
-	}
-	defer func() { _ = resp.Body.Close() }()
-
-	// Check for errors
-	if resp.StatusCode != http.StatusOK {
-		respBody, _ := io.ReadAll(resp.Body)
-		var errorResp ErrorResponse
-		if err := json.Unmarshal(respBody, &errorResp); err == nil {
-			return nil, fmt.Errorf("API error: %s", errorResp.Error.Message)
-		}
-		return nil, fmt.Errorf("API returned status %d", resp.StatusCode)
+	// Set temperature
+	temperature := c.getTemperature(req)
+	if temperature > 0 {
+		opts = append(opts, llms.WithTemperature(temperature))
 	}
 
-	// Read streaming response
+	// Set model if specified in request
+	if req.Model != "" {
+		opts = append(opts, llms.WithModel(req.Model))
+	}
+
+	return opts
+}
+
+// generateStream handles streaming generation using langchaingo
+func (c *Client) generateStream(ctx context.Context, messages string, opts []llms.CallOption) (string, error) {
 	var responseText strings.Builder
-	var model string
-	var finishReason string
-	var requestID string
-	var totalTokens, promptTokens, completionTokens int
-	scanner := bufio.NewScanner(resp.Body)
 
-	for scanner.Scan() {
-		line := scanner.Text()
-		if line == "" || !strings.HasPrefix(line, "data: ") {
-			continue
-		}
-
-		data := strings.TrimPrefix(line, "data: ")
-		if data == "[DONE]" {
-			break
-		}
-
-		var streamResp StreamResponse
-		if err := json.Unmarshal([]byte(data), &streamResp); err != nil {
-			continue // Skip malformed lines
-		}
-
-		if len(streamResp.Choices) > 0 {
-			choice := streamResp.Choices[0]
-			if choice.Delta.Content != "" {
-				responseText.WriteString(choice.Delta.Content)
-			}
-			if choice.FinishReason != "" {
-				finishReason = choice.FinishReason
-			}
-		}
-
-		if streamResp.Model != "" {
-			model = streamResp.Model
-		}
-		if streamResp.ID != "" {
-			requestID = streamResp.ID
-		}
-
-		// Token usage is typically only provided in the final message
-		if streamResp.Usage != nil {
-			totalTokens = streamResp.Usage.TotalTokens
-			promptTokens = streamResp.Usage.PromptTokens
-			completionTokens = streamResp.Usage.CompletionTokens
-		}
+	// Add streaming callback
+	streamingFunc := func(ctx context.Context, chunk []byte) error {
+		responseText.Write(chunk)
+		return nil
 	}
 
-	if err := scanner.Err(); err != nil {
-		return nil, fmt.Errorf("error reading stream: %w", err)
+	opts = append(opts, llms.WithStreamingFunc(streamingFunc))
+
+	// Call with streaming enabled
+	_, err := c.llm.Call(ctx, messages, opts...)
+	if err != nil {
+		return "", fmt.Errorf("streaming generation failed: %w", err)
 	}
 
-	// Build the final response
-	aiResponse := &interfaces.GenerateResponse{
-		Text:            responseText.String(),
-		Model:           model,
-		ProcessingTime:  time.Since(start),
-		RequestID:       requestID,
-		ConfidenceScore: 1.0,
-		Usage: interfaces.TokenUsage{
-			PromptTokens:     promptTokens,
-			CompletionTokens: completionTokens,
-			TotalTokens:      totalTokens,
-		},
-		Metadata: map[string]any{
-			"finish_reason": finishReason,
-			"streaming":     true,
-		},
-	}
-
-	return aiResponse, nil
+	return responseText.String(), nil
 }
 
 // getModel returns the model to use for the request
@@ -432,131 +353,4 @@ func (c *Client) getTemperature(req *interfaces.GenerateRequest) float64 {
 		return req.Temperature
 	}
 	return 0.7 // Default temperature
-}
-
-// makeRequest makes an HTTP request to the OpenAI API
-func (c *Client) makeRequest(ctx context.Context, endpoint string, body interface{}) (*ChatCompletionResponse, error) {
-	// Marshal the request body
-	jsonBody, err := json.Marshal(body)
-	if err != nil {
-		return nil, fmt.Errorf("failed to marshal request: %w", err)
-	}
-
-	// Create HTTP request
-	req, err := http.NewRequestWithContext(ctx, "POST", c.config.BaseURL+endpoint, bytes.NewBuffer(jsonBody))
-	if err != nil {
-		return nil, fmt.Errorf("failed to create request: %w", err)
-	}
-
-	// Set headers
-	req.Header.Set("Content-Type", "application/json")
-	req.Header.Set("Authorization", "Bearer "+c.config.APIKey)
-	req.Header.Set("User-Agent", c.config.UserAgent)
-
-	if c.config.OrgID != "" {
-		req.Header.Set("OpenAI-Organization", c.config.OrgID)
-	}
-
-	// Make the request
-	resp, err := c.httpClient.Do(req)
-	if err != nil {
-		return nil, fmt.Errorf("request failed: %w", err)
-	}
-	defer func() { _ = resp.Body.Close() }()
-
-	// Read response body
-	respBody, err := io.ReadAll(resp.Body)
-	if err != nil {
-		return nil, fmt.Errorf("failed to read response: %w", err)
-	}
-
-	// Check for errors
-	if resp.StatusCode != http.StatusOK {
-		var errorResp ErrorResponse
-		if err := json.Unmarshal(respBody, &errorResp); err == nil {
-			return nil, fmt.Errorf("API error: %s", errorResp.Error.Message)
-		}
-		return nil, fmt.Errorf("API returned status %d", resp.StatusCode)
-	}
-
-	// Parse response
-	var chatResp ChatCompletionResponse
-	if err := json.Unmarshal(respBody, &chatResp); err != nil {
-		return nil, fmt.Errorf("failed to parse response: %w", err)
-	}
-
-	return &chatResp, nil
-}
-
-// OpenAI API structures
-
-// ChatCompletionRequest represents a chat completion request
-type ChatCompletionRequest struct {
-	Model       string    `json:"model"`
-	Messages    []Message `json:"messages"`
-	MaxTokens   int       `json:"max_tokens,omitempty"`
-	Temperature float64   `json:"temperature,omitempty"`
-	Stream      bool      `json:"stream,omitempty"`
-}
-
-// Message represents a chat message
-type Message struct {
-	Role    string `json:"role"`
-	Content string `json:"content"`
-}
-
-// ChatCompletionResponse represents a chat completion response
-type ChatCompletionResponse struct {
-	ID      string   `json:"id"`
-	Object  string   `json:"object"`
-	Created int64    `json:"created"`
-	Model   string   `json:"model"`
-	Choices []Choice `json:"choices"`
-	Usage   Usage    `json:"usage"`
-}
-
-// Choice represents a completion choice
-type Choice struct {
-	Index        int     `json:"index"`
-	Message      Message `json:"message"`
-	FinishReason string  `json:"finish_reason"`
-}
-
-// Usage represents token usage information
-type Usage struct {
-	PromptTokens     int `json:"prompt_tokens"`
-	CompletionTokens int `json:"completion_tokens"`
-	TotalTokens      int `json:"total_tokens"`
-}
-
-// ErrorResponse represents an error response from the API
-type ErrorResponse struct {
-	Error struct {
-		Message string `json:"message"`
-		Type    string `json:"type"`
-		Code    string `json:"code"`
-	} `json:"error"`
-}
-
-// StreamResponse represents a streaming response from OpenAI
-type StreamResponse struct {
-	ID      string         `json:"id"`
-	Object  string         `json:"object"`
-	Created int64          `json:"created"`
-	Model   string         `json:"model"`
-	Choices []StreamChoice `json:"choices"`
-	Usage   *Usage         `json:"usage,omitempty"`
-}
-
-// StreamChoice represents a choice in a streaming response
-type StreamChoice struct {
-	Index        int         `json:"index"`
-	Delta        StreamDelta `json:"delta"`
-	FinishReason string      `json:"finish_reason"`
-}
-
-// StreamDelta represents the delta content in a streaming response
-type StreamDelta struct {
-	Role    string `json:"role,omitempty"`
-	Content string `json:"content,omitempty"`
 }
