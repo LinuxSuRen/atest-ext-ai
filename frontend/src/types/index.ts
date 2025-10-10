@@ -16,9 +16,10 @@ export interface AppContext {
 /**
  * AI configuration
  * Note: Language is managed by main app, not stored in plugin config
+ * Note: 'local' is accepted as an alias for 'ollama' for backward compatibility
  */
 export interface AIConfig {
-  provider: 'ollama' | 'openai' | 'deepseek'
+  provider: 'ollama' | 'local' | 'openai' | 'deepseek'
   endpoint: string
   model: string
   apiKey: string

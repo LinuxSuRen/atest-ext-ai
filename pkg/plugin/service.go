@@ -926,6 +926,11 @@ func (s *AIPluginService) handleTestConnection(ctx context.Context, req *server.
 		}
 	}
 
+	// Map "local" to "ollama" for backward compatibility
+	if config.Provider == "local" {
+		config.Provider = "ollama"
+	}
+
 	// Log configuration for debugging (mask API key)
 	apiKeyDisplay := "***masked***"
 	if config.APIKey != "" && len(config.APIKey) > 4 {
@@ -975,6 +980,14 @@ func (s *AIPluginService) handleUpdateConfig(ctx context.Context, req *server.Da
 
 	if updateReq.Provider == "" || updateReq.Config == nil {
 		return nil, apperrors.ToGRPCError(apperrors.ErrInvalidRequest)
+	}
+
+	// Map "local" to "ollama" for backward compatibility
+	if updateReq.Provider == "local" {
+		updateReq.Provider = "ollama"
+	}
+	if updateReq.Config.Provider == "local" {
+		updateReq.Config.Provider = "ollama"
 	}
 
 	logging.Logger.Debug("Updating provider config", "provider", updateReq.Provider)
