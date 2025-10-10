@@ -188,7 +188,6 @@ func (e *aiEngine) GenerateSQL(ctx context.Context, req *GenerateSQLRequest) (*G
 		OptimizeQuery:      false,
 		IncludeExplanation: true,
 		SafetyMode:         true,
-		Temperature:        0.3,
 		MaxTokens:          2000,
 	}
 
@@ -216,9 +215,6 @@ func (e *aiEngine) GenerateSQL(ctx context.Context, req *GenerateSQLRequest) (*G
 					}
 					if endpoint, ok := runtimeConfig["endpoint"].(string); ok && endpoint != "" {
 						options.Endpoint = endpoint
-					}
-					if temp, ok := runtimeConfig["temperature"].(float64); ok {
-						options.Temperature = temp
 					}
 					if maxTokens, ok := runtimeConfig["max_tokens"].(float64); ok {
 						options.MaxTokens = int(maxTokens)

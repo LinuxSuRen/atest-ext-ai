@@ -100,6 +100,14 @@ func (l *Loader) Load(paths ...string) error {
 		return fmt.Errorf("unable to decode config into struct: %w", err)
 	}
 
+	// Check for deprecated fields and display warnings
+	for serviceName, service := range l.config.AI.Services {
+		warnings := service.ValidateAndWarnDeprecated()
+		for _, warning := range warnings {
+			fmt.Printf("⚠️  [WARNING] Service '%s': %s\n", serviceName, warning)
+		}
+	}
+
 	return nil
 }
 
@@ -457,7 +465,6 @@ func setDefaults(v *viper.Viper) {
 	// ai.services.ollama.endpoint must be set via OLLAMA_ENDPOINT environment variable
 	// AI_MODEL will be auto-detected from available models at runtime
 	v.SetDefault("ai.services.ollama.max_tokens", 4096)
-	v.SetDefault("ai.services.ollama.temperature", 0.7)
 	v.SetDefault("ai.services.ollama.priority", 1)
 	v.SetDefault("ai.services.ollama.timeout", "60s")
 

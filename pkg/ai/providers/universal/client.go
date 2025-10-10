@@ -41,7 +41,6 @@ type Config struct {
 	Endpoint        string                 `json:"endpoint"`          // API endpoint URL
 	APIKey          string                 `json:"api_key,omitempty"` // API key (optional for local services)
 	Model           string                 `json:"model"`             // Default model to use
-	Temperature     float64                `json:"temperature"`       // Temperature for generation
 	MaxTokens       int                    `json:"max_tokens"`        // Maximum tokens for generation
 	Timeout         time.Duration          `json:"timeout"`           // Request timeout
 	Headers         map[string]string      `json:"headers,omitempty"` // Additional headers
@@ -130,9 +129,6 @@ func NewUniversalClient(config *Config) (*UniversalClient, error) {
 	}
 	if config.MaxTokens == 0 {
 		config.MaxTokens = 4096
-	}
-	if config.Temperature == 0 {
-		config.Temperature = 0.7
 	}
 	if config.Headers == nil {
 		config.Headers = make(map[string]string)
@@ -318,11 +314,6 @@ func (c *UniversalClient) buildOllamaRequest(req *interfaces.GenerateRequest) ma
 		model = c.config.Model
 	}
 
-	temperature := req.Temperature
-	if temperature == 0 {
-		temperature = c.config.Temperature
-	}
-
 	maxTokens := req.MaxTokens
 	if maxTokens == 0 {
 		maxTokens = c.config.MaxTokens
@@ -357,7 +348,6 @@ func (c *UniversalClient) buildOllamaRequest(req *interfaces.GenerateRequest) ma
 		"messages": messages,
 		"stream":   req.Stream,
 		"options": map[string]interface{}{
-			"temperature": temperature,
 			"num_predict": maxTokens,
 		},
 	}
@@ -368,11 +358,6 @@ func (c *UniversalClient) buildOpenAIRequest(req *interfaces.GenerateRequest) ma
 	model := req.Model
 	if model == "" {
 		model = c.config.Model
-	}
-
-	temperature := req.Temperature
-	if temperature == 0 {
-		temperature = c.config.Temperature
 	}
 
 	maxTokens := req.MaxTokens
@@ -405,11 +390,10 @@ func (c *UniversalClient) buildOpenAIRequest(req *interfaces.GenerateRequest) ma
 	})
 
 	request := map[string]interface{}{
-		"model":       model,
-		"messages":    messages,
-		"temperature": temperature,
-		"max_tokens":  maxTokens,
-		"stream":      req.Stream,
+		"model":      model,
+		"messages":   messages,
+		"max_tokens": maxTokens,
+		"stream":     req.Stream,
 	}
 
 	// Add any additional parameters
@@ -443,19 +427,17 @@ func (c *UniversalClient) parseOllamaResponse(body io.Reader, requestedModel str
 	}
 
 	return &interfaces.GenerateResponse{
-		Text:  resp.Message.Content,
-		Model: resp.Model,
-		Usage: interfaces.TokenUsage{
-			PromptTokens:     resp.PromptEvalCount,
-			CompletionTokens: resp.EvalCount,
-			TotalTokens:      resp.PromptEvalCount + resp.EvalCount,
-		},
+		Text:      resp.Message.Content,
+		Model:     resp.Model,
 		RequestID: fmt.Sprintf("ollama-%d", time.Now().Unix()),
 		Metadata: map[string]any{
 			"total_duration":   resp.TotalDuration,
 			"load_duration":    resp.LoadDuration,
 			"prompt_eval_time": resp.PromptEvalDuration,
 			"eval_time":        resp.EvalDuration,
+			// Token usage information available in metadata if needed
+			"prompt_eval_count": resp.PromptEvalCount,
+			"eval_count":        resp.EvalCount,
 		},
 	}, nil
 }
@@ -490,13 +472,12 @@ func (c *UniversalClient) parseOpenAIResponse(body io.Reader) (*interfaces.Gener
 		Text:      resp.Choices[0].Message.Content,
 		Model:     resp.Model,
 		RequestID: resp.ID,
-		Usage: interfaces.TokenUsage{
-			PromptTokens:     resp.Usage.PromptTokens,
-			CompletionTokens: resp.Usage.CompletionTokens,
-			TotalTokens:      resp.Usage.TotalTokens,
-		},
 		Metadata: map[string]any{
 			"finish_reason": resp.Choices[0].FinishReason,
+			// Token usage information available in metadata if needed
+			"prompt_tokens":     resp.Usage.PromptTokens,
+			"completion_tokens": resp.Usage.CompletionTokens,
+			"total_tokens":      resp.Usage.TotalTokens,
 		},
 	}, nil
 }

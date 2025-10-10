@@ -23,7 +23,6 @@ import (
 	"sync"
 	"time"
 
-	"github.com/linuxsuren/atest-ext-ai/pkg/ai/providers/anthropic"
 	"github.com/linuxsuren/atest-ext-ai/pkg/ai/providers/local"
 	"github.com/linuxsuren/atest-ext-ai/pkg/ai/providers/openai"
 	"github.com/linuxsuren/atest-ext-ai/pkg/config"
@@ -160,12 +159,11 @@ func convertAIConfigToServiceConfig(cfg config.AIConfig) *AIServiceConfig {
 			Enabled:  service.Enabled,
 			Priority: service.Priority,
 			Config: map[string]any{
-				"api_key":     service.APIKey,
-				"base_url":    service.Endpoint,
-				"model":       service.Model,
-				"max_tokens":  service.MaxTokens,
-				"temperature": service.Temperature,
-				"timeout":     service.Timeout,
+				"api_key":    service.APIKey,
+				"base_url":   service.Endpoint,
+				"model":      service.Model,
+				"max_tokens": service.MaxTokens,
+				"timeout":    service.Timeout,
 			},
 			Models:     service.Models,
 			Timeout:    service.Timeout.Value(),
@@ -412,15 +410,11 @@ func NewDefaultClientFactory() (ClientFactory, error) {
 // registerProviders registers all supported AI providers
 func (f *defaultClientFactory) registerProviders() {
 	f.providers["openai"] = f.createOpenAIClient
-	f.providers["anthropic"] = f.createAnthropicClient
 	f.providers["local"] = f.createLocalClient
 	// Register ollama as an alias for local provider for backward compatibility
 	f.providers["ollama"] = f.createLocalClient
 	// Register OpenAI-compatible providers
 	f.providers["deepseek"] = f.createDeepSeekClient
-	f.providers["moonshot"] = f.createMoonshotClient
-	f.providers["zhipu"] = f.createZhipuClient
-	f.providers["baichuan"] = f.createBaichuanClient
 	f.providers["custom"] = f.createCustomOpenAIClient
 }
 
@@ -488,36 +482,6 @@ func (f *defaultClientFactory) createOpenAIClient(config map[string]any) (interf
 	return openai.NewClient(openaiConfig)
 }
 
-// createAnthropicClient creates an Anthropic client from config
-func (f *defaultClientFactory) createAnthropicClient(config map[string]any) (interfaces.AIClient, error) {
-	anthropicConfig := &anthropic.Config{}
-
-	if apiKey, ok := config["api_key"].(string); ok {
-		anthropicConfig.APIKey = apiKey
-	}
-	if baseURL, ok := config["base_url"].(string); ok {
-		anthropicConfig.BaseURL = baseURL
-	}
-	if model, ok := config["model"].(string); ok {
-		anthropicConfig.Model = model
-	}
-	if version, ok := config["version"].(string); ok {
-		anthropicConfig.Version = version
-	}
-	if timeout, ok := config["timeout"].(time.Duration); ok {
-		anthropicConfig.Timeout = timeout
-	} else if timeoutStr, ok := config["timeout"].(string); ok {
-		if duration, err := time.ParseDuration(timeoutStr); err == nil {
-			anthropicConfig.Timeout = duration
-		}
-	}
-	if maxTokens, ok := config["max_tokens"].(int); ok {
-		anthropicConfig.MaxTokens = maxTokens
-	}
-
-	return anthropic.NewClient(anthropicConfig)
-}
-
 // createLocalClient creates a local client from config
 func (f *defaultClientFactory) createLocalClient(config map[string]any) (interfaces.AIClient, error) {
 	localConfig := &local.Config{}
@@ -537,9 +501,6 @@ func (f *defaultClientFactory) createLocalClient(config map[string]any) (interfa
 	}
 	if maxTokens, ok := config["max_tokens"].(int); ok {
 		localConfig.MaxTokens = maxTokens
-	}
-	if temperature, ok := config["temperature"].(float64); ok {
-		localConfig.Temperature = temperature
 	}
 
 	return local.NewClient(localConfig)
@@ -562,99 +523,6 @@ func (f *defaultClientFactory) createDeepSeekClient(config map[string]any) (inte
 		openaiConfig.Model = model
 	} else {
 		openaiConfig.Model = "deepseek-chat"
-	}
-	if timeout, ok := config["timeout"].(time.Duration); ok {
-		openaiConfig.Timeout = timeout
-	} else if timeoutStr, ok := config["timeout"].(string); ok {
-		if duration, err := time.ParseDuration(timeoutStr); err == nil {
-			openaiConfig.Timeout = duration
-		}
-	}
-	if maxTokens, ok := config["max_tokens"].(int); ok {
-		openaiConfig.MaxTokens = maxTokens
-	}
-
-	return openai.NewClient(openaiConfig)
-}
-
-// createMoonshotClient creates a Moonshot client using OpenAI-compatible interface
-func (f *defaultClientFactory) createMoonshotClient(config map[string]any) (interfaces.AIClient, error) {
-	openaiConfig := &openai.Config{}
-
-	if apiKey, ok := config["api_key"].(string); ok {
-		openaiConfig.APIKey = apiKey
-	}
-	if baseURL, ok := config["base_url"].(string); ok {
-		openaiConfig.BaseURL = baseURL
-	} else {
-		openaiConfig.BaseURL = "https://api.moonshot.cn/v1"
-	}
-	if model, ok := config["model"].(string); ok {
-		openaiConfig.Model = model
-	} else {
-		openaiConfig.Model = "moonshot-v1-8k"
-	}
-	if timeout, ok := config["timeout"].(time.Duration); ok {
-		openaiConfig.Timeout = timeout
-	} else if timeoutStr, ok := config["timeout"].(string); ok {
-		if duration, err := time.ParseDuration(timeoutStr); err == nil {
-			openaiConfig.Timeout = duration
-		}
-	}
-	if maxTokens, ok := config["max_tokens"].(int); ok {
-		openaiConfig.MaxTokens = maxTokens
-	}
-
-	return openai.NewClient(openaiConfig)
-}
-
-// createZhipuClient creates a Zhipu AI client using OpenAI-compatible interface
-func (f *defaultClientFactory) createZhipuClient(config map[string]any) (interfaces.AIClient, error) {
-	openaiConfig := &openai.Config{}
-
-	if apiKey, ok := config["api_key"].(string); ok {
-		openaiConfig.APIKey = apiKey
-	}
-	if baseURL, ok := config["base_url"].(string); ok {
-		openaiConfig.BaseURL = baseURL
-	} else {
-		openaiConfig.BaseURL = "https://open.bigmodel.cn/api/paas/v4"
-	}
-	if model, ok := config["model"].(string); ok {
-		openaiConfig.Model = model
-	} else {
-		openaiConfig.Model = "glm-4"
-	}
-	if timeout, ok := config["timeout"].(time.Duration); ok {
-		openaiConfig.Timeout = timeout
-	} else if timeoutStr, ok := config["timeout"].(string); ok {
-		if duration, err := time.ParseDuration(timeoutStr); err == nil {
-			openaiConfig.Timeout = duration
-		}
-	}
-	if maxTokens, ok := config["max_tokens"].(int); ok {
-		openaiConfig.MaxTokens = maxTokens
-	}
-
-	return openai.NewClient(openaiConfig)
-}
-
-// createBaichuanClient creates a Baichuan client using OpenAI-compatible interface
-func (f *defaultClientFactory) createBaichuanClient(config map[string]any) (interfaces.AIClient, error) {
-	openaiConfig := &openai.Config{}
-
-	if apiKey, ok := config["api_key"].(string); ok {
-		openaiConfig.APIKey = apiKey
-	}
-	if baseURL, ok := config["base_url"].(string); ok {
-		openaiConfig.BaseURL = baseURL
-	} else {
-		openaiConfig.BaseURL = "https://api.baichuan-ai.com/v1"
-	}
-	if model, ok := config["model"].(string); ok {
-		openaiConfig.Model = model
-	} else {
-		openaiConfig.Model = "Baichuan2-Turbo"
 	}
 	if timeout, ok := config["timeout"].(time.Duration); ok {
 		openaiConfig.Timeout = timeout

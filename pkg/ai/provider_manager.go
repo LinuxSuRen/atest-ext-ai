@@ -104,11 +104,10 @@ func (pm *ProviderManager) DiscoverProviders(ctx context.Context) ([]*ProviderIn
 
 			// Create Ollama client
 			config := &universal.Config{
-				Provider:       "ollama",
-				Endpoint:       endpoint,
-				Model:          "llama2",
-				Temperature:    0.7,
-				MaxTokens:      4096,
+				Provider:        "ollama",
+				Endpoint:        endpoint,
+				Model:           "llama2",
+				MaxTokens:       4096,
 				StreamSupported: true,
 			}
 			client, _ := universal.NewUniversalClient(config)
@@ -272,9 +271,8 @@ func (pm *ProviderManager) UpdateConfig(ctx context.Context, providerName string
 		Endpoint:    config.Endpoint,
 		LastChecked: time.Now(),
 		Config: map[string]interface{}{
-			"model":       config.Model,
-			"temperature": config.Temperature,
-			"max_tokens":  config.MaxTokens,
+			"model":      config.Model,
+			"max_tokens": config.MaxTokens,
 		},
 		Health: health,
 	}
@@ -339,9 +337,8 @@ func (pm *ProviderManager) AddProvider(ctx context.Context, name string, config 
 		LastChecked: time.Now(),
 		Health:      health,
 		Config: map[string]interface{}{
-			"model":       config.Model,
-			"temperature": config.Temperature,
-			"max_tokens":  config.MaxTokens,
+			"model":      config.Model,
+			"max_tokens": config.MaxTokens,
 		},
 	}
 

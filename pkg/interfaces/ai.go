@@ -32,9 +32,6 @@ type GenerateRequest struct {
 	// MaxTokens limits the maximum number of tokens in the response
 	MaxTokens int `json:"max_tokens,omitempty"`
 
-	// Temperature controls randomness in generation (0.0 to 1.0)
-	Temperature float64 `json:"temperature,omitempty"`
-
 	// Context provides additional context for the generation
 	Context []string `json:"context,omitempty"`
 
@@ -56,9 +53,6 @@ type GenerateResponse struct {
 	// Model indicates which model was actually used
 	Model string `json:"model"`
 
-	// Usage provides token usage information
-	Usage TokenUsage `json:"usage"`
-
 	// Metadata contains provider-specific metadata
 	Metadata map[string]any `json:"metadata,omitempty"`
 
@@ -70,18 +64,6 @@ type GenerateResponse struct {
 
 	// ConfidenceScore indicates the model's confidence in the response
 	ConfidenceScore float64 `json:"confidence_score,omitempty"`
-}
-
-// TokenUsage provides information about token consumption
-type TokenUsage struct {
-	// PromptTokens is the number of tokens in the input prompt
-	PromptTokens int `json:"prompt_tokens"`
-
-	// CompletionTokens is the number of tokens in the generated response
-	CompletionTokens int `json:"completion_tokens"`
-
-	// TotalTokens is the sum of prompt and completion tokens
-	TotalTokens int `json:"total_tokens"`
 }
 
 // HealthStatus represents the health status of an AI service

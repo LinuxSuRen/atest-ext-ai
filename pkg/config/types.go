@@ -67,12 +67,23 @@ type AIService struct {
 	APIKey      string            `mapstructure:"api_key" yaml:"api_key" json:"api_key" toml:"api_key"`
 	Model       string            `mapstructure:"model" yaml:"model" json:"model" toml:"model" validate:"required,min=1"`
 	MaxTokens   int               `mapstructure:"max_tokens" yaml:"max_tokens" json:"max_tokens" toml:"max_tokens" validate:"min=1,max=100000"`
-	Temperature float32           `mapstructure:"temperature" yaml:"temperature" json:"temperature" toml:"temperature" validate:"min=0,max=2"`
 	TopP        float32           `mapstructure:"top_p" yaml:"top_p" json:"top_p" toml:"top_p" validate:"min=0,max=1"`
 	Headers     map[string]string `mapstructure:"headers" yaml:"headers" json:"headers" toml:"headers"`
 	Models      []string          `mapstructure:"models" yaml:"models" json:"models" toml:"models"`
 	Priority    int               `mapstructure:"priority" yaml:"priority" json:"priority" toml:"priority" validate:"min=1,max=10"`
 	Timeout     Duration          `mapstructure:"timeout" yaml:"timeout" json:"timeout" toml:"timeout"`
+
+	// Deprecated fields (kept for backward compatibility warning)
+	Temperature float32 `mapstructure:"temperature" yaml:"temperature" json:"temperature,omitempty" toml:"temperature"`
+}
+
+// ValidateAndWarnDeprecated checks for deprecated fields and returns warnings
+func (s *AIService) ValidateAndWarnDeprecated() []string {
+	var warnings []string
+	if s.Temperature != 0 {
+		warnings = append(warnings, "Temperature field is deprecated and will be ignored. Configure temperature when creating the LLM client if needed.")
+	}
+	return warnings
 }
 
 // RateLimitConfig contains rate limiting configuration

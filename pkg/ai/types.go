@@ -27,7 +27,6 @@ import (
 type AIClient = interfaces.AIClient
 type GenerateRequest = interfaces.GenerateRequest
 type GenerateResponse = interfaces.GenerateResponse
-type TokenUsage = interfaces.TokenUsage
 type Capabilities = interfaces.Capabilities
 type ModelInfo = interfaces.ModelInfo
 type Feature = interfaces.Feature

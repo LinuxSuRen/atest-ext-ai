@@ -84,7 +84,6 @@ type GenerateOptions struct {
 	Endpoint           string            `json:"endpoint,omitempty"`    // Runtime endpoint override
 	Schema             map[string]Table  `json:"schema,omitempty"`
 	Context            []string          `json:"context,omitempty"`
-	Temperature        float64           `json:"temperature,omitempty"`
 	MaxTokens          int               `json:"max_tokens,omitempty"`
 	ValidateSQL        bool              `json:"validate_sql"`
 	OptimizeQuery      bool              `json:"optimize_query"`
@@ -110,7 +109,6 @@ type GenerationMetadata struct {
 	ProcessingTime  time.Duration `json:"processing_time"`
 	ModelUsed       string        `json:"model_used"`
 	DatabaseDialect string        `json:"database_dialect"`
-	TokensUsed      TokenUsage    `json:"tokens_used"`
 	QueryType       string        `json:"query_type"`
 	TablesInvolved  []string      `json:"tables_involved,omitempty"`
 	Complexity      string        `json:"complexity"`
@@ -195,7 +193,6 @@ func (g *SQLGenerator) Generate(ctx context.Context, naturalLanguage string, opt
 			OptimizeQuery:      false,
 			IncludeExplanation: true,
 			SafetyMode:         true,
-			Temperature:        0.3,
 			MaxTokens:          2000,
 		}
 	}
@@ -216,7 +213,6 @@ func (g *SQLGenerator) Generate(ctx context.Context, naturalLanguage string, opt
 	aiRequest := &interfaces.GenerateRequest{
 		Prompt:       prompt,
 		Model:        options.Model,
-		Temperature:  options.Temperature,
 		MaxTokens:    options.MaxTokens,
 		SystemPrompt: g.getSystemPrompt(options.DatabaseType),
 	}
@@ -396,7 +392,6 @@ func (g *SQLGenerator) parseAIResponse(aiResponse *GenerateResponse, options *Ge
 			ProcessingTime:  time.Since(startTime),
 			ModelUsed:       aiResponse.Model,
 			DatabaseDialect: options.DatabaseType,
-			TokensUsed:      aiResponse.Usage,
 			QueryType:       sqlResult.QueryType,
 			TablesInvolved:  sqlResult.TablesInvolved,
 			Complexity:      g.assessComplexity(sqlResult.SQL),

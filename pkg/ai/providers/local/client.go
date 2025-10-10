@@ -45,7 +45,6 @@ type Config struct {
 	MaxTokens       int           `json:"max_tokens"`
 	Model           string        `json:"model"`
 	UserAgent       string        `json:"user_agent,omitempty"`
-	Temperature     float64       `json:"temperature"`
 	MaxIdleConns    int           `json:"max_idle_conns,omitempty"`
 	MaxConnsPerHost int           `json:"max_conns_per_host,omitempty"`
 	IdleConnTimeout time.Duration `json:"idle_conn_timeout,omitempty"`
@@ -85,9 +84,6 @@ func NewClient(config *Config) (*Client, error) {
 	// Don't set a hardcoded default - respect user's local models only
 	if config.UserAgent == "" {
 		config.UserAgent = "atest-ext-ai/1.0"
-	}
-	if config.Temperature == 0 {
-		config.Temperature = 0.7
 	}
 	if config.MaxIdleConns == 0 {
 		config.MaxIdleConns = 100
@@ -144,7 +140,6 @@ func (c *Client) Generate(ctx context.Context, req *interfaces.GenerateRequest) 
 		Prompt: prompt,
 		Stream: false, // Force non-streaming for now to fix JSON parsing
 		Options: map[string]any{
-			"temperature": c.getTemperature(req),
 			"num_predict": c.getMaxTokens(req),
 		},
 	}
@@ -171,11 +166,6 @@ func (c *Client) Generate(ctx context.Context, req *interfaces.GenerateRequest) 
 		ProcessingTime:  time.Since(start),
 		RequestID:       fmt.Sprintf("ollama_%d", time.Now().UnixNano()),
 		ConfidenceScore: 1.0, // Ollama doesn't provide confidence scores
-		Usage: interfaces.TokenUsage{
-			PromptTokens:     response.PromptEvalCount,
-			CompletionTokens: response.EvalCount,
-			TotalTokens:      response.PromptEvalCount + response.EvalCount,
-		},
 		Metadata: map[string]any{
 			"done":                 response.Done,
 			"total_duration":       response.TotalDuration,
@@ -183,6 +173,9 @@ func (c *Client) Generate(ctx context.Context, req *interfaces.GenerateRequest) 
 			"prompt_eval_duration": response.PromptEvalDuration,
 			"eval_duration":        response.EvalDuration,
 			"streaming":            false,
+			// Token usage information available in metadata if needed
+			"prompt_eval_count": response.PromptEvalCount,
+			"eval_count":        response.EvalCount,
 		},
 	}
 
@@ -352,11 +345,6 @@ func (c *Client) generateStream(ctx context.Context, ollamaReq *GenerateRequest,
 		ProcessingTime:  time.Since(start),
 		RequestID:       fmt.Sprintf("ollama_stream_%d", time.Now().UnixNano()),
 		ConfidenceScore: 1.0,
-		Usage: interfaces.TokenUsage{
-			PromptTokens:     lastResponse.PromptEvalCount,
-			CompletionTokens: lastResponse.EvalCount,
-			TotalTokens:      lastResponse.PromptEvalCount + lastResponse.EvalCount,
-		},
 		Metadata: map[string]any{
 			"done":                 lastResponse.Done,
 			"total_duration":       lastResponse.TotalDuration,
@@ -364,6 +352,9 @@ func (c *Client) generateStream(ctx context.Context, ollamaReq *GenerateRequest,
 			"prompt_eval_duration": lastResponse.PromptEvalDuration,
 			"eval_duration":        lastResponse.EvalDuration,
 			"streaming":            true,
+			// Token usage information available in metadata if needed
+			"prompt_eval_count": lastResponse.PromptEvalCount,
+			"eval_count":        lastResponse.EvalCount,
 		},
 	}
 
@@ -418,14 +409,6 @@ func (c *Client) getMaxTokens(req *interfaces.GenerateRequest) int {
 		return req.MaxTokens
 	}
 	return c.config.MaxTokens
-}
-
-// getTemperature returns the temperature for the request
-func (c *Client) getTemperature(req *interfaces.GenerateRequest) float64 {
-	if req.Temperature > 0 {
-		return req.Temperature
-	}
-	return c.config.Temperature
 }
 
 // getFirstAvailableModel gets the first available model for auto-detection

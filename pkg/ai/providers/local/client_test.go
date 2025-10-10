@@ -45,12 +45,11 @@ func TestNewClient(t *testing.T) {
 		{
 			name: "valid config with all fields",
 			config: &Config{
-				BaseURL:     "http://localhost:11434",
-				Timeout:     60 * time.Second,
-				MaxTokens:   4096,
-				Model:       "llama2",
-				UserAgent:   "test-agent",
-				Temperature: 0.8,
+				BaseURL:   "http://localhost:11434",
+				Timeout:   60 * time.Second,
+				MaxTokens: 4096,
+				Model:     "llama2",
+				UserAgent: "test-agent",
 			},
 			expectError: false,
 		},
@@ -245,32 +244,6 @@ func TestClient_getMaxTokens(t *testing.T) {
 	}
 }
 
-func TestClient_getTemperature(t *testing.T) {
-	config := &Config{
-		Temperature: 0.8,
-	}
-	client, err := NewClient(config)
-	if err != nil {
-		t.Fatalf("Failed to create client: %v", err)
-	}
-
-	// Test with request-specific temperature
-	req := &interfaces.GenerateRequest{
-		Temperature: 0.5,
-	}
-	temp := client.getTemperature(req)
-	if temp != 0.5 {
-		t.Errorf("Expected 0.5, got %f", temp)
-	}
-
-	// Test with default temperature
-	req = &interfaces.GenerateRequest{}
-	temp = client.getTemperature(req)
-	if temp != 0.8 {
-		t.Errorf("Expected 0.8, got %f", temp)
-	}
-}
-
 func TestNewClient_EnvironmentVariables(t *testing.T) {
 	// Test environment variable override for base URL
 	originalURL := os.Getenv("OLLAMA_BASE_URL")
@@ -344,11 +317,10 @@ func TestClient_GenerateOptions(t *testing.T) {
 	}
 
 	req := &interfaces.GenerateRequest{
-		Prompt:      "Test prompt",
-		Model:       "test-model",
-		MaxTokens:   100,
-		Temperature: 0.5,
-		Stream:      false,
+		Prompt:    "Test prompt",
+		Model:     "test-model",
+		MaxTokens: 100,
+		Stream:    false,
 	}
 
 	// Test that streaming flag is properly handled in the request building
@@ -357,7 +329,6 @@ func TestClient_GenerateOptions(t *testing.T) {
 		Prompt: client.buildPrompt(req),
 		Stream: req.Stream,
 		Options: map[string]any{
-			"temperature": client.getTemperature(req),
 			"num_predict": client.getMaxTokens(req),
 		},
 	}
@@ -367,9 +338,6 @@ func TestClient_GenerateOptions(t *testing.T) {
 	}
 	if ollamaReq.Model != "test-model" {
 		t.Errorf("Expected Model to be 'test-model', got '%s'", ollamaReq.Model)
-	}
-	if ollamaReq.Options["temperature"] != 0.5 {
-		t.Errorf("Expected temperature to be 0.5, got %v", ollamaReq.Options["temperature"])
 	}
 	if ollamaReq.Options["num_predict"] != 100 {
 		t.Errorf("Expected num_predict to be 100, got %v", ollamaReq.Options["num_predict"])
