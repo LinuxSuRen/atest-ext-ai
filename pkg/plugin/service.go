@@ -51,6 +51,8 @@ type AIPluginService struct {
 }
 
 // NewAIPluginService creates a new AI plugin service instance
+// This function implements graceful degradation - the plugin will start successfully
+// even if AI services are temporarily unavailable, allowing configuration and UI features to work.
 func NewAIPluginService() (*AIPluginService, error) {
 	logging.Logger.Info("Initializing AI plugin service...")
 
@@ -61,45 +63,62 @@ func NewAIPluginService() (*AIPluginService, error) {
 	}
 	logging.Logger.Info("Configuration loaded successfully")
 
+	service := &AIPluginService{
+		config: cfg,
+	}
+
+	// Try to initialize AI engine - but allow plugin to start if it fails
 	aiEngine, err := ai.NewEngine(cfg.AI)
 	if err != nil {
-		logging.Logger.Error("Failed to initialize AI engine", "error", err)
-		return nil, fmt.Errorf("failed to initialize AI engine: %w", err)
+		logging.Logger.Warn("AI engine initialization failed - plugin will start in degraded mode",
+			"error", err,
+			"impact", "AI generation features will be unavailable until AI service is available")
+		service.aiEngine = nil
+	} else {
+		logging.Logger.Info("AI engine initialized successfully")
+		service.aiEngine = aiEngine
 	}
-	logging.Logger.Info("AI engine initialized successfully")
 
-	// Initialize unified AI manager
+	// Try to initialize unified AI manager - but allow plugin to start if it fails
 	aiManager, err := ai.NewAIManager(cfg.AI)
 	if err != nil {
-		logging.Logger.Error("Failed to initialize AI manager", "error", err)
-		return nil, fmt.Errorf("failed to initialize AI manager: %w", err)
-	}
-	logging.Logger.Info("AI manager initialized successfully")
+		logging.Logger.Warn("AI manager initialization failed - plugin will start in degraded mode",
+			"error", err,
+			"impact", "Provider discovery and model listing will be unavailable")
+		service.aiManager = nil
+	} else {
+		logging.Logger.Info("AI manager initialized successfully")
+		service.aiManager = aiManager
 
-	// Initialize capability detector with AI manager
-	capabilityDetector := ai.NewCapabilityDetector(cfg.AI, aiManager)
-	logging.Logger.Info("Capability detector initialized")
+		// Initialize capability detector only if AI manager is available
+		capabilityDetector := ai.NewCapabilityDetector(cfg.AI, aiManager)
+		logging.Logger.Info("Capability detector initialized")
+		service.capabilityDetector = capabilityDetector
 
-	// Auto-discover providers in background
-	go func() {
-		ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
-		defer cancel()
-		if providers, err := aiManager.DiscoverProviders(ctx); err == nil {
-			logging.Logger.Info("Discovered AI providers", "count", len(providers))
-			for _, p := range providers {
-				logging.Logger.Debug("Provider models available", "provider", p.Name, "model_count", len(p.Models))
+		// Auto-discover providers in background only if manager is available
+		go func() {
+			ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+			defer cancel()
+			if providers, err := aiManager.DiscoverProviders(ctx); err == nil {
+				logging.Logger.Info("Discovered AI providers", "count", len(providers))
+				for _, p := range providers {
+					logging.Logger.Debug("Provider models available", "provider", p.Name, "model_count", len(p.Models))
+				}
+			} else {
+				logging.Logger.Warn("Provider discovery failed", "error", err)
 			}
-		}
-	}()
-
-	service := &AIPluginService{
-		aiEngine:           aiEngine,
-		config:             cfg,
-		capabilityDetector: capabilityDetector,
-		aiManager:          aiManager,
+		}()
 	}
 
-	logging.Logger.Info("AI plugin service creation completed")
+	// Log final status
+	if service.aiEngine != nil && service.aiManager != nil {
+		logging.Logger.Info("AI plugin service fully operational")
+	} else {
+		logging.Logger.Warn("AI plugin service started in degraded mode - some features unavailable",
+			"ai_engine_available", service.aiEngine != nil,
+			"ai_manager_available", service.aiManager != nil)
+	}
+
 	return service, nil
 }
 
@@ -120,21 +139,56 @@ func (s *AIPluginService) Query(ctx context.Context, req *server.DataQuery) (*se
 	// Handle new AI interface standard
 	switch req.Key {
 	case "generate":
+		// Check AI engine availability for generation requests
+		if s.aiEngine == nil {
+			logging.Logger.Error("AI generation requested but AI engine is not available")
+			return nil, status.Errorf(codes.FailedPrecondition,
+				"AI generation service is currently unavailable. Please check AI provider configuration and connectivity.")
+		}
 		return s.handleAIGenerate(ctx, req)
 	case "capabilities":
 		return s.handleAICapabilities(ctx, req)
 	case "providers":
+		// Check AI manager availability for provider operations
+		if s.aiManager == nil {
+			logging.Logger.Error("Provider discovery requested but AI manager is not available")
+			return nil, status.Errorf(codes.FailedPrecondition,
+				"AI provider discovery is currently unavailable. Please check AI service configuration.")
+		}
 		return s.handleGetProviders(ctx, req)
 	case "models":
+		// Check AI manager availability for model operations
+		if s.aiManager == nil {
+			logging.Logger.Error("Model listing requested but AI manager is not available")
+			return nil, status.Errorf(codes.FailedPrecondition,
+				"AI model listing is currently unavailable. Please check AI service configuration.")
+		}
 		return s.handleGetModels(ctx, req)
 	case "test_connection":
+		// Connection testing can work even without initialized services
+		if s.aiManager == nil {
+			logging.Logger.Error("Connection test requested but AI manager is not available")
+			return nil, status.Errorf(codes.FailedPrecondition,
+				"AI connection testing is currently unavailable. Please check AI service configuration.")
+		}
 		return s.handleTestConnection(ctx, req)
 	case "health_check":
 		return s.handleHealthCheck(ctx, req)
 	case "update_config":
+		if s.aiManager == nil {
+			logging.Logger.Error("Config update requested but AI manager is not available")
+			return nil, status.Errorf(codes.FailedPrecondition,
+				"AI configuration update is currently unavailable. Please check AI service configuration.")
+		}
 		return s.handleUpdateConfig(ctx, req)
 	default:
 		// Backward compatibility: support legacy natural language queries
+		// Check AI engine availability for legacy queries
+		if s.aiEngine == nil {
+			logging.Logger.Error("AI query requested but AI engine is not available")
+			return nil, status.Errorf(codes.FailedPrecondition,
+				"AI service is currently unavailable. Please check AI provider configuration and connectivity.")
+		}
 		return s.handleLegacyQuery(ctx, req)
 	}
 }
@@ -257,27 +311,41 @@ func (s *AIPluginService) handleCapabilitiesQuery(ctx context.Context, req *serv
 }
 
 // Verify returns the plugin status for health checks
-// Note: This checks if the plugin service itself is ready, NOT if AI services are available.
-// AI service availability should be checked separately via test_connection or health_check endpoints.
+// This implements graceful degradation: the plugin is considered "Ready" if the core
+// configuration is loaded, even if AI services are temporarily unavailable.
+// AI service status is reported in the message field for diagnostic purposes.
 func (s *AIPluginService) Verify(ctx context.Context, req *server.Empty) (*server.ExtensionStatus, error) {
 	logging.Logger.Info("Health check requested")
 
-	// Plugin Ready check: only verify core components are initialized
-	// This allows the plugin to be "Ready" even without active AI services (e.g., cloud-only users)
-	isReady := s.aiEngine != nil && s.config != nil && s.aiManager != nil
+	// Plugin Ready check: only require core configuration to be loaded
+	// This allows UI and configuration features to work even if AI services are down
+	isReady := s.config != nil
 
-	message := "AI Plugin ready"
+	var message string
 	if !isReady {
-		if s.aiEngine == nil {
-			message = "AI engine not initialized"
-		} else if s.config == nil {
-			message = "Configuration not loaded"
-		} else if s.aiManager == nil {
-			message = "AI manager not initialized"
-		}
-		logging.Logger.Warn("Health check failed", "message", message)
+		message = "Configuration not loaded - plugin cannot start"
+		logging.Logger.Error("Health check failed: configuration missing")
 	} else {
-		logging.Logger.Info("Health check passed: AI plugin is ready")
+		// Build detailed status message
+		aiEngineStatus := "unavailable"
+		if s.aiEngine != nil {
+			aiEngineStatus = "operational"
+		}
+		aiManagerStatus := "unavailable"
+		if s.aiManager != nil {
+			aiManagerStatus = "operational"
+		}
+
+		if s.aiEngine != nil && s.aiManager != nil {
+			message = "AI Plugin fully operational"
+			logging.Logger.Info("Health check passed: plugin fully operational")
+		} else {
+			message = fmt.Sprintf("AI Plugin ready (degraded mode: AI engine=%s, AI manager=%s)",
+				aiEngineStatus, aiManagerStatus)
+			logging.Logger.Warn("Health check passed but plugin in degraded mode",
+				"ai_engine", aiEngineStatus,
+				"ai_manager", aiManagerStatus)
+		}
 	}
 
 	status := &server.ExtensionStatus{
@@ -402,6 +470,32 @@ func (s *AIPluginService) handleAIGenerate(ctx context.Context, req *server.Data
 
 // handleAICapabilities handles ai.capabilities calls
 func (s *AIPluginService) handleAICapabilities(ctx context.Context, req *server.DataQuery) (*server.DataQueryResult, error) {
+	// Check if capability detector is available
+	if s.capabilityDetector == nil {
+		logging.Logger.Warn("Capability detector not available - returning minimal capabilities")
+		// Return minimal capabilities when detector is not available
+		minimalCaps := map[string]interface{}{
+			"plugin_ready":    true,
+			"ai_available":    false,
+			"degraded_mode":   true,
+			"plugin_version":  PluginVersion,
+			"api_version":     APIVersion,
+		}
+		capsJSON, _ := json.Marshal(minimalCaps)
+		return &server.DataQueryResult{
+			Data: []*server.Pair{
+				{Key: "api_version", Value: APIVersion},
+				{Key: "capabilities", Value: string(capsJSON)},
+				{Key: "models", Value: "[]"},
+				{Key: "features", Value: "[]"},
+				{Key: "description", Value: "AI Extension Plugin (degraded mode - AI services unavailable)"},
+				{Key: "version", Value: PluginVersion},
+				{Key: "success", Value: "true"},
+				{Key: "warning", Value: "AI services are currently unavailable"},
+			},
+		}, nil
+	}
+
 	capabilities, err := s.capabilityDetector.GetCapabilities(ctx, &ai.CapabilitiesRequest{
 		IncludeModels:   true,
 		IncludeFeatures: true,
