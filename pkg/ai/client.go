@@ -137,15 +137,33 @@ func (c *Client) GetAllClients() map[string]interfaces.AIClient {
 
 // convertAIConfigToServiceConfig converts the new config format to the service config format
 func convertAIConfigToServiceConfig(cfg config.AIConfig) *AIServiceConfig {
+	// Use retry config from configuration, with fallback defaults
+	retryConfig := RetryConfig{
+		MaxAttempts:       3,
+		BaseDelay:         100 * time.Millisecond,
+		MaxDelay:          5 * time.Second,
+		BackoffMultiplier: 2.0,
+		Jitter:            true,
+	}
+
+	// Override with configured values if available
+	if cfg.Retry.MaxAttempts > 0 {
+		retryConfig.MaxAttempts = cfg.Retry.MaxAttempts
+	}
+	if cfg.Retry.InitialDelay.Duration > 0 {
+		retryConfig.BaseDelay = cfg.Retry.InitialDelay.Duration
+	}
+	if cfg.Retry.MaxDelay.Duration > 0 {
+		retryConfig.MaxDelay = cfg.Retry.MaxDelay.Duration
+	}
+	if cfg.Retry.Multiplier > 0 {
+		retryConfig.BackoffMultiplier = cfg.Retry.Multiplier
+	}
+	retryConfig.Jitter = cfg.Retry.Jitter
+
 	serviceConfig := &AIServiceConfig{
 		Providers: make([]ProviderConfig, 0, len(cfg.Services)),
-		Retry: RetryConfig{
-			MaxAttempts:       3,
-			BaseDelay:         100 * time.Millisecond,
-			MaxDelay:          5 * time.Second,
-			BackoffMultiplier: 2.0,
-			Jitter:            true,
-		},
+		Retry:     retryConfig,
 	}
 
 	// Convert services to providers
@@ -167,7 +185,7 @@ func convertAIConfigToServiceConfig(cfg config.AIConfig) *AIServiceConfig {
 			},
 			Models:     service.Models,
 			Timeout:    service.Timeout.Value(),
-			MaxRetries: 3,
+			MaxRetries: retryConfig.MaxAttempts,
 		}
 
 		serviceConfig.Providers = append(serviceConfig.Providers, providerConfig)

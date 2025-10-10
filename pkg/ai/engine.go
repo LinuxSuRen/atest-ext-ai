@@ -181,6 +181,12 @@ func (e *aiEngine) GenerateSQL(ctx context.Context, req *GenerateSQLRequest) (*G
 		return nil, fmt.Errorf("SQL generator not initialized")
 	}
 
+	// Get default max tokens from configuration
+	defaultMaxTokens := 2000 // fallback if config not available
+	if service, ok := e.config.Services[e.config.DefaultService]; ok && service.MaxTokens > 0 {
+		defaultMaxTokens = service.MaxTokens
+	}
+
 	// Convert request to generator options
 	options := &GenerateOptions{
 		DatabaseType:       req.DatabaseType,
@@ -188,7 +194,7 @@ func (e *aiEngine) GenerateSQL(ctx context.Context, req *GenerateSQLRequest) (*G
 		OptimizeQuery:      false,
 		IncludeExplanation: true,
 		SafetyMode:         true,
-		MaxTokens:          2000,
+		MaxTokens:          defaultMaxTokens,
 	}
 
 	// Add context if provided and extract preferred_model and runtime config
