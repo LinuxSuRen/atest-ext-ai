@@ -17,22 +17,10 @@ limitations under the License.
 package config
 
 import (
-	"fmt"
 	"os"
 )
 
-// LoadConfig loads configuration using simplified loader
-func LoadConfig() (*Config, error) {
-	// Create a new loader
-	loader := NewLoader()
-
-	// Load configuration from default paths
-	if err := loader.Load(); err != nil {
-		return nil, fmt.Errorf("failed to load configuration: %w", err)
-	}
-
-	return loader.GetConfig(), nil
-}
+// Note: LoadConfig is now defined in simple_loader.go
 
 // getEnvironment returns the environment setting with production as safe default
 func getEnvironment() string {
