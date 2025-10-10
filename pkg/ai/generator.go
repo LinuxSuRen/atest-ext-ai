@@ -660,6 +660,11 @@ func createRuntimeClient(provider string, runtimeConfig map[string]any) (interfa
 		maxTokens = int(val)
 	} else if val, ok := runtimeConfig["max_tokens"].(int); ok {
 		maxTokens = val
+	} else if runtimeConfig["max_tokens"] != nil {
+		logging.Logger.Warn("Invalid max_tokens type, using default",
+			"type", fmt.Sprintf("%T", runtimeConfig["max_tokens"]),
+			"value", runtimeConfig["max_tokens"],
+			"default", maxTokens)
 	}
 
 	// Create client based on provider type

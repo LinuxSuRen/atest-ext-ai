@@ -220,6 +220,13 @@ func (e *aiEngine) GenerateSQL(ctx context.Context, req *GenerateSQLRequest) (*G
 					}
 					if maxTokens, ok := runtimeConfig["max_tokens"].(float64); ok {
 						options.MaxTokens = int(maxTokens)
+					} else if maxTokens, ok := runtimeConfig["max_tokens"].(int); ok {
+						options.MaxTokens = maxTokens
+					} else if runtimeConfig["max_tokens"] != nil {
+						logging.Logger.Warn("Invalid max_tokens type in runtime config, using default",
+							"type", fmt.Sprintf("%T", runtimeConfig["max_tokens"]),
+							"value", runtimeConfig["max_tokens"],
+							"default", options.MaxTokens)
 					}
 				}
 			} else {
