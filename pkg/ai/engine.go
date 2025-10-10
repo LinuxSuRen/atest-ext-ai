@@ -91,14 +91,7 @@ type SQLFeature struct {
 	Parameters  map[string]string `json:"parameters,omitempty"`
 }
 
-// basicEngine is a basic implementation for testing
-type basicEngine struct {
-	config config.AIConfig
-	// generator and aiClient are reserved for future expansion
-	// when basicEngine will support actual AI functionality
-}
-
-// aiEngine is a full-featured implementation using AI clients
+// aiEngine is the AI engine implementation using AI clients
 type aiEngine struct {
 	config    config.AIConfig
 	generator *SQLGenerator
@@ -159,21 +152,6 @@ func NewClaudeEngine(cfg config.AIConfig) (Engine, error) {
 	return NewEngine(cfg)
 }
 
-// GenerateSQL implements Engine.GenerateSQL
-func (e *basicEngine) GenerateSQL(ctx context.Context, req *GenerateSQLRequest) (*GenerateSQLResponse, error) {
-	start := time.Now()
-
-	// Basic implementation that returns a simple response
-	return &GenerateSQLResponse{
-		SQL:             "SELECT * FROM table_name;", // Basic SQL as placeholder
-		Explanation:     fmt.Sprintf("Generated basic SQL for: %s", req.NaturalLanguage),
-		ConfidenceScore: 0.5,
-		ProcessingTime:  time.Since(start),
-		RequestID:       fmt.Sprintf("req_%d", time.Now().UnixNano()),
-		ModelUsed:       e.config.DefaultService,
-		DebugInfo:       addDebugInfo([]string{}, "Using basic implementation"),
-	}, nil
-}
 
 // GenerateSQL implements Engine.GenerateSQL with full AI integration
 func (e *aiEngine) GenerateSQL(ctx context.Context, req *GenerateSQLRequest) (*GenerateSQLResponse, error) {
@@ -253,19 +231,6 @@ func (e *aiEngine) GenerateSQL(ctx context.Context, req *GenerateSQLRequest) (*G
 	}, nil
 }
 
-// GetCapabilities implements Engine.GetCapabilities
-func (e *basicEngine) GetCapabilities() *SQLCapabilities {
-	return &SQLCapabilities{
-		SupportedDatabases: []string{"mysql", "postgresql", "sqlite"},
-		Features: []SQLFeature{
-			{
-				Name:        "SQL Generation",
-				Enabled:     true,
-				Description: "Basic SQL generation from natural language",
-			},
-		},
-	}
-}
 
 // GetCapabilities implements Engine.GetCapabilities for AI engine
 func (e *aiEngine) GetCapabilities() *SQLCapabilities {
@@ -285,15 +250,6 @@ func (e *aiEngine) GetCapabilities() *SQLCapabilities {
 	}
 }
 
-// IsHealthy implements Engine.IsHealthy
-func (e *basicEngine) IsHealthy() bool {
-	return true
-}
-
-// Close implements Engine.Close
-func (e *basicEngine) Close() {
-	// No cleanup needed for basic implementation
-}
 
 // IsHealthy implements Engine.IsHealthy for AI engine
 func (e *aiEngine) IsHealthy() bool {
