@@ -80,7 +80,7 @@ func main() {
 	log.Printf("Step 3/4: Initializing AI plugin service...")
 	aiPlugin, err := plugin.NewAIPluginService()
 	if err != nil {
-		log.Fatalf("FATAL: Failed to initialize AI plugin service: %v\nTroubleshooting: Check configuration file, AI service connectivity, and logs above for details", err)
+		log.Panicf("FATAL: Failed to initialize AI plugin service: %v\nTroubleshooting: Check configuration file, AI service connectivity, and logs above for details", err)
 	}
 	log.Println("✓ AI plugin service initialized successfully")
 

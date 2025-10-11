@@ -228,7 +228,7 @@ func (c *UniversalClient) Generate(ctx context.Context, req *interfaces.Generate
 	if err != nil {
 		return nil, fmt.Errorf("failed to execute request: %w", err)
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	// Check status
 	if resp.StatusCode != http.StatusOK {
@@ -316,7 +316,7 @@ func (c *UniversalClient) HealthCheck(ctx context.Context) (*interfaces.HealthSt
 			Errors:       []string{err.Error()},
 		}, nil
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	healthy := resp.StatusCode == http.StatusOK
 	status := "Healthy"
@@ -358,7 +358,7 @@ func (c *UniversalClient) getModels(ctx context.Context) ([]interfaces.ModelInfo
 	if err != nil {
 		return nil, err
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	if resp.StatusCode != http.StatusOK {
 		return nil, fmt.Errorf("failed to get models: status %d", resp.StatusCode)

@@ -407,7 +407,7 @@ func (m *AIManager) TestConnection(ctx context.Context, cfg *universal.Config) (
 			Error:        err.Error(),
 		}, nil
 	}
-	defer client.Close()
+	defer func() { _ = client.Close() }()
 
 	// Test with health check
 	health, err := client.HealthCheck(ctx)
