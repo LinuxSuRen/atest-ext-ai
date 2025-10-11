@@ -15,10 +15,6 @@ limitations under the License.
 */
 
 // Package metrics provides Prometheus metrics for monitoring AI operations
-// Following Prometheus best practices for metric naming and types:
-// - Counter: for monotonically increasing values (request count)
-// - Histogram: for distributions and aggregations (latency)
-// - Gauge: for values that can go up and down (health status)
 package metrics
 
 import (

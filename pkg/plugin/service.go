@@ -634,7 +634,6 @@ func (s *AIPluginService) handleAIGenerate(ctx context.Context, req *server.Data
 		Context:         context,
 	})
 	if err != nil {
-		// Metrics: record failed request
 		metrics.RecordRequest("generate", provider, "error")
 
 		logging.Logger.Error("SQL generation failed",
@@ -673,7 +672,6 @@ func (s *AIPluginService) handleAIGenerate(ctx context.Context, req *server.Data
 		"model", sqlResult.ModelUsed,
 		"sql_length", len(sqlResult.SQL))
 
-	// Metrics: record successful request
 	metrics.RecordRequest("generate", provider, "success")
 
 	return &server.DataQueryResult{
