@@ -17,6 +17,7 @@ limitations under the License.
 package plugin
 
 import (
+	"context"
 	"encoding/json"
 	"testing"
 
@@ -350,4 +351,43 @@ func BenchmarkFieldLookup(b *testing.B) {
 			}
 		}
 	}
+}
+
+func TestHandleUpdateConfigRefreshesEngine(t *testing.T) {
+	service, err := NewAIPluginService()
+	require.NoError(t, err)
+	require.NotNil(t, service)
+	t.Cleanup(service.Shutdown)
+
+	oldManager := service.aiManager
+	oldEngine := service.aiEngine
+
+	updatePayload := map[string]any{
+		"provider": "ollama",
+		"config": map[string]any{
+			"provider":   "ollama",
+			"endpoint":   "http://localhost:11439",
+			"model":      "test-model",
+			"api_key":    "",
+			"max_tokens": 1337,
+		},
+	}
+
+	payload, err := json.Marshal(updatePayload)
+	require.NoError(t, err)
+
+	resp, err := service.handleUpdateConfig(context.Background(), &server.DataQuery{Sql: string(payload)})
+	require.NoError(t, err)
+	require.NotNil(t, resp)
+
+	updatedService := service.config.AI.Services["ollama"]
+	require.Equal(t, "http://localhost:11439", updatedService.Endpoint)
+	require.Equal(t, 1337, updatedService.MaxTokens)
+
+	require.NotNil(t, service.aiManager)
+	require.NotNil(t, service.aiEngine)
+	require.NotNil(t, service.capabilityDetector)
+
+	require.NotEqual(t, oldManager, service.aiManager)
+	require.NotEqual(t, oldEngine, service.aiEngine)
 }

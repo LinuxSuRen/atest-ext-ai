@@ -55,6 +55,26 @@ type InitializationError struct {
 // when operations fail due to unavailable services
 var initErrors []InitializationError
 
+func clearInitErrorsFor(components ...string) {
+	if len(initErrors) == 0 || len(components) == 0 {
+		return
+	}
+
+	componentSet := make(map[string]struct{}, len(components))
+	for _, name := range components {
+		componentSet[name] = struct{}{}
+	}
+
+	filtered := initErrors[:0]
+	for _, initErr := range initErrors {
+		if _, drop := componentSet[initErr.Component]; drop {
+			continue
+		}
+		filtered = append(filtered, initErr)
+	}
+	initErrors = filtered
+}
+
 func contextError(ctx context.Context) error {
 	if ctx == nil {
 		return nil
@@ -1480,12 +1500,47 @@ func (s *AIPluginService) handleUpdateConfig(ctx context.Context, req *server.Da
 		serviceConfig.Timeout = config.Duration{Duration: updateReq.Config.Timeout}
 	}
 
-	err := s.aiManager.AddClient(ctx, updateReq.Provider, serviceConfig, nil)
+	oldEngine := s.aiEngine
+
+	servicesCopy := make(map[string]config.AIService, len(s.config.AI.Services)+1)
+	for name, svc := range s.config.AI.Services {
+		servicesCopy[name] = svc
+	}
+	servicesCopy[updateReq.Provider] = serviceConfig
+
+	newAIConfig := s.config.AI
+	newAIConfig.Services = servicesCopy
+	if newAIConfig.DefaultService == "" {
+		newAIConfig.DefaultService = updateReq.Provider
+	}
+
+	manager, err := ai.NewAIManager(newAIConfig)
 	if err != nil {
-		logging.Logger.Error("Failed to update config",
+		logging.Logger.Error("Failed to rebuild AI manager",
 			"provider", updateReq.Provider,
 			"error", err)
-		return nil, apperrors.ToGRPCErrorf(apperrors.ErrInvalidConfig, "failed to update configuration for provider %s: %v", updateReq.Provider, err)
+		return nil, apperrors.ToGRPCErrorf(apperrors.ErrInvalidConfig, "failed to rebuild AI manager: %v", err)
+	}
+
+	engine, err := ai.NewEngineWithManager(manager, newAIConfig)
+	if err != nil {
+		logging.Logger.Error("Failed to rebuild AI engine",
+			"provider", updateReq.Provider,
+			"error", err)
+		_ = manager.Close()
+		return nil, apperrors.ToGRPCErrorf(apperrors.ErrInvalidConfig, "failed to rebuild AI engine: %v", err)
+	}
+
+	capabilityDetector := ai.NewCapabilityDetector(newAIConfig, manager)
+
+	s.config.AI = newAIConfig
+	s.aiManager = manager
+	s.aiEngine = engine
+	s.capabilityDetector = capabilityDetector
+	clearInitErrorsFor("AI Engine", "AI Manager")
+
+	if oldEngine != nil {
+		oldEngine.Close()
 	}
 
 	return &server.DataQueryResult{

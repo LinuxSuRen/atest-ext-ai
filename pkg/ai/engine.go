@@ -100,22 +100,30 @@ type aiEngine struct {
 }
 
 // NewEngine creates a new AI engine based on configuration
+
 func NewEngine(cfg config.AIConfig) (Engine, error) {
-	// Create unified AI manager
 	manager, err := NewAIManager(cfg)
 	if err != nil {
-		// Check if this is an unsupported provider error
 		if IsProviderNotSupported(err) {
 			logging.Logger.Error("Provider not supported - please use one of: openai, local, deepseek, custom", "error", err, "provider", cfg.DefaultService)
 			return nil, fmt.Errorf("unsupported AI provider '%s': %w. Supported providers: openai, local (ollama), deepseek, custom", cfg.DefaultService, err)
 		}
-		// For other errors, also fail instead of silent fallback
 		logging.Logger.Error("Failed to create AI manager", "error", err, "provider", cfg.DefaultService)
 		return nil, fmt.Errorf("failed to create AI manager for provider '%s': %w", cfg.DefaultService, err)
 	}
 
-	// Get the primary AI client from the manager
+	engine, err := newEngineFromManager(manager, cfg)
+	if err != nil {
+		_ = manager.Close()
+		return nil, err
+	}
+	return engine, nil
+}
+
+func newEngineFromManager(manager *Manager, cfg config.AIConfig) (Engine, error) {
 	var aiClient interfaces.AIClient
+	var err error
+
 	if cfg.DefaultService != "" {
 		aiClient, err = manager.GetClient(cfg.DefaultService)
 		if err != nil {
@@ -123,7 +131,6 @@ func NewEngine(cfg config.AIConfig) (Engine, error) {
 			return nil, fmt.Errorf("no primary AI client available for provider '%s' - please check your configuration: %w", cfg.DefaultService, err)
 		}
 	} else {
-		// Get any available client
 		clients := manager.GetAllClients()
 		for _, client := range clients {
 			aiClient = client
@@ -134,7 +141,6 @@ func NewEngine(cfg config.AIConfig) (Engine, error) {
 		}
 	}
 
-	// Create SQL generator with AI client
 	generator, err := NewSQLGenerator(aiClient, cfg)
 	if err != nil {
 		logging.Logger.Error("Failed to create SQL generator", "error", err, "provider", cfg.DefaultService)
@@ -148,6 +154,19 @@ func NewEngine(cfg config.AIConfig) (Engine, error) {
 		aiClient:  aiClient,
 		manager:   manager,
 	}, nil
+}
+
+func NewEngineWithManager(manager *Manager, cfg config.AIConfig) (Engine, error) {
+	if manager == nil {
+		return nil, fmt.Errorf("manager cannot be nil")
+	}
+
+	engine, err := newEngineFromManager(manager, cfg)
+	if err != nil {
+		_ = manager.Close()
+		return nil, err
+	}
+	return engine, nil
 }
 
 // NewOllamaEngine creates an Ollama-based AI engine
