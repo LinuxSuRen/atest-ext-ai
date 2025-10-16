@@ -129,4 +129,3 @@ type LogFileConfig struct {
 	MaxAge     int    `yaml:"max_age" json:"max_age"`
 	Compress   bool   `yaml:"compress" json:"compress"`
 }
-

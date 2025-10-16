@@ -110,6 +110,10 @@ func (s *OpenAIStrategy) ParseResponse(body io.Reader, requestedModel string) (*
 		return nil, fmt.Errorf("no choices in response")
 	}
 
+	if resp.Model == "" && requestedModel != "" {
+		resp.Model = requestedModel
+	}
+
 	return &interfaces.GenerateResponse{
 		Text:      resp.Choices[0].Message.Content,
 		Model:     resp.Model,

@@ -1,3 +1,4 @@
+// Package universal offers provider strategies for OpenAI-compatible HTTP APIs.
 /*
 Copyright 2025 API Testing Authors.
 
@@ -13,7 +14,6 @@ WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 See the License for the specific language governing permissions and
 limitations under the License.
 */
-
 package universal
 
 import (
@@ -73,12 +73,12 @@ func getOrCreateHTTPClient(provider string, timeout time.Duration) *http.Client 
 			IdleConnTimeout:     90 * time.Second, // Keep idle connections for 90s
 			DisableCompression:  false,            // Enable compression for better bandwidth utilization
 			// Additional recommended settings for production use:
-			MaxConnsPerHost:        0,                // No limit on active connections (0 = unlimited)
-			ResponseHeaderTimeout:  30 * time.Second, // Timeout for reading response headers
-			ExpectContinueTimeout:  1 * time.Second,  // Timeout for 100-Continue handshake
-			ForceAttemptHTTP2:      true,             // Enable HTTP/2 when available
-			DisableKeepAlives:      false,            // Enable keep-alives for connection reuse
-			TLSHandshakeTimeout:    10 * time.Second, // Timeout for TLS handshake
+			MaxConnsPerHost:       0,                // No limit on active connections (0 = unlimited)
+			ResponseHeaderTimeout: 30 * time.Second, // Timeout for reading response headers
+			ExpectContinueTimeout: 1 * time.Second,  // Timeout for 100-Continue handshake
+			ForceAttemptHTTP2:     true,             // Enable HTTP/2 when available
+			DisableKeepAlives:     false,            // Enable keep-alives for connection reuse
+			TLSHandshakeTimeout:   10 * time.Second, // Timeout for TLS handshake
 		},
 	}
 
@@ -95,8 +95,8 @@ func getOrCreateHTTPClient(provider string, timeout time.Duration) *http.Client 
 	return client
 }
 
-// UniversalClient implements a universal OpenAI-compatible API client
-type UniversalClient struct {
+// Client implements a universal OpenAI-compatible API client.
+type Client struct {
 	config     *Config
 	httpClient *http.Client
 	strategy   ProviderStrategy // Strategy pattern to handle provider-specific logic
@@ -119,7 +119,7 @@ type Config struct {
 }
 
 // NewUniversalClient creates a new universal OpenAI-compatible client
-func NewUniversalClient(config *Config) (*UniversalClient, error) {
+func NewUniversalClient(config *Config) (*Client, error) {
 	if config == nil {
 		return nil, fmt.Errorf("config cannot be nil")
 	}
@@ -177,7 +177,7 @@ func NewUniversalClient(config *Config) (*UniversalClient, error) {
 	// This reuses connections across requests to the same provider
 	httpClient := getOrCreateHTTPClient(config.Provider, config.Timeout)
 
-	client := &UniversalClient{
+	client := &Client{
 		config:     config,
 		strategy:   strategy,
 		httpClient: httpClient,
@@ -193,7 +193,7 @@ func NewUniversalClient(config *Config) (*UniversalClient, error) {
 }
 
 // Generate executes a generation request
-func (c *UniversalClient) Generate(ctx context.Context, req *interfaces.GenerateRequest) (*interfaces.GenerateResponse, error) {
+func (c *Client) Generate(ctx context.Context, req *interfaces.GenerateRequest) (*interfaces.GenerateResponse, error) {
 	start := time.Now()
 
 	// Build request using strategy pattern
@@ -246,7 +246,7 @@ func (c *UniversalClient) Generate(ctx context.Context, req *interfaces.Generate
 }
 
 // GetCapabilities returns the capabilities of this AI client
-func (c *UniversalClient) GetCapabilities(ctx context.Context) (*interfaces.Capabilities, error) {
+func (c *Client) GetCapabilities(ctx context.Context) (*interfaces.Capabilities, error) {
 	caps := &interfaces.Capabilities{
 		Provider:  c.config.Provider,
 		MaxTokens: c.config.MaxTokens,
@@ -282,7 +282,7 @@ func (c *UniversalClient) GetCapabilities(ctx context.Context) (*interfaces.Capa
 }
 
 // HealthCheck performs a health check on the AI service
-func (c *UniversalClient) HealthCheck(ctx context.Context) (*interfaces.HealthStatus, error) {
+func (c *Client) HealthCheck(ctx context.Context) (*interfaces.HealthStatus, error) {
 	start := time.Now()
 
 	// Try to get models as a health check
@@ -338,13 +338,13 @@ func (c *UniversalClient) HealthCheck(ctx context.Context) (*interfaces.HealthSt
 }
 
 // Close releases any resources held by the client
-func (c *UniversalClient) Close() error {
+func (c *Client) Close() error {
 	// No persistent connections to close
 	return nil
 }
 
 // getModels retrieves available models from the API
-func (c *UniversalClient) getModels(ctx context.Context) ([]interfaces.ModelInfo, error) {
+func (c *Client) getModels(ctx context.Context) ([]interfaces.ModelInfo, error) {
 	req, err := http.NewRequestWithContext(ctx, "GET", c.config.Endpoint+c.config.ModelsPath, nil)
 	if err != nil {
 		return nil, err
@@ -369,7 +369,7 @@ func (c *UniversalClient) getModels(ctx context.Context) ([]interfaces.ModelInfo
 }
 
 // getDefaultModelsForProvider returns default models using strategy pattern
-func (c *UniversalClient) getDefaultModelsForProvider() []interfaces.ModelInfo {
+func (c *Client) getDefaultModelsForProvider() []interfaces.ModelInfo {
 	models := c.strategy.GetDefaultModels(c.config.MaxTokens)
 
 	// If strategy returns empty list and we have a configured model, use it as fallback

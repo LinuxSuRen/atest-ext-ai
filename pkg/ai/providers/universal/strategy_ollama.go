@@ -94,6 +94,10 @@ func (s *OllamaStrategy) ParseResponse(body io.Reader, requestedModel string) (*
 		return nil, err
 	}
 
+	if resp.Model == "" && requestedModel != "" {
+		resp.Model = requestedModel
+	}
+
 	return &interfaces.GenerateResponse{
 		Text:      resp.Message.Content,
 		Model:     resp.Model,
@@ -151,9 +155,18 @@ func (s *OllamaStrategy) GetDefaultPaths() ProviderPaths {
 
 // GetDefaultModels returns default models when API call fails
 func (s *OllamaStrategy) GetDefaultModels(maxTokens int) []interfaces.ModelInfo {
-	// Ollama doesn't have predefined models - they're pulled on demand
-	// Return empty list and let the system discover via API
-	return []interfaces.ModelInfo{}
+	if maxTokens <= 0 {
+		maxTokens = 4096
+	}
+
+	return []interfaces.ModelInfo{
+		{
+			ID:          "ollama-generic",
+			Name:        "Generic Ollama Model",
+			Description: "Fallback entry used when the Ollama model list cannot be retrieved",
+			MaxTokens:   maxTokens,
+		},
+	}
 }
 
 // SupportsStreaming indicates if Ollama supports streaming

@@ -72,10 +72,12 @@ type Function struct {
 // MySQLDialect implements SQLDialect for MySQL
 type MySQLDialect struct{}
 
+// Name implements SQLDialect.Name for MySQL.
 func (d *MySQLDialect) Name() string {
 	return "MySQL"
 }
 
+// ValidateSQL implements SQLDialect.ValidateSQL with MySQL-specific heuristics.
 func (d *MySQLDialect) ValidateSQL(sql string) ([]ValidationResult, error) {
 	var results []ValidationResult
 
@@ -131,6 +133,7 @@ func (d *MySQLDialect) ValidateSQL(sql string) ([]ValidationResult, error) {
 	return results, nil
 }
 
+// OptimizeSQL implements SQLDialect.OptimizeSQL for MySQL statements.
 func (d *MySQLDialect) OptimizeSQL(sql string) (string, []string, error) {
 	var suggestions []string
 	optimizedSQL := sql
@@ -155,6 +158,7 @@ func (d *MySQLDialect) OptimizeSQL(sql string) (string, []string, error) {
 	return optimizedSQL, suggestions, nil
 }
 
+// FormatSQL provides basic formatting for MySQL queries.
 func (d *MySQLDialect) FormatSQL(sql string) (string, error) {
 	// Basic SQL formatting - indent and add line breaks
 	formatted := strings.TrimSpace(sql)
@@ -169,6 +173,7 @@ func (d *MySQLDialect) FormatSQL(sql string) (string, error) {
 	return strings.TrimSpace(formatted), nil
 }
 
+// GetDataTypes lists supported MySQL data types.
 func (d *MySQLDialect) GetDataTypes() []DataType {
 	return []DataType{
 		{Name: "INT", Category: "numeric", Aliases: []string{"INTEGER"}},
@@ -189,6 +194,7 @@ func (d *MySQLDialect) GetDataTypes() []DataType {
 	}
 }
 
+// GetFunctions enumerates common MySQL functions.
 func (d *MySQLDialect) GetFunctions() []Function {
 	return []Function{
 		{Name: "COUNT", Category: "aggregate", Description: "Count rows", Syntax: "COUNT(column)", Examples: []string{"COUNT(*)", "COUNT(id)"}},
@@ -204,6 +210,7 @@ func (d *MySQLDialect) GetFunctions() []Function {
 	}
 }
 
+// GetKeywords returns reserved keywords relevant to MySQL.
 func (d *MySQLDialect) GetKeywords() []string {
 	return []string{
 		"SELECT", "FROM", "WHERE", "INSERT", "UPDATE", "DELETE", "CREATE", "DROP", "ALTER",
@@ -215,6 +222,7 @@ func (d *MySQLDialect) GetKeywords() []string {
 	}
 }
 
+// TransformSQL converts a MySQL query into another dialect when supported.
 func (d *MySQLDialect) TransformSQL(sql string, targetDialect string) (string, error) {
 	switch targetDialect {
 	case "postgresql":
@@ -259,10 +267,12 @@ func (d *MySQLDialect) transformToSQLite(sql string) (string, error) {
 // PostgreSQLDialect implements SQLDialect for PostgreSQL
 type PostgreSQLDialect struct{}
 
+// Name implements SQLDialect.Name for PostgreSQL.
 func (d *PostgreSQLDialect) Name() string {
 	return "PostgreSQL"
 }
 
+// ValidateSQL implements SQLDialect.ValidateSQL with PostgreSQL-specific rules.
 func (d *PostgreSQLDialect) ValidateSQL(sql string) ([]ValidationResult, error) {
 	var results []ValidationResult
 
@@ -310,6 +320,7 @@ func (d *PostgreSQLDialect) ValidateSQL(sql string) ([]ValidationResult, error) 
 	return results, nil
 }
 
+// OptimizeSQL provides tuning suggestions for PostgreSQL queries.
 func (d *PostgreSQLDialect) OptimizeSQL(sql string) (string, []string, error) {
 	var suggestions []string
 	optimizedSQL := sql
@@ -334,6 +345,7 @@ func (d *PostgreSQLDialect) OptimizeSQL(sql string) (string, []string, error) {
 	return optimizedSQL, suggestions, nil
 }
 
+// FormatSQL formats SQL according to PostgreSQL conventions.
 func (d *PostgreSQLDialect) FormatSQL(sql string) (string, error) {
 	// Basic SQL formatting
 	formatted := strings.TrimSpace(sql)
@@ -347,6 +359,7 @@ func (d *PostgreSQLDialect) FormatSQL(sql string) (string, error) {
 	return strings.TrimSpace(formatted), nil
 }
 
+// GetDataTypes lists PostgreSQL data types.
 func (d *PostgreSQLDialect) GetDataTypes() []DataType {
 	return []DataType{
 		{Name: "INTEGER", Category: "numeric", Aliases: []string{"INT", "INT4"}},
@@ -369,6 +382,7 @@ func (d *PostgreSQLDialect) GetDataTypes() []DataType {
 	}
 }
 
+// GetFunctions enumerates PostgreSQL functions used by the generator.
 func (d *PostgreSQLDialect) GetFunctions() []Function {
 	return []Function{
 		{Name: "COUNT", Category: "aggregate", Description: "Count rows", Syntax: "COUNT(column)", Examples: []string{"COUNT(*)", "COUNT(id)"}},
@@ -385,6 +399,7 @@ func (d *PostgreSQLDialect) GetFunctions() []Function {
 	}
 }
 
+// GetKeywords returns PostgreSQL reserved words.
 func (d *PostgreSQLDialect) GetKeywords() []string {
 	return []string{
 		"SELECT", "FROM", "WHERE", "INSERT", "UPDATE", "DELETE", "CREATE", "DROP", "ALTER",
@@ -396,6 +411,7 @@ func (d *PostgreSQLDialect) GetKeywords() []string {
 	}
 }
 
+// TransformSQL adapts PostgreSQL queries to other dialects when possible.
 func (d *PostgreSQLDialect) TransformSQL(sql string, targetDialect string) (string, error) {
 	switch targetDialect {
 	case "mysql":
@@ -438,10 +454,12 @@ func (d *PostgreSQLDialect) transformToSQLite(sql string) (string, error) {
 // SQLiteDialect implements SQLDialect for SQLite
 type SQLiteDialect struct{}
 
+// Name implements SQLDialect.Name for SQLite.
 func (d *SQLiteDialect) Name() string {
 	return "SQLite"
 }
 
+// ValidateSQL implements SQLDialect.ValidateSQL for SQLite syntax.
 func (d *SQLiteDialect) ValidateSQL(sql string) ([]ValidationResult, error) {
 	var results []ValidationResult
 
@@ -479,6 +497,7 @@ func (d *SQLiteDialect) ValidateSQL(sql string) ([]ValidationResult, error) {
 	return results, nil
 }
 
+// OptimizeSQL provides suggestions tailored to SQLite.
 func (d *SQLiteDialect) OptimizeSQL(sql string) (string, []string, error) {
 	var suggestions []string
 	optimizedSQL := sql
@@ -497,6 +516,7 @@ func (d *SQLiteDialect) OptimizeSQL(sql string) (string, []string, error) {
 	return optimizedSQL, suggestions, nil
 }
 
+// FormatSQL reformats SQL to align with SQLite practices.
 func (d *SQLiteDialect) FormatSQL(sql string) (string, error) {
 	// Basic SQL formatting
 	formatted := strings.TrimSpace(sql)
@@ -510,6 +530,7 @@ func (d *SQLiteDialect) FormatSQL(sql string) (string, error) {
 	return strings.TrimSpace(formatted), nil
 }
 
+// GetDataTypes lists supported SQLite data types.
 func (d *SQLiteDialect) GetDataTypes() []DataType {
 	return []DataType{
 		{Name: "INTEGER", Category: "numeric"},
@@ -521,6 +542,7 @@ func (d *SQLiteDialect) GetDataTypes() []DataType {
 	}
 }
 
+// GetFunctions enumerates common SQLite functions.
 func (d *SQLiteDialect) GetFunctions() []Function {
 	return []Function{
 		{Name: "COUNT", Category: "aggregate", Description: "Count rows", Syntax: "COUNT(column)", Examples: []string{"COUNT(*)", "COUNT(id)"}},
@@ -536,6 +558,7 @@ func (d *SQLiteDialect) GetFunctions() []Function {
 	}
 }
 
+// GetKeywords returns SQLite reserved keywords.
 func (d *SQLiteDialect) GetKeywords() []string {
 	return []string{
 		"SELECT", "FROM", "WHERE", "INSERT", "UPDATE", "DELETE", "CREATE", "DROP", "ALTER",
@@ -547,6 +570,7 @@ func (d *SQLiteDialect) GetKeywords() []string {
 	}
 }
 
+// TransformSQL converts SQLite queries to other dialects when supported.
 func (d *SQLiteDialect) TransformSQL(sql string, targetDialect string) (string, error) {
 	switch targetDialect {
 	case "mysql":

@@ -14,6 +14,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
+// Package main starts the atest-ext-ai plugin process and exposes the gRPC socket.
 package main
 
 import (
@@ -171,7 +172,7 @@ func cleanupSocketFile(path string) error {
 func createSocketListener(path string) (net.Listener, error) {
 	// Ensure the parent directory exists
 	dir := filepath.Dir(path)
-	if err := os.MkdirAll(dir, 0755); err != nil {
+	if err := os.MkdirAll(dir, 0o755); err != nil { //nolint:gosec // socket directory must remain accessible to API clients
 		return nil, fmt.Errorf("failed to create socket directory %s: %w", dir, err)
 	}
 
@@ -207,11 +208,6 @@ func createSocketListener(path string) (net.Listener, error) {
 		log.Printf("  Path: %s", path)
 		log.Printf("  Permissions: %04o (%s)", fileInfo.Mode().Perm(), fileInfo.Mode().String())
 		log.Printf("  Size: %d bytes", fileInfo.Size())
-
-		// Print owner information if possible (Unix-specific)
-		if stat, ok := fileInfo.Sys().(*syscall.Stat_t); ok {
-			log.Printf("  Owner UID: %d, GID: %d", stat.Uid, stat.Gid)
-		}
 
 		log.Printf("Troubleshooting tips:")
 		log.Printf("  - If connection fails with 'permission denied', check:")

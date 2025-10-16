@@ -55,13 +55,25 @@ type InitializationError struct {
 // when operations fail due to unavailable services
 var initErrors []InitializationError
 
+func contextError(ctx context.Context) error {
+	if ctx == nil {
+		return nil
+	}
+
+	if err := ctx.Err(); err != nil {
+		return status.Error(codes.Canceled, err.Error())
+	}
+
+	return nil
+}
+
 // AIPluginService implements the Loader gRPC service for AI functionality
 type AIPluginService struct {
 	remote.UnimplementedLoaderServer
 	aiEngine           ai.Engine
 	config             *config.Config
 	capabilityDetector *ai.CapabilityDetector
-	aiManager          *ai.AIManager
+	aiManager          *ai.Manager
 }
 
 // NewAIPluginService creates a new AI plugin service instance
@@ -76,7 +88,7 @@ func NewAIPluginService() (*AIPluginService, error) {
 		"api_version", APIVersion,
 		"grpc_interface_version", GRPCInterfaceVersion,
 		"min_api_testing_version", MinCompatibleAPITestingVersion)
-	logging.Logger.Info("Compatibility note: This plugin requires api-testing >= "+MinCompatibleAPITestingVersion)
+	logging.Logger.Info("Compatibility note: This plugin requires api-testing >= " + MinCompatibleAPITestingVersion)
 
 	cfg, err := config.LoadConfig()
 	if err != nil {
@@ -483,8 +495,12 @@ func (s *AIPluginService) handleCapabilitiesQuery(ctx context.Context, req *serv
 // This implements graceful degradation: the plugin is considered "Ready" if the core
 // configuration is loaded, even if AI services are temporarily unavailable.
 // AI service status is reported in the message field for diagnostic purposes.
-func (s *AIPluginService) Verify(ctx context.Context, req *server.Empty) (*server.ExtensionStatus, error) {
+func (s *AIPluginService) Verify(ctx context.Context, _ *server.Empty) (*server.ExtensionStatus, error) {
 	logging.Logger.Info("Health check requested")
+
+	if err := contextError(ctx); err != nil {
+		return nil, err
+	}
 
 	// Plugin Ready check: only require core configuration to be loaded
 	// This allows UI and configuration features to work even if AI services are down
@@ -550,8 +566,12 @@ func (s *AIPluginService) Shutdown() {
 }
 
 // GetVersion returns the plugin version information
-func (s *AIPluginService) GetVersion(ctx context.Context, req *server.Empty) (*server.Version, error) {
+func (s *AIPluginService) GetVersion(ctx context.Context, _ *server.Empty) (*server.Version, error) {
 	logging.Logger.Debug("GetVersion called")
+
+	if err := contextError(ctx); err != nil {
+		return nil, err
+	}
 
 	return &server.Version{
 		Version: fmt.Sprintf("%s (API: %s, gRPC: %s)", PluginVersion, APIVersion, GRPCInterfaceVersion),
@@ -686,16 +706,43 @@ func (s *AIPluginService) handleAIGenerate(ctx context.Context, req *server.Data
 
 // handleAICapabilities handles ai.capabilities calls
 func (s *AIPluginService) handleAICapabilities(ctx context.Context, req *server.DataQuery) (*server.DataQueryResult, error) {
+	if err := contextError(ctx); err != nil {
+		return nil, err
+	}
+
+	capReq := &ai.CapabilitiesRequest{
+		IncludeModels:   true,
+		IncludeFeatures: true,
+		CheckHealth:     false,
+	}
+
+	if req != nil && req.Sql != "" {
+		var params map[string]bool
+		if err := json.Unmarshal([]byte(req.Sql), &params); err == nil {
+			if includeModels, ok := params["include_models"]; ok {
+				capReq.IncludeModels = includeModels
+			}
+			if includeFeatures, ok := params["include_features"]; ok {
+				capReq.IncludeFeatures = includeFeatures
+			}
+			if checkHealth, ok := params["check_health"]; ok {
+				capReq.CheckHealth = checkHealth
+			}
+		} else {
+			logging.Logger.Warn("Failed to parse capabilities request overrides", "error", err)
+		}
+	}
+
 	// Check if capability detector is available
 	if s.capabilityDetector == nil {
 		logging.Logger.Warn("Capability detector not available - returning minimal capabilities")
 		// Return minimal capabilities when detector is not available
 		minimalCaps := map[string]interface{}{
-			"plugin_ready":    true,
-			"ai_available":    false,
-			"degraded_mode":   true,
-			"plugin_version":  PluginVersion,
-			"api_version":     APIVersion,
+			"plugin_ready":   true,
+			"ai_available":   false,
+			"degraded_mode":  true,
+			"plugin_version": PluginVersion,
+			"api_version":    APIVersion,
 		}
 		capsJSON, _ := json.Marshal(minimalCaps)
 		return &server.DataQueryResult{
@@ -712,11 +759,7 @@ func (s *AIPluginService) handleAICapabilities(ctx context.Context, req *server.
 		}, nil
 	}
 
-	capabilities, err := s.capabilityDetector.GetCapabilities(ctx, &ai.CapabilitiesRequest{
-		IncludeModels:   true,
-		IncludeFeatures: true,
-		CheckHealth:     false,
-	})
+	capabilities, err := s.capabilityDetector.GetCapabilities(ctx, capReq)
 	if err != nil {
 		logging.Logger.Error("Failed to get capabilities", "error", err)
 		return nil, apperrors.ToGRPCErrorf(apperrors.ErrProviderNotAvailable, "failed to retrieve capabilities: %v", err)
@@ -741,8 +784,12 @@ func (s *AIPluginService) handleAICapabilities(ctx context.Context, req *server.
 }
 
 // GetMenus returns the menu entries for AI plugin UI
-func (s *AIPluginService) GetMenus(ctx context.Context, req *server.Empty) (*server.MenuList, error) {
+func (s *AIPluginService) GetMenus(ctx context.Context, _ *server.Empty) (*server.MenuList, error) {
 	logging.Logger.Debug("AI plugin GetMenus called")
+
+	if err := contextError(ctx); err != nil {
+		return nil, err
+	}
 
 	return &server.MenuList{
 		Data: []*server.Menu{
@@ -759,6 +806,10 @@ func (s *AIPluginService) GetMenus(ctx context.Context, req *server.Empty) (*ser
 // GetPageOfJS returns the JavaScript code for AI plugin UI
 func (s *AIPluginService) GetPageOfJS(ctx context.Context, req *server.SimpleName) (*server.CommonResult, error) {
 	logging.Logger.Debug("AI plugin GetPageOfJS called", "name", req.Name)
+
+	if err := contextError(ctx); err != nil {
+		return nil, err
+	}
 
 	if req.Name != "ai-chat" {
 		return &server.CommonResult{
@@ -779,6 +830,10 @@ func (s *AIPluginService) GetPageOfJS(ctx context.Context, req *server.SimpleNam
 // GetPageOfCSS returns the CSS styles for AI plugin UI
 func (s *AIPluginService) GetPageOfCSS(ctx context.Context, req *server.SimpleName) (*server.CommonResult, error) {
 	logging.Logger.Debug("Serving CSS for AI plugin", "name", req.Name)
+
+	if err := contextError(ctx); err != nil {
+		return nil, err
+	}
 
 	if req.Name != "ai-chat" {
 		return &server.CommonResult{
@@ -1036,16 +1091,25 @@ html.dark .sql-code {
 }
 
 // GetPageOfStatic returns static files for AI plugin UI (not implemented)
-func (s *AIPluginService) GetPageOfStatic(ctx context.Context, req *server.SimpleName) (*server.CommonResult, error) {
-	return &server.CommonResult{
+func (s *AIPluginService) GetPageOfStatic(ctx context.Context, _ *server.SimpleName) (*server.CommonResult, error) {
+	if err := contextError(ctx); err != nil {
+		return nil, err
+	}
+
+	result := &server.CommonResult{
 		Success: false,
 		Message: "Static files not supported",
-	}, nil
+	}
+	return result, nil
 }
 
 // GetThemes returns the list of available themes (AI plugin doesn't provide themes)
-func (s *AIPluginService) GetThemes(ctx context.Context, req *server.Empty) (*server.SimpleList, error) {
+func (s *AIPluginService) GetThemes(ctx context.Context, _ *server.Empty) (*server.SimpleList, error) {
 	logging.Logger.Debug("GetThemes called - AI plugin does not provide themes")
+
+	if err := contextError(ctx); err != nil {
+		return nil, err
+	}
 
 	return &server.SimpleList{
 		Data: []*server.Pair{}, // Empty list - AI plugin doesn't provide themes
@@ -1056,6 +1120,10 @@ func (s *AIPluginService) GetThemes(ctx context.Context, req *server.Empty) (*se
 func (s *AIPluginService) GetTheme(ctx context.Context, req *server.SimpleName) (*server.CommonResult, error) {
 	logging.Logger.Debug("GetTheme called", "theme", req.Name)
 
+	if err := contextError(ctx); err != nil {
+		return nil, err
+	}
+
 	return &server.CommonResult{
 		Success: false,
 		Message: "AI plugin does not provide themes",
@@ -1063,8 +1131,12 @@ func (s *AIPluginService) GetTheme(ctx context.Context, req *server.SimpleName) 
 }
 
 // GetBindings returns the list of available bindings (AI plugin doesn't provide bindings)
-func (s *AIPluginService) GetBindings(ctx context.Context, req *server.Empty) (*server.SimpleList, error) {
+func (s *AIPluginService) GetBindings(ctx context.Context, _ *server.Empty) (*server.SimpleList, error) {
 	logging.Logger.Debug("GetBindings called - AI plugin does not provide bindings")
+
+	if err := contextError(ctx); err != nil {
+		return nil, err
+	}
 
 	return &server.SimpleList{
 		Data: []*server.Pair{}, // Empty list - AI plugin doesn't provide bindings
@@ -1075,6 +1147,10 @@ func (s *AIPluginService) GetBindings(ctx context.Context, req *server.Empty) (*
 func (s *AIPluginService) GetBinding(ctx context.Context, req *server.SimpleName) (*server.CommonResult, error) {
 	logging.Logger.Debug("GetBinding called", "binding", req.Name)
 
+	if err := contextError(ctx); err != nil {
+		return nil, err
+	}
+
 	return &server.CommonResult{
 		Success: false,
 		Message: "AI plugin does not provide bindings",
@@ -1083,13 +1159,22 @@ func (s *AIPluginService) GetBinding(ctx context.Context, req *server.SimpleName
 
 // PProf returns profiling data for the AI plugin
 func (s *AIPluginService) PProf(ctx context.Context, req *server.PProfRequest) (*server.PProfData, error) {
+	if err := contextError(ctx); err != nil {
+		return nil, err
+	}
+
+	if req == nil {
+		return nil, status.Error(codes.InvalidArgument, "profiling request cannot be nil")
+	}
+
 	logging.Logger.Debug("PProf called", "profile_type", req.Name)
 
 	// For now, return empty profiling data
 	// In the future, this could be extended to provide actual profiling information
-	return &server.PProfData{
+	result := &server.PProfData{
 		Data: []byte{}, // Empty profiling data
-	}, nil
+	}
+	return result, nil
 }
 
 // handleLegacyQuery maintains backward compatibility with the original implementation
@@ -1189,11 +1274,37 @@ func (s *AIPluginService) handleLegacyQuery(ctx context.Context, req *server.Dat
 func (s *AIPluginService) handleGetProviders(ctx context.Context, req *server.DataQuery) (*server.DataQueryResult, error) {
 	logging.Logger.Debug("Getting AI providers list")
 
+	if err := contextError(ctx); err != nil {
+		return nil, err
+	}
+
+	includeUnavailable := true
+	if req != nil && req.Sql != "" {
+		var params map[string]bool
+		if err := json.Unmarshal([]byte(req.Sql), &params); err == nil {
+			if includeUnavailableParam, ok := params["include_unavailable"]; ok {
+				includeUnavailable = includeUnavailableParam
+			}
+		} else {
+			logging.Logger.Warn("Failed to parse provider query overrides", "error", err)
+		}
+	}
+
 	// Discover providers
 	providers, err := s.aiManager.DiscoverProviders(ctx)
 	if err != nil {
 		logging.Logger.Error("Failed to discover providers", "error", err)
 		return nil, status.Errorf(codes.Internal, "failed to discover providers: %v", err)
+	}
+
+	if !includeUnavailable {
+		filtered := providers[:0]
+		for _, provider := range providers {
+			if provider.Available {
+				filtered = append(filtered, provider)
+			}
+		}
+		providers = filtered
 	}
 
 	// Convert to JSON
@@ -1252,9 +1363,10 @@ func (s *AIPluginService) handleGetModels(ctx context.Context, req *server.DataQ
 	// Get models for specific provider
 	// Map frontend category names to backend provider names
 	providerName := params.Provider
-	if params.Provider == "local" {
+	switch params.Provider {
+	case "local":
 		providerName = "ollama"
-	} else if params.Provider == "online" {
+	case "online":
 		// Map "online" to default online provider (can be configured)
 		providerName = "deepseek"
 	}

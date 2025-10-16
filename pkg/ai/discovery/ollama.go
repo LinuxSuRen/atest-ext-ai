@@ -1,3 +1,4 @@
+// Package discovery discovers local or remote Ollama endpoints for the AI manager.
 /*
 Copyright 2025 API Testing Authors.
 
@@ -13,7 +14,6 @@ WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 See the License for the specific language governing permissions and
 limitations under the License.
 */
-
 package discovery
 
 import (

@@ -1,0 +1,37 @@
+name: Go Verify
+
+on:
+  push:
+    branches: [ main, master, develop, 'feature/**' ]
+  pull_request:
+    branches: [ main, master, develop, 'feature/**' ]
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: 1.22
+
+      - name: Install Task runner
+        run: go install github.com/go-task/task/v3/cmd/task@latest
+
+      - name: Install golangci-lint
+        run: |
+          curl -sSfL https://raw.githubusercontent.com/golangci/golangci-lint/master/install.sh | sh -s -- -b "$(go env GOPATH)/bin" latest
+
+      - name: Run verification task
+        run: task verify
+
+      - name: Ensure working tree clean
+        run: |
+          if ! git diff --quiet; then
+            echo "Code formatting introduced changes. Please run 'task verify' locally and commit the results."
+            git status --short
+            exit 1
+          fi

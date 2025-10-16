@@ -141,9 +141,7 @@ func NewSQLGenerator(aiClient interfaces.AIClient, config config.AIConfig) (*SQL
 	}
 
 	// Initialize SQL dialects
-	if err := generator.initializeDialects(); err != nil {
-		return nil, fmt.Errorf("failed to initialize SQL dialects: %w", err)
-	}
+	generator.initializeDialects()
 
 	// Initialize capabilities
 	generator.capabilities = &SQLCapabilities{
@@ -207,10 +205,7 @@ func (g *SQLGenerator) Generate(ctx context.Context, naturalLanguage string, opt
 	}
 
 	// Prepare the prompt for AI
-	prompt, err := g.buildPrompt(naturalLanguage, options, dialect)
-	if err != nil {
-		return nil, fmt.Errorf("failed to build prompt: %w", err)
-	}
+	prompt := g.buildPrompt(naturalLanguage, options, dialect)
 
 	// Create AI request
 	aiRequest := &interfaces.GenerateRequest{
@@ -221,7 +216,7 @@ func (g *SQLGenerator) Generate(ctx context.Context, naturalLanguage string, opt
 	}
 
 	// Select AI client - use runtime client if provider/API key specified, otherwise use default
-	var aiClient interfaces.AIClient = g.aiClient
+	aiClient := g.aiClient
 
 	// Check if we need to create a runtime client with API key
 	if options.Provider != "" && options.APIKey != "" {
@@ -259,16 +254,12 @@ func (g *SQLGenerator) Generate(ctx context.Context, naturalLanguage string, opt
 	}
 
 	// Parse and validate the response
-	result, err := g.parseAIResponse(aiResponse, options, dialect, requestID, start)
-	if err != nil {
-		return nil, fmt.Errorf("failed to parse AI response: %w", err)
-	}
-
+	result := g.parseAIResponse(aiResponse, options, dialect, requestID, start)
 	return result, nil
 }
 
 // initializeDialects initializes SQL dialect support
-func (g *SQLGenerator) initializeDialects() error {
+func (g *SQLGenerator) initializeDialects() {
 	// Initialize MySQL dialect
 	g.sqlDialects["mysql"] = &MySQLDialect{}
 
@@ -279,11 +270,10 @@ func (g *SQLGenerator) initializeDialects() error {
 	// Initialize SQLite dialect
 	g.sqlDialects["sqlite"] = &SQLiteDialect{}
 
-	return nil
 }
 
 // buildPrompt constructs the AI prompt for SQL generation
-func (g *SQLGenerator) buildPrompt(naturalLanguage string, options *GenerateOptions, dialect SQLDialect) (string, error) {
+func (g *SQLGenerator) buildPrompt(naturalLanguage string, options *GenerateOptions, dialect SQLDialect) string {
 	var promptBuilder strings.Builder
 
 	// Add custom prompt if provided
@@ -354,7 +344,7 @@ func (g *SQLGenerator) buildPrompt(naturalLanguage string, options *GenerateOpti
 		promptBuilder.WriteString("explanation:This query selects all users older than 18 years.\n")
 	}
 
-	return promptBuilder.String(), nil
+	return promptBuilder.String()
 }
 
 // getSystemPrompt returns the system prompt for SQL generation
@@ -374,12 +364,9 @@ Always respond in the exact format requested: sql:<query> explanation:<explanati
 }
 
 // parseAIResponse parses and validates the AI response
-func (g *SQLGenerator) parseAIResponse(aiResponse *GenerateResponse, options *GenerateOptions, dialect SQLDialect, requestID string, startTime time.Time) (*GenerationResult, error) {
+func (g *SQLGenerator) parseAIResponse(aiResponse *interfaces.GenerateResponse, options *GenerateOptions, dialect SQLDialect, requestID string, startTime time.Time) *GenerationResult {
 	// Try to extract JSON from the response
-	sqlResult, err := g.extractSQLFromResponse(aiResponse.Text)
-	if err != nil {
-		return nil, fmt.Errorf("failed to extract SQL from AI response: %w", err)
-	}
+	sqlResult := g.extractSQLFromResponse(aiResponse.Text)
 
 	// Create generation result
 	result := &GenerationResult{
@@ -420,7 +407,7 @@ func (g *SQLGenerator) parseAIResponse(aiResponse *GenerateResponse, options *Ge
 		}
 	}
 
-	return result, nil
+	return result
 }
 
 // SQLResponse represents the structured response from AI
@@ -435,7 +422,7 @@ type SQLResponse struct {
 }
 
 // extractSQLFromResponse extracts structured SQL information from AI response
-func (g *SQLGenerator) extractSQLFromResponse(responseText string) (*SQLResponse, error) {
+func (g *SQLGenerator) extractSQLFromResponse(responseText string) *SQLResponse {
 	responseText = strings.TrimSpace(responseText)
 
 	// DEBUG: Log the raw AI response to understand what we're getting
@@ -465,7 +452,7 @@ func (g *SQLGenerator) extractSQLFromResponse(responseText string) (*SQLResponse
 			TablesInvolved: g.extractTableNames(sql),
 			Warnings:       []string{},
 			Suggestions:    []string{},
-		}, nil
+		}
 	}
 
 	// Fallback: Check if it looks like JSON (for backward compatibility)
@@ -497,7 +484,7 @@ func (g *SQLGenerator) extractSQLFromResponse(responseText string) (*SQLResponse
 					TablesInvolved: g.extractTableNames(sql),
 					Warnings:       []string{},
 					Suggestions:    []string{},
-				}, nil
+				}
 			}
 		}
 	}
@@ -525,26 +512,27 @@ func (g *SQLGenerator) extractSQLFromResponse(responseText string) (*SQLResponse
 		TablesInvolved: g.extractTableNames(sql),
 		Warnings:       []string{},
 		Suggestions:    []string{},
-	}, nil
+	}
 }
 
 // detectQueryType determines the type of SQL query
 func (g *SQLGenerator) detectQueryType(sql string) string {
 	upper := strings.ToUpper(strings.TrimSpace(sql))
 
-	if strings.HasPrefix(upper, "SELECT") {
+	switch {
+	case strings.HasPrefix(upper, "SELECT"):
 		return "SELECT"
-	} else if strings.HasPrefix(upper, "INSERT") {
+	case strings.HasPrefix(upper, "INSERT"):
 		return "INSERT"
-	} else if strings.HasPrefix(upper, "UPDATE") {
+	case strings.HasPrefix(upper, "UPDATE"):
 		return "UPDATE"
-	} else if strings.HasPrefix(upper, "DELETE") {
+	case strings.HasPrefix(upper, "DELETE"):
 		return "DELETE"
-	} else if strings.HasPrefix(upper, "CREATE") {
+	case strings.HasPrefix(upper, "CREATE"):
 		return "CREATE"
-	} else if strings.HasPrefix(upper, "DROP") {
+	case strings.HasPrefix(upper, "DROP"):
 		return "DROP"
-	} else if strings.HasPrefix(upper, "ALTER") {
+	case strings.HasPrefix(upper, "ALTER"):
 		return "ALTER"
 	}
 

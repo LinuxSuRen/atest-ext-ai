@@ -18,9 +18,10 @@ package ai
 
 import (
 	"context"
+	cryptorand "crypto/rand"
 	"errors"
 	"fmt"
-	"math/rand"
+	"math/big"
 	"net"
 	"os"
 	"strings"
@@ -78,17 +79,17 @@ type AddClientOptions struct {
 	HealthCheckTimeout time.Duration // Timeout for health check (default: 5 seconds)
 }
 
-// AIManager is the unified manager for all AI clients
-// It merges the functionality of ClientManager and ProviderManager
-type AIManager struct {
+// Manager is the unified manager for all AI clients.
+// It merges the functionality of ClientManager and ProviderManager.
+type Manager struct {
 	clients   map[string]interfaces.AIClient
 	config    config.AIConfig
 	discovery *discovery.OllamaDiscovery
 	mu        sync.RWMutex
 }
 
-// NewAIManager creates a new unified AI manager
-func NewAIManager(cfg config.AIConfig) (*AIManager, error) {
+// NewAIManager creates a new unified AI manager.
+func NewAIManager(cfg config.AIConfig) (*Manager, error) {
 	// Get Ollama endpoint from config or environment
 	endpoint := ""
 	if ollamaSvc, ok := cfg.Services["ollama"]; ok {
@@ -104,7 +105,7 @@ func NewAIManager(cfg config.AIConfig) (*AIManager, error) {
 		endpoint = "http://localhost:11434"
 	}
 
-	manager := &AIManager{
+	manager := &Manager{
 		clients:   make(map[string]interfaces.AIClient),
 		config:    cfg,
 		discovery: discovery.NewOllamaDiscovery(endpoint),
@@ -121,7 +122,7 @@ func NewAIManager(cfg config.AIConfig) (*AIManager, error) {
 // ===== Client Management (from ClientManager) =====
 
 // initializeClients creates clients for all enabled services
-func (m *AIManager) initializeClients() error {
+func (m *Manager) initializeClients() error {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 
@@ -142,7 +143,7 @@ func (m *AIManager) initializeClients() error {
 }
 
 // Generate executes an AI generation request with inline retry logic
-func (m *AIManager) Generate(ctx context.Context, req *interfaces.GenerateRequest) (*interfaces.GenerateResponse, error) {
+func (m *Manager) Generate(ctx context.Context, req *interfaces.GenerateRequest) (*interfaces.GenerateResponse, error) {
 	var lastErr error
 	maxAttempts := 3
 
@@ -189,7 +190,7 @@ func (m *AIManager) Generate(ctx context.Context, req *interfaces.GenerateReques
 }
 
 // selectHealthyClient selects the best available client
-func (m *AIManager) selectHealthyClient() interfaces.AIClient {
+func (m *Manager) selectHealthyClient() interfaces.AIClient {
 	m.mu.RLock()
 	defer m.mu.RUnlock()
 
@@ -209,7 +210,7 @@ func (m *AIManager) selectHealthyClient() interfaces.AIClient {
 }
 
 // GetClient returns a specific client by name
-func (m *AIManager) GetClient(name string) (interfaces.AIClient, error) {
+func (m *Manager) GetClient(name string) (interfaces.AIClient, error) {
 	m.mu.RLock()
 	defer m.mu.RUnlock()
 
@@ -222,7 +223,7 @@ func (m *AIManager) GetClient(name string) (interfaces.AIClient, error) {
 }
 
 // GetAllClients returns all available clients
-func (m *AIManager) GetAllClients() map[string]interfaces.AIClient {
+func (m *Manager) GetAllClients() map[string]interfaces.AIClient {
 	m.mu.RLock()
 	defer m.mu.RUnlock()
 
@@ -236,7 +237,7 @@ func (m *AIManager) GetAllClients() map[string]interfaces.AIClient {
 }
 
 // GetPrimaryClient returns the primary (default) client
-func (m *AIManager) GetPrimaryClient() interfaces.AIClient {
+func (m *Manager) GetPrimaryClient() interfaces.AIClient {
 	m.mu.RLock()
 	defer m.mu.RUnlock()
 
@@ -256,7 +257,7 @@ func (m *AIManager) GetPrimaryClient() interfaces.AIClient {
 }
 
 // AddClient adds a new client with the given configuration
-func (m *AIManager) AddClient(ctx context.Context, name string, svc config.AIService, opts *AddClientOptions) error {
+func (m *Manager) AddClient(ctx context.Context, name string, svc config.AIService, opts *AddClientOptions) error {
 	// Set default options if not provided
 	if opts == nil {
 		opts = &AddClientOptions{
@@ -311,7 +312,7 @@ func (m *AIManager) AddClient(ctx context.Context, name string, svc config.AISer
 }
 
 // RemoveClient removes a client
-func (m *AIManager) RemoveClient(name string) error {
+func (m *Manager) RemoveClient(name string) error {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 
@@ -328,7 +329,7 @@ func (m *AIManager) RemoveClient(name string) error {
 // ===== Provider Discovery (from ProviderManager) =====
 
 // DiscoverProviders discovers available AI providers
-func (m *AIManager) DiscoverProviders(ctx context.Context) ([]*ProviderInfo, error) {
+func (m *Manager) DiscoverProviders(ctx context.Context) ([]*ProviderInfo, error) {
 	var providers []*ProviderInfo
 
 	// Check for Ollama
@@ -372,7 +373,7 @@ func (m *AIManager) DiscoverProviders(ctx context.Context) ([]*ProviderInfo, err
 }
 
 // GetModels returns models for a specific provider
-func (m *AIManager) GetModels(ctx context.Context, providerName string) ([]interfaces.ModelInfo, error) {
+func (m *Manager) GetModels(ctx context.Context, providerName string) ([]interfaces.ModelInfo, error) {
 	// Normalize provider name (local -> ollama)
 	providerName = normalizeProviderName(providerName)
 
@@ -393,7 +394,7 @@ func (m *AIManager) GetModels(ctx context.Context, providerName string) ([]inter
 }
 
 // TestConnection tests the connection to a provider
-func (m *AIManager) TestConnection(ctx context.Context, cfg *universal.Config) (*ConnectionTestResult, error) {
+func (m *Manager) TestConnection(ctx context.Context, cfg *universal.Config) (*ConnectionTestResult, error) {
 	start := time.Now()
 
 	// Create temporary client
@@ -439,7 +440,7 @@ func (m *AIManager) TestConnection(ctx context.Context, cfg *universal.Config) (
 // ===== On-Demand Health Checking =====
 
 // HealthCheck checks health of a specific provider
-func (m *AIManager) HealthCheck(ctx context.Context, provider string) (*interfaces.HealthStatus, error) {
+func (m *Manager) HealthCheck(ctx context.Context, provider string) (*interfaces.HealthStatus, error) {
 	provider = normalizeProviderName(provider)
 
 	m.mu.RLock()
@@ -454,7 +455,7 @@ func (m *AIManager) HealthCheck(ctx context.Context, provider string) (*interfac
 }
 
 // HealthCheckAll checks health of all providers
-func (m *AIManager) HealthCheckAll(ctx context.Context) map[string]*interfaces.HealthStatus {
+func (m *Manager) HealthCheckAll(ctx context.Context) map[string]*interfaces.HealthStatus {
 	m.mu.RLock()
 	clients := make(map[string]interfaces.AIClient)
 	for name, client := range m.clients {
@@ -493,7 +494,7 @@ func (m *AIManager) HealthCheckAll(ctx context.Context) map[string]*interfaces.H
 }
 
 // Close closes all clients
-func (m *AIManager) Close() error {
+func (m *Manager) Close() error {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 
@@ -581,7 +582,7 @@ func normalizeProviderName(provider string) string {
 }
 
 // getOnlineProviders returns predefined online providers
-func (m *AIManager) getOnlineProviders() []*ProviderInfo {
+func (m *Manager) getOnlineProviders() []*ProviderInfo {
 	return []*ProviderInfo{
 		{
 			Name:      "deepseek",
@@ -629,8 +630,6 @@ func calculateBackoff(attempt int, retryCfg config.RetryConfig) time.Duration {
 	baseDelay := 1 * time.Second
 	maxDelay := 10 * time.Second
 	multiplier := 2.0
-	jitter := true
-
 	if retryCfg.InitialDelay.Duration > 0 {
 		baseDelay = retryCfg.InitialDelay.Duration
 	}
@@ -640,7 +639,7 @@ func calculateBackoff(attempt int, retryCfg config.RetryConfig) time.Duration {
 	if retryCfg.Multiplier > 0 {
 		multiplier = float64(retryCfg.Multiplier)
 	}
-	jitter = retryCfg.Jitter
+	jitter := retryCfg.Jitter
 
 	// Calculate exponential backoff
 	delay := baseDelay
@@ -654,8 +653,17 @@ func calculateBackoff(attempt int, retryCfg config.RetryConfig) time.Duration {
 
 	// Add jitter
 	if jitter {
-		jitterAmount := time.Duration(rand.Int63n(int64(delay / 4)))
-		delay = delay + jitterAmount
+		jitterRange := delay / 4
+		if jitterRange > 0 {
+			rangeLimit := big.NewInt(int64(jitterRange))
+			n, err := cryptorand.Int(cryptorand.Reader, rangeLimit)
+			if err != nil {
+				logging.Logger.Debug("failed to generate crypto jitter, using deterministic midpoint", "error", err)
+				delay += jitterRange / 2
+			} else {
+				delay += time.Duration(n.Int64())
+			}
+		}
 	}
 
 	return delay

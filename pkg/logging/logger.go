@@ -6,6 +6,7 @@ import (
 	"strings"
 )
 
+// Logger is the shared structured logger used throughout the plugin.
 var Logger *slog.Logger
 
 func init() {

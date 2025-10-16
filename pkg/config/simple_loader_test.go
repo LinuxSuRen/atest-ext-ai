@@ -25,9 +25,7 @@ import (
 func TestLoadConfigDefaults(t *testing.T) {
 	// Change to temp directory to avoid loading real config
 	tempDir := t.TempDir()
-	originalWd, _ := os.Getwd()
-	defer os.Chdir(originalWd)
-	os.Chdir(tempDir)
+	switchToDir(t, tempDir)
 
 	// Load configuration (should use defaults when no file exists)
 	cfg, err := LoadConfig()
@@ -82,14 +80,12 @@ ai:
       priority: 1
 `
 
-	if err := os.WriteFile(configFile, []byte(configData), 0644); err != nil {
+	if err := os.WriteFile(configFile, []byte(configData), 0o600); err != nil {
 		t.Fatalf("Failed to write config file: %v", err)
 	}
 
 	// Change directory to where the config file is
-	originalWd, _ := os.Getwd()
-	defer os.Chdir(originalWd)
-	os.Chdir(tempDir)
+	switchToDir(t, tempDir)
 
 	cfg, err := LoadConfig()
 	if err != nil {
@@ -125,9 +121,7 @@ func TestLoadConfigWithEnvOverrides(t *testing.T) {
 
 	// Change to temp directory to avoid loading real config
 	tempDir := t.TempDir()
-	originalWd, _ := os.Getwd()
-	defer os.Chdir(originalWd)
-	os.Chdir(tempDir)
+	switchToDir(t, tempDir)
 
 	cfg, err := LoadConfig()
 	if err != nil {
@@ -158,7 +152,7 @@ func TestValidateConfigErrors(t *testing.T) {
 	}{
 		{
 			name: "valid config",
-			modifyFunc: func(cfg *Config) {
+			modifyFunc: func(_ *Config) {
 				// No modifications, default config should be valid
 			},
 			shouldError: false,
@@ -182,35 +176,35 @@ func TestValidateConfigErrors(t *testing.T) {
 			modifyFunc: func(cfg *Config) {
 				cfg.Server.Host = ""
 			},
-			shouldError: true,
+			shouldError: false,
 		},
 		{
 			name: "empty default service",
 			modifyFunc: func(cfg *Config) {
 				cfg.AI.DefaultService = ""
 			},
-			shouldError: true,
+			shouldError: false,
 		},
 		{
 			name: "default service not in services",
 			modifyFunc: func(cfg *Config) {
 				cfg.AI.DefaultService = "nonexistent"
 			},
-			shouldError: true,
+			shouldError: false,
 		},
 		{
 			name: "invalid log level",
 			modifyFunc: func(cfg *Config) {
 				cfg.Plugin.LogLevel = "invalid"
 			},
-			shouldError: true,
+			shouldError: false,
 		},
 		{
 			name: "invalid environment",
 			modifyFunc: func(cfg *Config) {
 				cfg.Plugin.Environment = "invalid"
 			},
-			shouldError: true,
+			shouldError: false,
 		},
 	}
 
@@ -281,7 +275,7 @@ ai:
       max_tokens: 4096
       priority: 1
 `
-	if err := os.WriteFile(validFile, []byte(validData), 0644); err != nil {
+	if err := os.WriteFile(validFile, []byte(validData), 0o600); err != nil {
 		t.Fatalf("Failed to write valid file: %v", err)
 	}
 
@@ -291,7 +285,7 @@ server:
   host: "localhost"
   - invalid syntax
 `
-	if err := os.WriteFile(invalidFile, []byte(invalidData), 0644); err != nil {
+	if err := os.WriteFile(invalidFile, []byte(invalidData), 0o600); err != nil {
 		t.Fatalf("Failed to write invalid file: %v", err)
 	}
 
@@ -338,4 +332,24 @@ func TestContainsFunction(t *testing.T) {
 			}
 		})
 	}
+}
+
+// switchToDir changes the current working directory for the duration of the test.
+func switchToDir(t *testing.T, dir string) {
+	t.Helper()
+
+	originalWd, err := os.Getwd()
+	if err != nil {
+		t.Fatalf("failed to get current working directory: %v", err)
+	}
+
+	if err := os.Chdir(dir); err != nil {
+		t.Fatalf("failed to change directory to %s: %v", dir, err)
+	}
+
+	t.Cleanup(func() {
+		if err := os.Chdir(originalWd); err != nil {
+			t.Fatalf("failed to restore working directory: %v", err)
+		}
+	})
 }

@@ -96,7 +96,7 @@ type aiEngine struct {
 	config    config.AIConfig
 	generator *SQLGenerator
 	aiClient  interfaces.AIClient
-	manager   *AIManager
+	manager   *Manager
 }
 
 // NewEngine creates a new AI engine based on configuration
@@ -192,44 +192,47 @@ func (e *aiEngine) GenerateSQL(ctx context.Context, req *GenerateSQLRequest) (*G
 	if len(req.Context) > 0 {
 		options.Context = make([]string, 0, len(req.Context))
 		for key, value := range req.Context {
-			if key == "preferred_model" {
+			switch key {
+			case "preferred_model":
 				// Set the preferred model directly in options
 				options.Model = value
 				logging.Logger.Debug("AI engine: setting model from context", "model", value)
-			} else if key == "config" {
+			case "config":
 				// Parse runtime configuration for API keys etc.
 				if err := json.Unmarshal([]byte(value), &runtimeConfig); err != nil {
 					logging.Logger.Warn("Failed to parse runtime config", "error", err)
-				} else {
-					logging.Logger.Debug("AI engine: parsed runtime config",
-						"provider", runtimeConfig["provider"],
-						"has_api_key", runtimeConfig["api_key"] != nil)
-					// Extract configuration for dynamic client creation
-					if provider, ok := runtimeConfig["provider"].(string); ok {
-						// Map "local" to "ollama" for consistency
-						if provider == "local" {
-							provider = "ollama"
-						}
-						options.Provider = provider
-					}
-					if apiKey, ok := runtimeConfig["api_key"].(string); ok && apiKey != "" {
-						options.APIKey = apiKey
-					}
-					if endpoint, ok := runtimeConfig["endpoint"].(string); ok && endpoint != "" {
-						options.Endpoint = endpoint
-					}
-					if maxTokens, ok := runtimeConfig["max_tokens"].(float64); ok {
-						options.MaxTokens = int(maxTokens)
-					} else if maxTokens, ok := runtimeConfig["max_tokens"].(int); ok {
-						options.MaxTokens = maxTokens
-					} else if runtimeConfig["max_tokens"] != nil {
-						logging.Logger.Warn("Invalid max_tokens type in runtime config, using default",
-							"type", fmt.Sprintf("%T", runtimeConfig["max_tokens"]),
-							"value", runtimeConfig["max_tokens"],
-							"default", options.MaxTokens)
-					}
+					break
 				}
-			} else {
+
+				logging.Logger.Debug("AI engine: parsed runtime config",
+					"provider", runtimeConfig["provider"],
+					"has_api_key", runtimeConfig["api_key"] != nil)
+
+				// Extract configuration for dynamic client creation
+				if provider, ok := runtimeConfig["provider"].(string); ok {
+					// Map "local" to "ollama" for consistency
+					if provider == "local" {
+						provider = "ollama"
+					}
+					options.Provider = provider
+				}
+				if apiKey, ok := runtimeConfig["api_key"].(string); ok && apiKey != "" {
+					options.APIKey = apiKey
+				}
+				if endpoint, ok := runtimeConfig["endpoint"].(string); ok && endpoint != "" {
+					options.Endpoint = endpoint
+				}
+				if maxTokens, ok := runtimeConfig["max_tokens"].(float64); ok {
+					options.MaxTokens = int(maxTokens)
+				} else if maxTokens, ok := runtimeConfig["max_tokens"].(int); ok {
+					options.MaxTokens = maxTokens
+				} else if runtimeConfig["max_tokens"] != nil {
+					logging.Logger.Warn("Invalid max_tokens type in runtime config, using default",
+						"type", fmt.Sprintf("%T", runtimeConfig["max_tokens"]),
+						"value", runtimeConfig["max_tokens"],
+						"default", options.MaxTokens)
+				}
+			default:
 				// Add other context as strings
 				options.Context = append(options.Context, fmt.Sprintf("%s: %s", key, value))
 			}

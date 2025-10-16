@@ -200,8 +200,8 @@ func TestIsRetryable(t *testing.T) {
 func TestValidationError(t *testing.T) {
 	err := NewValidationError("model", "invalid-model", "model name contains invalid characters")
 
-	ve, ok := err.(*ValidationError)
-	if !ok {
+	var ve *ValidationError
+	if !errors.As(err, &ve) {
 		t.Fatalf("expected *ValidationError, got %T", err)
 	}
 
@@ -219,8 +219,8 @@ func TestConnectionError(t *testing.T) {
 	underlying := errors.New("dial tcp: connection refused")
 	err := NewConnectionError("ollama", "http://localhost:11434", underlying)
 
-	ce, ok := err.(*ConnectionError)
-	if !ok {
+	var ce *ConnectionError
+	if !errors.As(err, &ce) {
 		t.Fatalf("expected *ConnectionError, got %T", err)
 	}
 

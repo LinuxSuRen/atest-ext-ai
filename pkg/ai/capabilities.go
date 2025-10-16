@@ -1,3 +1,4 @@
+// Package ai contains the AI engine, capability detection, and provider coordination logic.
 /*
 Copyright 2025 API Testing Authors.
 
@@ -13,12 +14,13 @@ WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 See the License for the specific language governing permissions and
 limitations under the License.
 */
-
 package ai
 
 import (
 	"context"
+	"errors"
 	"fmt"
+	"strings"
 	"sync"
 	"time"
 
@@ -136,7 +138,7 @@ type ProcessingLimits struct {
 // CapabilityDetector handles dynamic capability detection and reporting
 type CapabilityDetector struct {
 	config         config.AIConfig
-	manager        *AIManager
+	manager        *Manager
 	cache          *capabilityCache
 	healthChecker  *CapabilityHealthChecker
 	mu             sync.RWMutex
@@ -160,7 +162,7 @@ type CapabilityHealthChecker struct {
 }
 
 // NewCapabilityDetector creates a new capability detector
-func NewCapabilityDetector(cfg config.AIConfig, manager *AIManager) *CapabilityDetector {
+func NewCapabilityDetector(cfg config.AIConfig, manager *Manager) *CapabilityDetector {
 	detector := &CapabilityDetector{
 		config:         cfg,
 		manager:        manager,
@@ -251,6 +253,7 @@ func (d *CapabilityDetector) GetCapabilities(ctx context.Context, req *Capabilit
 // detectModelCapabilities discovers available AI models and their capabilities
 func (d *CapabilityDetector) detectModelCapabilities(ctx context.Context) ([]ModelCapability, error) {
 	var capabilities []ModelCapability
+	var errs []error
 
 	if d.manager == nil {
 		// Return default capabilities if no manager available
@@ -280,6 +283,7 @@ func (d *CapabilityDetector) detectModelCapabilities(ctx context.Context) ([]Mod
 				Available:   false,
 				Limitations: []string{fmt.Sprintf("capability_detection_error: %v", err)},
 			})
+			errs = append(errs, fmt.Errorf("provider %s capability detection failed: %w", providerName, err))
 			continue
 		}
 
@@ -309,6 +313,10 @@ func (d *CapabilityDetector) detectModelCapabilities(ctx context.Context) ([]Mod
 
 			capabilities = append(capabilities, capability)
 		}
+	}
+
+	if len(errs) > 0 {
+		return capabilities, errors.Join(errs...)
 	}
 
 	return capabilities, nil
@@ -430,7 +438,7 @@ func (d *CapabilityDetector) performHealthChecks(ctx context.Context) (*HealthSt
 	}
 
 	// Check component health
-	report.Components["engine"] = d.checkEngineHealth(ctx)
+	report.Components["engine"] = d.checkEngineHealth()
 	report.Components["cache"] = d.checkCacheHealth()
 	report.Components["config"] = d.checkConfigHealth()
 
@@ -441,28 +449,44 @@ func (d *CapabilityDetector) performHealthChecks(ctx context.Context) (*HealthSt
 	}
 	d.healthChecker.mu.RUnlock()
 
-	// Determine overall health
-	for _, health := range report.Components {
+	// Determine overall health and collect error details
+	var errs []error
+	for name, health := range report.Components {
 		if !health.Healthy {
 			report.Overall = false
-			break
+			errs = append(errs, fmt.Errorf("component %s unhealthy: %s", name, summarizeHealth(health)))
 		}
 	}
 
-	if report.Overall {
-		for _, health := range report.Providers {
-			if !health.Healthy {
-				report.Overall = false
-				break
-			}
+	for name, health := range report.Providers {
+		if !health.Healthy {
+			report.Overall = false
+			errs = append(errs, fmt.Errorf("provider %s unhealthy: %s", name, summarizeHealth(health)))
 		}
+	}
+
+	if len(errs) > 0 {
+		return report, errors.Join(errs...)
 	}
 
 	return report, nil
 }
 
+func summarizeHealth(health HealthInfo) string {
+	if len(health.Errors) == 0 {
+		return health.Message
+	}
+
+	message := health.Message
+	if message == "" {
+		return strings.Join(health.Errors, "; ")
+	}
+
+	return fmt.Sprintf("%s (%s)", message, strings.Join(health.Errors, "; "))
+}
+
 // checkEngineHealth checks the health of the AI engine
-func (d *CapabilityDetector) checkEngineHealth(ctx context.Context) HealthInfo {
+func (d *CapabilityDetector) checkEngineHealth() HealthInfo {
 	start := time.Now()
 
 	if d.manager == nil {

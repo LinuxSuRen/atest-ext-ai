@@ -90,7 +90,7 @@ func loadConfigFile() (*Config, error) {
 
 // loadYAMLFile loads configuration from a YAML file
 func loadYAMLFile(path string) (*Config, error) {
-	data, err := os.ReadFile(path)
+	data, err := os.ReadFile(path) // #nosec G304 -- configuration paths are restricted to trusted locations
 	if err != nil {
 		return nil, err
 	}

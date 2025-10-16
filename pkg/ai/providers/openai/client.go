@@ -1,3 +1,4 @@
+// Package openai integrates OpenAI-compatible models with the AI manager.
 /*
 Copyright 2025 API Testing Authors.
 
@@ -13,7 +14,6 @@ WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 See the License for the specific language governing permissions and
 limitations under the License.
 */
-
 package openai
 
 import (
@@ -167,6 +167,12 @@ func (c *Client) Generate(ctx context.Context, req *interfaces.GenerateRequest) 
 
 // GetCapabilities returns the capabilities of the OpenAI client
 func (c *Client) GetCapabilities(ctx context.Context) (*interfaces.Capabilities, error) {
+	if ctx != nil {
+		if err := ctx.Err(); err != nil {
+			return nil, err
+		}
+	}
+
 	return &interfaces.Capabilities{
 		Provider:  "openai",
 		MaxTokens: c.config.MaxTokens,
@@ -339,6 +345,11 @@ func (c *Client) generateStream(ctx context.Context, messages []llms.MessageCont
 
 	// Add streaming callback
 	streamingFunc := func(ctx context.Context, chunk []byte) error {
+		if ctx != nil {
+			if err := ctx.Err(); err != nil {
+				return err
+			}
+		}
 		responseText.Write(chunk)
 		return nil
 	}

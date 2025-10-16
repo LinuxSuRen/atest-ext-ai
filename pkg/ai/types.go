@@ -22,15 +22,33 @@ import (
 	"github.com/linuxsuren/atest-ext-ai/pkg/interfaces"
 )
 
-// Type aliases for compatibility
+// AIClient is retained for backward compatibility; prefer interfaces.AIClient.
+//
+//revive:disable:exported
 type AIClient = interfaces.AIClient
+
+// GenerateRequest is retained for backward compatibility.
 type GenerateRequest = interfaces.GenerateRequest
+
+// GenerateResponse is retained for backward compatibility.
 type GenerateResponse = interfaces.GenerateResponse
+
+// Capabilities is retained for backward compatibility.
 type Capabilities = interfaces.Capabilities
+
+// ModelInfo is retained for backward compatibility.
 type ModelInfo = interfaces.ModelInfo
+
+// Feature is retained for backward compatibility.
 type Feature = interfaces.Feature
+
+// RateLimits is retained for backward compatibility.
 type RateLimits = interfaces.RateLimits
+
+// HealthStatus is retained for backward compatibility.
 type HealthStatus = interfaces.HealthStatus
+
+//revive:enable:exported
 
 // ProviderConfig represents configuration for a specific AI provider
 type ProviderConfig struct {
@@ -57,14 +75,17 @@ type ProviderConfig struct {
 	MaxRetries int `json:"max_retries,omitempty"`
 }
 
-// AIServiceConfig represents the complete AI service configuration
-type AIServiceConfig struct {
+// ServiceConfig represents the complete AI service configuration.
+type ServiceConfig struct {
 	// Providers lists all configured AI providers
 	Providers []ProviderConfig `json:"providers"`
 
 	// Retry configures the retry behavior
 	Retry RetryConfig `json:"retry"`
 }
+
+//revive:disable-next-line exported
+type AIServiceConfig = ServiceConfig
 
 // RetryConfig configures retry behavior
 type RetryConfig struct {
