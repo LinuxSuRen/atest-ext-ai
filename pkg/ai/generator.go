@@ -18,9 +18,12 @@ package ai
 
 import (
 	"context"
+	"crypto/sha256"
+	"encoding/hex"
 	"encoding/json"
 	"fmt"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/linuxsuren/atest-ext-ai/pkg/ai/providers/openai"
@@ -32,10 +35,12 @@ import (
 
 // SQLGenerator handles SQL generation from natural language
 type SQLGenerator struct {
-	aiClient     interfaces.AIClient
-	sqlDialects  map[string]SQLDialect
-	config       config.AIConfig
-	capabilities *SQLCapabilities
+	aiClient       interfaces.AIClient
+	sqlDialects    map[string]SQLDialect
+	config         config.AIConfig
+	capabilities   *SQLCapabilities
+	runtimeClients map[string]interfaces.AIClient
+	runtimeMu      sync.RWMutex
 }
 
 // Table represents a database table structure
@@ -135,9 +140,10 @@ func NewSQLGenerator(aiClient interfaces.AIClient, config config.AIConfig) (*SQL
 	}
 
 	generator := &SQLGenerator{
-		aiClient:    aiClient,
-		config:      config,
-		sqlDialects: make(map[string]SQLDialect),
+		aiClient:       aiClient,
+		config:         config,
+		sqlDialects:    make(map[string]SQLDialect),
+		runtimeClients: make(map[string]interfaces.AIClient),
 	}
 
 	// Initialize SQL dialects
@@ -220,23 +226,14 @@ func (g *SQLGenerator) Generate(ctx context.Context, naturalLanguage string, opt
 
 	// Check if we need to create a runtime client with API key
 	if options.Provider != "" && options.APIKey != "" {
-		logging.Logger.Info("Creating runtime AI client", "provider", options.Provider, "has_api_key", options.APIKey != "")
+		logging.Logger.Debug("Attempting to use runtime AI client",
+			"provider", options.Provider,
+			"has_api_key", options.APIKey != "",
+			"endpoint", options.Endpoint)
 
-		// Create runtime client configuration
-		runtimeConfig := map[string]any{
-			"api_key": options.APIKey,
-		}
-		if options.Endpoint != "" {
-			runtimeConfig["base_url"] = options.Endpoint
-		}
-		if options.Model != "" {
-			runtimeConfig["model"] = options.Model
-		}
-
-		// Create runtime client directly
-		runtimeClient, err := createRuntimeClient(options.Provider, runtimeConfig)
+		runtimeClient, reused, err := g.getOrCreateRuntimeClient(options)
 		if err != nil {
-			logging.Logger.Error("Failed to create runtime client",
+			logging.Logger.Error("Failed to prepare runtime client",
 				"provider", options.Provider,
 				"error", err)
 			return nil, fmt.Errorf("runtime client creation failed for provider %s: %w",
@@ -244,7 +241,15 @@ func (g *SQLGenerator) Generate(ctx context.Context, naturalLanguage string, opt
 		}
 
 		aiClient = runtimeClient
-		logging.Logger.Info("Runtime AI client created successfully", "provider", options.Provider)
+		if reused {
+			logging.Logger.Debug("Reusing cached runtime AI client",
+				"provider", options.Provider,
+				"endpoint", options.Endpoint)
+		} else {
+			logging.Logger.Info("Runtime AI client created and cached",
+				"provider", options.Provider,
+				"endpoint", options.Endpoint)
+		}
 	}
 
 	// Call AI service
@@ -617,6 +622,67 @@ func contains(slice []string, item string) bool {
 		}
 	}
 	return false
+}
+
+func runtimeClientKey(options *GenerateOptions) string {
+	hasher := sha256.New()
+	hasher.Write([]byte(options.Provider))
+	hasher.Write([]byte("|"))
+	hasher.Write([]byte(options.Endpoint))
+	hasher.Write([]byte("|"))
+	hasher.Write([]byte(options.Model))
+	hasher.Write([]byte("|"))
+	hasher.Write([]byte(options.APIKey))
+	return hex.EncodeToString(hasher.Sum(nil))
+}
+
+func (g *SQLGenerator) getOrCreateRuntimeClient(options *GenerateOptions) (interfaces.AIClient, bool, error) {
+	key := runtimeClientKey(options)
+	g.runtimeMu.RLock()
+	if client, ok := g.runtimeClients[key]; ok {
+		g.runtimeMu.RUnlock()
+		return client, true, nil
+	}
+	g.runtimeMu.RUnlock()
+
+	runtimeConfig := map[string]any{
+		"provider": options.Provider,
+		"api_key":  options.APIKey,
+	}
+	if options.Endpoint != "" {
+		runtimeConfig["base_url"] = options.Endpoint
+	}
+	if options.Model != "" {
+		runtimeConfig["model"] = options.Model
+	}
+	if options.MaxTokens > 0 {
+		runtimeConfig["max_tokens"] = options.MaxTokens
+	}
+
+	client, err := createRuntimeClient(options.Provider, runtimeConfig)
+	if err != nil {
+		return nil, false, err
+	}
+
+	g.runtimeMu.Lock()
+	if existing, ok := g.runtimeClients[key]; ok {
+		g.runtimeMu.Unlock()
+		_ = client.Close()
+		return existing, true, nil
+	}
+	g.runtimeClients[key] = client
+	g.runtimeMu.Unlock()
+
+	return client, false, nil
+}
+
+func (g *SQLGenerator) Close() {
+	g.runtimeMu.Lock()
+	defer g.runtimeMu.Unlock()
+	for key, client := range g.runtimeClients {
+		_ = client.Close()
+		delete(g.runtimeClients, key)
+	}
 }
 
 // createRuntimeClient creates an AI client from runtime configuration

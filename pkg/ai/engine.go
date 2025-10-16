@@ -309,6 +309,9 @@ func (e *aiEngine) IsHealthy() bool {
 
 // Close implements Engine.Close for AI engine
 func (e *aiEngine) Close() {
+	if e.generator != nil {
+		e.generator.Close()
+	}
 	if e.manager != nil {
 		_ = e.manager.Close()
 	}

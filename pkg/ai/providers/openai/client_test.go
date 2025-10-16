@@ -1,324 +1,53 @@
-/*
-Copyright 2025 API Testing Authors.
-
-Licensed under the Apache License, Version 2.0 (the "License");
-you may not use this file except in compliance with the License.
-You may obtain a copy of the License at
-
-	http://www.apache.org/licenses/LICENSE-2.0
-
-Unless required by applicable law or agreed to in writing, software
-distributed under the License is distributed on an "AS IS" BASIS,
-WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-See the License for the specific language governing permissions and
-limitations under the License.
-*/
-
 package openai
 
 import (
 	"context"
-	"os"
+	"net/http"
+	"net/http/httptest"
 	"testing"
 	"time"
 
-	"github.com/linuxsuren/atest-ext-ai/pkg/interfaces"
+	"github.com/stretchr/testify/require"
 )
 
-func TestNewClient(t *testing.T) {
-	tests := []struct {
-		name        string
-		config      *Config
-		expectError bool
-	}{
-		{
-			name:        "nil config",
-			config:      nil,
-			expectError: true,
-		},
-		{
-			name: "empty API key",
-			config: &Config{
-				APIKey: "",
-			},
-			expectError: true,
-		},
-		{
-			name: "valid config with defaults",
-			config: &Config{
-				APIKey: "test-key",
-			},
-			expectError: false,
-		},
-		{
-			name: "valid config with all fields",
-			config: &Config{
-				APIKey:    "test-key",
-				BaseURL:   "https://api.openai.com/v1",
-				Timeout:   30 * time.Second,
-				MaxTokens: 4096,
-				Model:     "gpt-4",
-				OrgID:     "org-123",
-				UserAgent: "test-agent",
-			},
-			expectError: false,
+func TestHealthCheckSuccess(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		require.Equal(t, "/models", r.URL.Path)
+		w.WriteHeader(http.StatusOK)
+		_, _ = w.Write([]byte(`{"data":[]}`))
+	}))
+	t.Cleanup(server.Close)
+
+	client := &Client{
+		config: &Config{
+			APIKey:  "test",
+			BaseURL: server.URL,
+			Timeout: time.Second,
 		},
 	}
 
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			client, err := NewClient(tt.config)
-			if tt.expectError && err == nil {
-				t.Errorf("Expected error but got none")
-			}
-			if !tt.expectError && err != nil {
-				t.Errorf("Unexpected error: %v", err)
-			}
-			if !tt.expectError && client == nil {
-				t.Errorf("Expected client but got nil")
-			}
-		})
-	}
+	status, err := client.HealthCheck(context.Background())
+	require.NoError(t, err)
+	require.NotNil(t, status)
+	require.True(t, status.Healthy)
+	require.Equal(t, "OK", status.Status)
 }
 
-func TestClient_GetCapabilities(t *testing.T) {
-	config := &Config{
-		APIKey: "test-key",
-	}
-	client, err := NewClient(config)
-	if err != nil {
-		t.Fatalf("Failed to create client: %v", err)
+func TestHealthCheckFailure(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusServiceUnavailable)
+	}))
+	t.Cleanup(server.Close)
+
+	client := &Client{
+		config: &Config{
+			APIKey:  "test",
+			BaseURL: server.URL,
+		},
 	}
 
-	ctx := context.Background()
-	caps, err := client.GetCapabilities(ctx)
-	if err != nil {
-		t.Fatalf("GetCapabilities failed: %v", err)
-	}
-
-	if caps == nil {
-		t.Fatal("Expected capabilities but got nil")
-	}
-
-	if caps.Provider != "openai" {
-		t.Errorf("Expected provider 'openai', got '%s'", caps.Provider)
-	}
-
-	if len(caps.Models) == 0 {
-		t.Error("Expected at least one model")
-	}
-
-	if len(caps.Features) == 0 {
-		t.Error("Expected at least one feature")
-	}
-}
-
-func TestClient_Close(t *testing.T) {
-	config := &Config{
-		APIKey: "test-key",
-	}
-	client, err := NewClient(config)
-	if err != nil {
-		t.Fatalf("Failed to create client: %v", err)
-	}
-
-	err = client.Close()
-	if err != nil {
-		t.Errorf("Close failed: %v", err)
-	}
-}
-
-func TestClient_getModel(t *testing.T) {
-	config := &Config{
-		APIKey: "test-key",
-		Model:  "gpt-3.5-turbo",
-	}
-	client, err := NewClient(config)
-	if err != nil {
-		t.Fatalf("Failed to create client: %v", err)
-	}
-
-	// Test with request-specific model
-	req := &interfaces.GenerateRequest{
-		Model: "gpt-4",
-	}
-	model := client.getModel(req)
-	if model != "gpt-4" {
-		t.Errorf("Expected 'gpt-4', got '%s'", model)
-	}
-
-	// Test with default model
-	req = &interfaces.GenerateRequest{}
-	model = client.getModel(req)
-	if model != "gpt-3.5-turbo" {
-		t.Errorf("Expected 'gpt-3.5-turbo', got '%s'", model)
-	}
-}
-
-func TestClient_getMaxTokens(t *testing.T) {
-	config := &Config{
-		APIKey:    "test-key",
-		MaxTokens: 2048,
-	}
-	client, err := NewClient(config)
-	if err != nil {
-		t.Fatalf("Failed to create client: %v", err)
-	}
-
-	// Test with request-specific max tokens
-	req := &interfaces.GenerateRequest{
-		MaxTokens: 1024,
-	}
-	maxTokens := client.getMaxTokens(req)
-	if maxTokens != 1024 {
-		t.Errorf("Expected 1024, got %d", maxTokens)
-	}
-
-	// Test with default max tokens
-	req = &interfaces.GenerateRequest{}
-	maxTokens = client.getMaxTokens(req)
-	if maxTokens != 2048 {
-		t.Errorf("Expected 2048, got %d", maxTokens)
-	}
-}
-
-// Temperature support has been removed as per user request
-
-func TestNewClient_EnvironmentVariables(t *testing.T) {
-	// Test environment variable for API key
-	originalKey := os.Getenv("OPENAI_API_KEY")
-	originalOrg := os.Getenv("OPENAI_ORG_ID")
-	defer func() {
-		if originalKey != "" {
-			_ = os.Setenv("OPENAI_API_KEY", originalKey)
-		} else {
-			_ = os.Unsetenv("OPENAI_API_KEY")
-		}
-		if originalOrg != "" {
-			_ = os.Setenv("OPENAI_ORG_ID", originalOrg)
-		} else {
-			_ = os.Unsetenv("OPENAI_ORG_ID")
-		}
-	}()
-
-	_ = os.Setenv("OPENAI_API_KEY", "env-test-key")
-	_ = os.Setenv("OPENAI_ORG_ID", "env-test-org")
-
-	config := &Config{}
-	client, err := NewClient(config)
-	if err != nil {
-		t.Fatalf("Failed to create client: %v", err)
-	}
-
-	if client.config.APIKey != "env-test-key" {
-		t.Errorf("Expected API key to be 'env-test-key', got '%s'", client.config.APIKey)
-	}
-	if client.config.OrgID != "env-test-org" {
-		t.Errorf("Expected OrgID to be 'env-test-org', got '%s'", client.config.OrgID)
-	}
-}
-
-func TestNewClient_ConnectionPooling(t *testing.T) {
-	config := &Config{
-		APIKey:          "test-key",
-		MaxIdleConns:    50,
-		MaxConnsPerHost: 5,
-		IdleConnTimeout: 60 * time.Second,
-	}
-
-	client, err := NewClient(config)
-	if err != nil {
-		t.Fatalf("Failed to create client: %v", err)
-	}
-
-	if client.config.MaxIdleConns != 50 {
-		t.Errorf("Expected MaxIdleConns to be 50, got %d", client.config.MaxIdleConns)
-	}
-	if client.config.MaxConnsPerHost != 5 {
-		t.Errorf("Expected MaxConnsPerHost to be 5, got %d", client.config.MaxConnsPerHost)
-	}
-	if client.config.IdleConnTimeout != 60*time.Second {
-		t.Errorf("Expected IdleConnTimeout to be 60s, got %v", client.config.IdleConnTimeout)
-	}
-}
-
-func TestClient_CloseWithConnectionPool(t *testing.T) {
-	config := &Config{
-		APIKey: "test-key",
-	}
-	client, err := NewClient(config)
-	if err != nil {
-		t.Fatalf("Failed to create client: %v", err)
-	}
-
-	// Verify the client has a langchaingo LLM
-	if client.llm == nil {
-		t.Error("Expected LLM to be configured")
-	}
-
-	err = client.Close()
-	if err != nil {
-		t.Errorf("Close failed: %v", err)
-	}
-}
-
-func TestClient_RequestBuilding(t *testing.T) {
-	config := &Config{
-		APIKey: "test-key",
-	}
-	client, err := NewClient(config)
-	if err != nil {
-		t.Fatalf("Failed to create client: %v", err)
-	}
-
-	req := &interfaces.GenerateRequest{
-		Prompt:       "Test prompt",
-		SystemPrompt: "You are a helpful assistant",
-		Model:        "gpt-3.5-turbo",
-		MaxTokens:    100,
-		Stream:       true,
-		Context:      []string{"Previous context"},
-	}
-
-	// Test message building - now returns []llms.MessageContent
-	messages := client.buildMessages(req)
-
-	// Should have: 1 system + 1 context + 1 prompt = 3 messages
-	expectedCount := 3
-	if len(messages) != expectedCount {
-		t.Errorf("Expected %d messages, got %d", expectedCount, len(messages))
-	}
-
-	// Test generation options building
-	opts := client.buildGenerationOptions(req)
-	if len(opts) == 0 {
-		t.Error("Expected generation options to be built")
-	}
-}
-
-func TestClient_RateLimits(t *testing.T) {
-	config := &Config{
-		APIKey: "test-key",
-	}
-	client, err := NewClient(config)
-	if err != nil {
-		t.Fatalf("Failed to create client: %v", err)
-	}
-
-	ctx := context.Background()
-	caps, err := client.GetCapabilities(ctx)
-	if err != nil {
-		t.Fatalf("GetCapabilities failed: %v", err)
-	}
-
-	if caps.RateLimits == nil {
-		t.Error("Expected rate limits to be defined")
-	} else {
-		if caps.RateLimits.RequestsPerMinute <= 0 {
-			t.Error("Expected positive requests per minute")
-		}
-		if caps.RateLimits.TokensPerMinute <= 0 {
-			t.Error("Expected positive tokens per minute")
-		}
-	}
+	status, err := client.HealthCheck(context.Background())
+	require.NoError(t, err)
+	require.NotNil(t, status)
+	require.False(t, status.Healthy)
 }

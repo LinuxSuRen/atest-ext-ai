@@ -19,6 +19,7 @@ package openai
 import (
 	"context"
 	"fmt"
+	"net/http"
 	"os"
 	"strings"
 	"time"
@@ -233,17 +234,48 @@ func (c *Client) GetCapabilities(ctx context.Context) (*interfaces.Capabilities,
 func (c *Client) HealthCheck(ctx context.Context) (*interfaces.HealthStatus, error) {
 	start := time.Now()
 
-	// Make a simple request to check if the service is available
-	req := &interfaces.GenerateRequest{
-		Prompt:    "Hello",
-		MaxTokens: 1,
+	reqCtx := ctx
+	if c.config.Timeout > 0 {
+		var cancel context.CancelFunc
+		reqCtx, cancel = context.WithTimeout(ctx, c.config.Timeout)
+		defer cancel()
 	}
 
-	_, err := c.Generate(ctx, req)
-	duration := time.Since(start)
+	endpoint := strings.TrimRight(c.config.BaseURL, "/")
+	if endpoint == "" {
+		endpoint = "https://api.openai.com/v1"
+	}
+	healthURL := endpoint + "/models"
+
+	req, err := http.NewRequestWithContext(reqCtx, http.MethodGet, healthURL, nil)
+	if err != nil {
+		return &interfaces.HealthStatus{
+			Healthy:      false,
+			Status:       fmt.Sprintf("Failed to construct health request: %v", err),
+			ResponseTime: time.Since(start),
+			LastChecked:  time.Now(),
+			Errors:       []string{err.Error()},
+			Metadata: map[string]any{
+				"provider": "openai",
+				"endpoint": c.config.BaseURL,
+			},
+		}, nil
+	}
+
+	if c.config.APIKey != "" {
+		req.Header.Set("Authorization", "Bearer "+c.config.APIKey)
+	}
+
+	client := &http.Client{}
+	if c.config.Timeout > 0 {
+		client.Timeout = c.config.Timeout
+	}
+
+	resp, err := client.Do(req)
+	responseTime := time.Since(start)
 
 	status := &interfaces.HealthStatus{
-		ResponseTime: duration,
+		ResponseTime: responseTime,
 		LastChecked:  time.Now(),
 		Metadata: map[string]any{
 			"provider": "openai",
@@ -253,11 +285,18 @@ func (c *Client) HealthCheck(ctx context.Context) (*interfaces.HealthStatus, err
 
 	if err != nil {
 		status.Healthy = false
-		status.Status = fmt.Sprintf("Health check failed: %v", err)
+		status.Status = "Service unreachable"
 		status.Errors = []string{err.Error()}
-	} else {
+		return status, nil
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode >= 200 && resp.StatusCode < 300 {
 		status.Healthy = true
 		status.Status = "OK"
+	} else {
+		status.Healthy = false
+		status.Status = fmt.Sprintf("Unhealthy (status: %d)", resp.StatusCode)
 	}
 
 	return status, nil
