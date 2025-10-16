@@ -137,7 +137,11 @@ describe('useAIChat', () => {
 
   describe('handleTestConnection', () => {
     it('should set status to connected on success', async () => {
-      vi.mocked(aiService.testConnection).mockResolvedValue(true)
+      vi.mocked(aiService.testConnection).mockResolvedValue({
+        success: true,
+        message: 'ok',
+        provider: 'ollama'
+      })
 
       const { config, handleTestConnection } = useAIChat(mockContext)
 
@@ -152,7 +156,10 @@ describe('useAIChat', () => {
 
       const { config, handleTestConnection } = useAIChat(mockContext)
 
-      await expect(handleTestConnection()).rejects.toThrow()
+      const result = await handleTestConnection()
+
+      expect(result.success).toBe(false)
+      expect(result.error).toBe('Network error')
       expect(config.value.status).toBe('disconnected')
     })
   })

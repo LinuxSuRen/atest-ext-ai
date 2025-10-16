@@ -3,6 +3,34 @@ import type { AIConfig, Model, QueryRequest, QueryResponse } from '@/types'
 const API_BASE = '/api/v1/data/query'
 const API_STORE = 'ai'
 
+function toBoolean(value: unknown): boolean {
+  if (typeof value === 'boolean') {
+    return value
+  }
+  if (typeof value === 'string') {
+    const normalized = value.trim().toLowerCase()
+    if (normalized === 'true') {
+      return true
+    }
+    if (normalized === 'false') {
+      return false
+    }
+  }
+  return Boolean(value)
+}
+
+function safeParseJSON<T>(value: unknown): T | undefined {
+  if (typeof value !== 'string') {
+    return value as T | undefined
+  }
+  try {
+    return JSON.parse(value) as T
+  } catch (error) {
+    console.warn('[aiService] Failed to parse JSON value from backend', value, error)
+    return value as T | undefined
+  }
+}
+
 /**
  * AI Service Layer
  * Centralized API calls for AI functionality
@@ -26,14 +54,14 @@ export const aiService = {
     error?: string
   }> {
     const result = await callAPI<{
-      success: string
+      success: string | boolean
       message: string
       provider: string
       error?: string
     }>('test_connection', config)
 
     return {
-      success: result.success === 'true',
+      success: toBoolean(result.success),
       message: result.message || '',
       provider: result.provider || config.provider,
       error: result.error
@@ -50,7 +78,7 @@ export const aiService = {
     timestamp: string
   }> {
     const result = await callAPI<{
-      healthy: string
+      healthy: string | boolean
       provider: string
       error: string
       timestamp: string
@@ -60,7 +88,7 @@ export const aiService = {
     })
 
     return {
-      healthy: result.healthy === 'true',
+      healthy: toBoolean(result.healthy),
       provider: result.provider,
       error: result.error || '',
       timestamp: result.timestamp
@@ -83,7 +111,7 @@ export const aiService = {
       const result = await callAPI<{
         content: string
         meta: string
-        success: string
+        success: string | boolean
         error?: string
       }>('generate', {
         model: request.model,
@@ -122,13 +150,10 @@ export const aiService = {
       }
 
       const response = {
-        success: result.success === 'true',
+        success: toBoolean(result.success),
         sql,
         explanation: explanation || undefined,
-        // Handle meta: could be already parsed object or string
-        meta: typeof result.meta === 'string'
-          ? JSON.parse(result.meta)
-          : result.meta,
+        meta: safeParseJSON(result.meta) ?? result.meta,
         error: result.error
       }
 

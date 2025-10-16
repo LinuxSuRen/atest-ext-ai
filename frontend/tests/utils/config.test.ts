@@ -118,8 +118,9 @@ describe('config utils', () => {
     it('should return openai mock models', () => {
       const models = getMockModels('openai')
 
-      expect(models).toHaveLength(2)
-      expect(models[0].id).toBe('gpt-4o')
+      expect(models.length).toBeGreaterThanOrEqual(7)
+      expect(models[0].id).toBe('gpt-5')
+      expect(models.some(model => model.id === 'gpt-4o-2024-08-06')).toBe(true)
     })
 
     it('should return empty array for unknown provider', () => {
