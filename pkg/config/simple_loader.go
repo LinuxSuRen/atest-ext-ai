@@ -103,7 +103,9 @@ func loadYAMLFile(path string) (*Config, error) {
 	return &cfg, nil
 }
 
-// applyEnvOverrides applies environment variable overrides to the configuration
+// applyEnvOverrides applies environment variable overrides to the configuration.
+// GUI-driven configuration is the primary workflow; environment overrides remain
+// for legacy automation scenarios and may be removed in future versions.
 func applyEnvOverrides(cfg *Config) {
 	// Server configuration
 	if host := os.Getenv("ATEST_EXT_AI_SERVER_HOST"); host != "" {

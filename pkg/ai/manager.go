@@ -23,7 +23,6 @@ import (
 	"fmt"
 	"math/big"
 	"net"
-	"os"
 	"strings"
 	"sync"
 	"syscall"
@@ -90,19 +89,12 @@ type Manager struct {
 
 // NewAIManager creates a new unified AI manager.
 func NewAIManager(cfg config.AIConfig) (*Manager, error) {
-	// Get Ollama endpoint from config or environment
-	endpoint := ""
+	// The GUI drives provider configuration, so we only consume data from cfg.
+	endpoint := discovery.DefaultOllamaEndpoint
 	if ollamaSvc, ok := cfg.Services["ollama"]; ok {
-		endpoint = ollamaSvc.Endpoint
-	}
-	if endpoint == "" {
-		endpoint = os.Getenv("OLLAMA_ENDPOINT")
-	}
-	if endpoint == "" {
-		endpoint = os.Getenv("ATEST_EXT_AI_OLLAMA_ENDPOINT")
-	}
-	if endpoint == "" {
-		endpoint = "http://localhost:11434"
+		if ep := strings.TrimSpace(ollamaSvc.Endpoint); ep != "" {
+			endpoint = ep
+		}
 	}
 
 	manager := &Manager{
@@ -397,7 +389,15 @@ func (m *Manager) GetModels(ctx context.Context, providerName string) ([]interfa
 func (m *Manager) TestConnection(ctx context.Context, cfg *universal.Config) (*ConnectionTestResult, error) {
 	start := time.Now()
 
-	// Create temporary client
+	if cfg == nil {
+		return &ConnectionTestResult{
+			Success:      false,
+			Message:      "Invalid configuration",
+			ResponseTime: time.Since(start),
+			Error:        "configuration cannot be nil",
+		}, nil
+	}
+
 	client, err := universal.NewUniversalClient(cfg)
 	if err != nil {
 		return &ConnectionTestResult{
@@ -410,7 +410,6 @@ func (m *Manager) TestConnection(ctx context.Context, cfg *universal.Config) (*C
 	}
 	defer func() { _ = client.Close() }()
 
-	// Test with health check
 	health, err := client.HealthCheck(ctx)
 	if err != nil {
 		return &ConnectionTestResult{

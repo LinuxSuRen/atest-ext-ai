@@ -22,6 +22,9 @@ import (
 	"time"
 )
 
+// DefaultOllamaEndpoint is used when GUI configuration does not provide an endpoint.
+const DefaultOllamaEndpoint = "http://localhost:11434"
+
 // OllamaDiscovery handles Ollama service discovery
 // It only checks if Ollama is available, not model management.
 // Model information should be retrieved through the AIClient interface.
@@ -33,7 +36,7 @@ type OllamaDiscovery struct {
 // NewOllamaDiscovery creates a new Ollama discovery instance
 func NewOllamaDiscovery(baseURL string) *OllamaDiscovery {
 	if baseURL == "" {
-		panic("baseURL is required for Ollama discovery - set OLLAMA_ENDPOINT environment variable")
+		baseURL = DefaultOllamaEndpoint
 	}
 
 	return &OllamaDiscovery{
