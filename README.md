@@ -1,82 +1,20 @@
-# atest-ext-ai
+AI plugin for API-Testing[https://github.com/LinuxSuRen/api-testing].
 
-AI plugin for API Testing Tool that converts natural language to SQL queries.
+## 功能
+It can(now):
+1. convert natural language to SQL.
+2. generate test examples.(To-do)
 
-## Configuration
+目前支持的ai提供商:
+云端:DeepSeek, OpenAI
+本地:Ollama的任意模型(实现了本地模型自动发现)
 
-The plugin uses a YAML configuration file. Copy `config.example.yaml` to `config.yaml` and customize:
+## 开发命令
 
-```bash
-cp config.example.yaml config.yaml
-```
+项目通过 `make` 提供常用的开发流程:
+- `make build` 编译后端插件
+- `make build-frontend` 构建前端资源
+- `make test` 运行完整测试套件
+- `make install-local` 重新打包并安装插件到 `~/.config/atest/bin`
 
-### Quick Start Configuration
-
-For local development with Ollama:
-
-```yaml
-ai:
-  default_service: ollama
-  services:
-    ollama:
-      enabled: true
-      endpoint: http://localhost:11434
-      model: qwen2.5-coder:7b
-```
-
-### Environment Variables
-
-You can override configuration with environment variables:
-
-```bash
-# AI Provider
-export ATEST_EXT_AI_AI_PROVIDER=ollama
-export ATEST_EXT_AI_OLLAMA_ENDPOINT=http://localhost:11434
-export ATEST_EXT_AI_AI_MODEL=qwen2.5-coder:7b
-
-# For OpenAI
-export ATEST_EXT_AI_OPENAI_API_KEY=sk-...
-export ATEST_EXT_AI_OPENAI_MODEL=gpt-4
-
-# Logging
-export ATEST_EXT_AI_LOG_LEVEL=debug
-```
-
-See `config.yaml` for available configuration options.
-
-## Development
-
-### Local Development
-
-```bash
-# Build and install plugin for local development (single command)
-task install-local
-
-# The plugin binary will be installed to ~/.config/atest/bin/
-# and automatically discovered by the API Testing Server
-# This command will replace any existing binary
-```
-
-### Release Process
-
-```bash
-# Build and push OCI image to GitHub Container Registry (single command)
-task docker-release-github
-
-# Or push to custom registry
-task docker-release DOCKER_REGISTRY=your-registry.com
-
-# This will:
-# 1. Build the Docker image
-# 2. Tag it with version and latest
-# 3. Push to the specified registry (default: ghcr.io/linuxsuren)
-```
-
-### Available Commands
-
-- `task install-local` - Build and install for local development (replaces existing)
-- `task docker-release-github` - Build and push OCI image to GitHub Container Registry
-- `task docker-release` - Build and push OCI image to custom registry
-- `task test` - Run tests
-- `task clean` - Clean build artifacts
-- `task help` - Show all available commands (or just run `task --list`)
+使用 `make help` 可以查看全部可用的目标。
