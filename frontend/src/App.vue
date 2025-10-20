@@ -39,6 +39,7 @@ import AIChatMessages from './components/AIChatMessages.vue'
 import AIChatInput from './components/AIChatInput.vue'
 import AISettingsPanel from './components/AISettingsPanel.vue'
 import AIWelcomePanel from './components/AIWelcomePanel.vue'
+import { createTranslator } from './utils/i18n'
 
 // Props passed from main.ts
 interface Props {
@@ -46,8 +47,17 @@ interface Props {
 }
 const props = defineProps<Props>()
 
+// Wrap host i18n with plugin fallbacks
+const pluginContext: AppContext = {
+  ...props.context,
+  i18n: {
+    ...props.context.i18n,
+    t: createTranslator(props.context.i18n)
+  }
+}
+
 // Provide context to all child components
-provide('appContext', props.context)
+provide('appContext', pluginContext)
 
 // Use composable with context
 const {
@@ -60,13 +70,13 @@ const {
   handleSaveConfig,
   handleTestConnection,
   refreshModels
-} = useAIChat(props.context)
+} = useAIChat(pluginContext)
 
 // UI state
 const showSettings = ref(false)
 
 // Get translation function from context
-const { t } = props.context.i18n
+const { t } = pluginContext.i18n
 
 // Save configuration
 async function handleSave() {
