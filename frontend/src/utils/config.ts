@@ -25,9 +25,29 @@ export function loadConfigForProvider(provider: Provider): AIConfig {
   const providerConfig = localStorage.getItem(`atest-ai-config-${provider}`)
   const stored = providerConfig ? JSON.parse(providerConfig) : {}
 
+  const isLocalEndpoint = (value: unknown) => {
+    if (typeof value !== 'string') {
+      return false
+    }
+    const lower = value.trim().toLowerCase()
+    return lower.startsWith('http://localhost') ||
+      lower.startsWith('http://127.0.0.1') ||
+      lower.startsWith('https://localhost') ||
+      lower.startsWith('https://127.0.0.1')
+  }
+
   const config: AIConfig = {
     provider,
-    endpoint: stored.endpoint ?? defaults.endpoint ?? '',
+    endpoint: (() => {
+      const value = stored.endpoint ?? defaults.endpoint ?? ''
+      if (provider !== 'ollama' && isLocalEndpoint(value)) {
+        return defaults.endpoint ?? ''
+      }
+      if (!value) {
+        return defaults.endpoint ?? ''
+      }
+      return value
+    })(),
     model: stored.model ?? defaults.model ?? '',
     apiKey: stored.apiKey ?? defaults.apiKey ?? '',
     maxTokens: stored.maxTokens ?? defaults.maxTokens ?? 2048,

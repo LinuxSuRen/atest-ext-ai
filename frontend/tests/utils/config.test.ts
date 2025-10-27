@@ -53,6 +53,23 @@ describe('config utils', () => {
       expect(config.maxTokens).toBe(1024)
       expect(config.status).toBe('connected')
     })
+
+    it('should sanitize local endpoint when provider is deepseek', () => {
+      localStorage.setItem('atest-ai-global-config', JSON.stringify({
+        provider: 'deepseek'
+      }))
+      localStorage.setItem('atest-ai-config-deepseek', JSON.stringify({
+        endpoint: 'http://localhost:11434',
+        model: 'deepseek-chat',
+        apiKey: 'sk-test',
+        maxTokens: 1024
+      }))
+
+      const config = loadConfig()
+      expect(config.provider).toBe('deepseek')
+      expect(config.endpoint).toBe('https://api.deepseek.com')
+      expect(config.model).toBe('deepseek-chat')
+    })
   })
 
   describe('saveConfig', () => {
