@@ -59,6 +59,7 @@
         "description": "Powerful reasoning AI"
       }
     },
+    "providerLabel": "Provider",
     "message": {
       "configSaved": "Configuration saved successfully",
       "configSaveFailed": "Saved locally, backend sync failed",

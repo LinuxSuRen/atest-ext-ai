@@ -13,6 +13,7 @@
       <AIChatMessages :messages="messages" />
       <AIChatInput
         :loading="isLoading"
+        :include-explanation="includeExplanation"
         @submit="handleQuery"
         @open-settings="showSettings = true"
       />
@@ -23,6 +24,7 @@
       :config="config"
       :available-models="availableModels"
       :models-map="modelsByProvider"
+      v-model:include-explanation="includeExplanation"
       @save="handleSave"
       @test-connection="handleTest"
       @refresh-models="refreshModels"
@@ -76,6 +78,7 @@ const {
 
 // UI state
 const showSettings = ref(false)
+const includeExplanation = ref(false)
 
 // Get translation function from context
 const { t } = pluginContext.i18n

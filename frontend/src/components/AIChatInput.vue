@@ -1,11 +1,7 @@
 <template>
   <div class="chat-input">
     <div class="input-options">
-      <div class="option-left">
-        <el-checkbox v-model="includeExplanation">
-          {{ t('ai.option.includeExplanation') }}
-        </el-checkbox>
-      </div>
+      <div class="spacer"></div>
       <el-button class="configure-btn" type="primary" plain @click="emit('open-settings')">
         <el-icon><Setting /></el-icon>
         {{ t('ai.button.configure') }}
@@ -35,13 +31,13 @@
 </template>
 
 <script setup lang="ts">
-import { ref, inject, watch } from 'vue'
+import { ref, inject } from 'vue'
 import { Promotion, Setting } from '@element-plus/icons-vue'
-import { ElMessage } from 'element-plus'
 import type { AppContext } from '../types'
 
 interface Props {
   loading: boolean
+  includeExplanation: boolean
 }
 const props = defineProps<Props>()
 
@@ -57,20 +53,12 @@ const { t } = context.i18n
 
 // Input state
 const prompt = ref('')
-const includeExplanation = ref(false)
-
-watch(includeExplanation, (value) => {
-  if (value) {
-    ElMessage.info(t('ai.message.explanationNotSupported'))
-    includeExplanation.value = false
-  }
-})
 
 function handleSubmit() {
   if (!prompt.value.trim() || props.loading) return
 
   emit('submit', prompt.value, {
-    includeExplanation: includeExplanation.value
+    includeExplanation: props.includeExplanation
   })
 
   // Clear input after submit
@@ -95,10 +83,8 @@ function handleSubmit() {
   gap: 16px;
 }
 
-.option-left {
-  display: flex;
-  align-items: center;
-  gap: 8px;
+.spacer {
+  flex: 1;
 }
 
 .configure-btn {
@@ -107,7 +93,7 @@ function handleSubmit() {
   gap: 6px;
   height: 44px;
   padding: 0 24px;
-  border-radius: 24px;
+  border-radius: 12px;
   font-weight: 500;
 }
 
@@ -140,7 +126,7 @@ function handleSubmit() {
 .input-controls .el-button {
   height: 48px;
   padding: 0 28px;
-  border-radius: 24px;
+  border-radius: 12px;
   font-size: 14px;
   font-weight: 500;
   white-space: nowrap;

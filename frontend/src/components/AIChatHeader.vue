@@ -3,11 +3,9 @@
     <div class="header-left">
       <h2>{{ t('ai.title') }}</h2>
       <span class="subtitle">{{ t('ai.subtitle') }}</span>
-    </div>
-    <div class="header-right">
-      <el-tag :type="statusType" size="small">
-        {{ t(`ai.status.${props.status}`) }}
-      </el-tag>
+      <span class="provider-label">
+        {{ providerLabelText }}
+      </span>
     </div>
   </div>
 </template>
@@ -26,14 +24,14 @@ const props = defineProps<Props>()
 const context = inject<AppContext>('appContext')!
 const { t } = context.i18n
 
-// Status tag type
-const statusType = computed(() => {
-  switch (props.status) {
-    case 'connected': return 'success'
-    case 'connecting': return 'warning'
-    default: return 'info'
-  }
+const providerLabel = computed(() => {
+  const key = props.provider === 'local' ? 'ollama' : props.provider
+  const translationKey = `ai.provider.${key}.name`
+  const translated = t(translationKey)
+  return translated === translationKey ? key : translated
 })
+
+const providerLabelText = computed(() => `${t('ai.providerLabel')}: ${providerLabel.value}`)
 </script>
 
 <style scoped>
@@ -59,9 +57,10 @@ const statusType = computed(() => {
   color: var(--el-text-color-secondary);
 }
 
-.header-right {
-  display: flex;
-  gap: 12px;
-  align-items: center;
+.provider-label {
+  display: block;
+  margin-top: 6px;
+  font-size: 12px;
+  color: var(--el-text-color-regular);
 }
 </style>

@@ -59,6 +59,7 @@
         "description": "强大的推理 AI"
       }
     },
+    "providerLabel": "当前服务商",
     "message": {
       "configSaved": "配置保存成功",
       "configSaveFailed": "本地保存成功，后端同步失败",

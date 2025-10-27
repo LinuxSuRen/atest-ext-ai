@@ -5,6 +5,11 @@
     size="550px"
     @close="emit('update:visible', false)"
   >
+    <div class="status-banner">
+      <el-tag :type="statusTagType" size="large">
+        {{ statusLabel }}
+      </el-tag>
+    </div>
     <el-tabs v-model="activeTab" class="provider-tabs">
       <!-- Local Services Tab -->
       <el-tab-pane name="local">
@@ -49,6 +54,8 @@
                     v-model="localConfig.model"
                     :placeholder="t('ai.welcome.noModels')"
                     style="width: 100%"
+                    popper-class="model-dropdown"
+                    :fit-input-width="false"
                   >
                     <el-option
                       v-for="model in localModels"
@@ -121,7 +128,12 @@
                   </el-form-item>
                   <el-form-item :label="t('ai.settings.model')">
                     <div class="model-select-wrapper">
-                      <el-select v-model="localConfig.model" style="width: 100%">
+                      <el-select
+                        v-model="localConfig.model"
+                        style="width: 100%"
+                        popper-class="model-dropdown"
+                        :fit-input-width="false"
+                      >
                         <template v-if="openaiModels.length">
                           <el-option
                             v-for="model in openaiModels"
@@ -197,7 +209,12 @@
                   </el-form-item>
                   <el-form-item :label="t('ai.settings.model')">
                     <div class="model-select-wrapper">
-                      <el-select v-model="localConfig.model" style="width: 100%">
+                      <el-select
+                        v-model="localConfig.model"
+                        style="width: 100%"
+                        popper-class="model-dropdown"
+                        :fit-input-width="false"
+                      >
                         <template v-if="deepseekModels.length">
                           <el-option
                             v-for="model in deepseekModels"
@@ -240,6 +257,11 @@
     <div class="advanced-section">
       <el-divider>{{ t('ai.settings.advanced') }}</el-divider>
       <el-form :model="localConfig" label-width="120px">
+        <el-form-item :label="t('ai.option.includeExplanation')">
+          <el-checkbox v-model="explanation">
+            {{ t('ai.option.includeExplanation') }}
+          </el-checkbox>
+        </el-form-item>
         <el-form-item :label="t('ai.settings.timeout')">
           <div class="timeout-control">
             <el-input-number
@@ -293,6 +315,7 @@ import {
   Connection,
   Check
 } from '@element-plus/icons-vue'
+import { ElMessage } from 'element-plus'
 import type { AppContext, AIConfig, Model } from '../types'
 import { loadConfigForProvider, type Provider } from '../utils/config'
 
@@ -301,6 +324,7 @@ interface Props {
   config: AIConfig
   availableModels: Model[]
   modelsMap?: Partial<Record<Provider, Model[]>>
+  includeExplanation: boolean
 }
 const props = defineProps<Props>()
 
@@ -309,6 +333,7 @@ interface Emits {
   (e: 'save'): void
   (e: 'test-connection'): void
   (e: 'refresh-models', provider?: Provider): void
+  (e: 'update:include-explanation', value: boolean): void
 }
 const emit = defineEmits<Emits>()
 
@@ -328,6 +353,24 @@ const localModels = computed(() => providerModels.value.ollama)
 const openaiModels = computed(() => providerModels.value.openai)
 const deepseekModels = computed(() => providerModels.value.deepseek)
 const isLocalProvider = computed(() => (localConfig.value.provider === 'ollama' || localConfig.value.provider === 'local'))
+
+const statusTagType = computed(() => {
+  switch (props.config.status) {
+    case 'connected':
+      return 'success'
+    case 'connecting':
+      return 'warning'
+    default:
+      return 'info'
+  }
+})
+
+const statusLabel = computed(() => t(`ai.status.${props.config.status}`))
+
+const explanation = computed({
+  get: () => props.includeExplanation,
+  set: (value: boolean) => emit('update:include-explanation', value)
+})
 
 // Active tab state - automatically switch based on provider
 const activeTab = computed({
@@ -382,6 +425,13 @@ const clampTimeout = (value: number): number => {
 
 localConfig.value.timeout = clampTimeout(localConfig.value.timeout || 120)
 
+watch(explanation, (value) => {
+  if (value) {
+    ElMessage.info(t('ai.message.explanationNotSupported'))
+    explanation.value = false
+  }
+})
+
 function handleSave() {
   // Copy local config back to props
   Object.assign(props.config, localConfig.value)
@@ -390,9 +440,16 @@ function handleSave() {
 </script>
 
 <style scoped>
+/* Status */
+.status-banner {
+  display: flex;
+  justify-content: flex-end;
+  padding: 12px 20px 0;
+}
+
 /* Tabs styling */
 .provider-tabs {
-  margin: -20px -20px 0;
+  margin: -12px -20px 0;
 }
 
 .provider-tabs :deep(.el-tabs__header) {
@@ -518,6 +575,11 @@ function handleSave() {
   justify-content: space-between;
   align-items: center;
   width: 100%;
+}
+
+:deep(.model-dropdown) {
+  min-width: 360px;
+  max-width: 520px;
 }
 
 .model-name {
