@@ -1,14 +1,12 @@
 <template>
   <div class="chat-input">
     <div class="input-options">
-      <el-checkbox v-model="includeExplanation">
-        {{ t('ai.option.includeExplanation') }}
-      </el-checkbox>
-      <el-button
-        type="default"
-        size="small"
-        @click="emit('open-settings')"
-      >
+      <div class="option-left">
+        <el-checkbox v-model="includeExplanation">
+          {{ t('ai.option.includeExplanation') }}
+        </el-checkbox>
+      </div>
+      <el-button class="configure-btn" type="primary" plain @click="emit('open-settings')">
         <el-icon><Setting /></el-icon>
         {{ t('ai.button.configure') }}
       </el-button>
@@ -94,12 +92,23 @@ function handleSubmit() {
   display: flex;
   justify-content: space-between;
   align-items: center;
+  gap: 16px;
 }
 
-.input-options .el-button {
+.option-left {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.configure-btn {
   display: flex;
   align-items: center;
   gap: 6px;
+  height: 44px;
+  padding: 0 24px;
+  border-radius: 24px;
+  font-weight: 500;
 }
 
 .input-controls {

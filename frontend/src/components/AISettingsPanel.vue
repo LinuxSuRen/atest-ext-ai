@@ -327,7 +327,7 @@ const providerModels = computed<Record<Provider, Model[]>>(() => ({
 const localModels = computed(() => providerModels.value.ollama)
 const openaiModels = computed(() => providerModels.value.openai)
 const deepseekModels = computed(() => providerModels.value.deepseek)
-const isLocalProvider = computed(() => localConfig.value.provider === 'ollama')
+const isLocalProvider = computed(() => (localConfig.value.provider === 'ollama' || localConfig.value.provider === 'local'))
 
 // Active tab state - automatically switch based on provider
 const activeTab = computed({
@@ -363,6 +363,8 @@ watch(() => localConfig.value.provider, (newProvider, oldProvider) => {
     ...providerConfig,
     provider: newProvider
   }
+
+  localConfig.value.timeout = clampTimeout(localConfig.value.timeout || (normalizedProvider === 'ollama' ? 120 : 180))
 })
 
 watch(() => localConfig.value.timeout, (value) => {
