@@ -39,6 +39,8 @@ describe('aiService', () => {
         type: 'ai',
         key: 'generate'
       })
+      const payload = JSON.parse(body.sql)
+      expect(payload.config).toContain('timeout')
 
       return createFetchResponse({
         data: [
@@ -55,6 +57,7 @@ describe('aiService', () => {
       apiKey: '',
       model: 'demo',
       prompt: 'Select data',
+      timeout: 120,
       maxTokens: 256,
       includeExplanation: true
     })

@@ -28,6 +28,7 @@ export interface AIConfig {
   endpoint: string
   model: string
   apiKey: string
+  timeout: number
   maxTokens: number
   status: 'connected' | 'disconnected' | 'connecting'
 }
@@ -62,6 +63,7 @@ export interface QueryRequest {
   provider: string
   endpoint: string
   apiKey: string
+  timeout: number
   maxTokens: number
   includeExplanation: boolean
 }

@@ -115,7 +115,8 @@ export function useAIChat(_context: AppContext) {
         provider: config.value.provider,
         endpoint: config.value.endpoint,
         model: config.value.model,
-        hasApiKey: !!config.value.apiKey
+        hasApiKey: !!config.value.apiKey,
+        timeout: config.value.timeout
       }
     })
 
@@ -139,6 +140,7 @@ export function useAIChat(_context: AppContext) {
         apiKey: config.value.apiKey,
         model: config.value.model,
         prompt,
+        timeout: config.value.timeout,
         maxTokens: config.value.maxTokens,
         includeExplanation: options.includeExplanation
       })

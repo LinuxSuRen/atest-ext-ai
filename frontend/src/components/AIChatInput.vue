@@ -4,6 +4,14 @@
       <el-checkbox v-model="includeExplanation">
         {{ t('ai.option.includeExplanation') }}
       </el-checkbox>
+      <el-button
+        type="default"
+        size="small"
+        @click="emit('open-settings')"
+      >
+        <el-icon><Setting /></el-icon>
+        {{ t('ai.button.configure') }}
+      </el-button>
     </div>
     <div class="input-controls">
       <el-input
@@ -29,8 +37,9 @@
 </template>
 
 <script setup lang="ts">
-import { ref, inject } from 'vue'
-import { Promotion } from '@element-plus/icons-vue'
+import { ref, inject, watch } from 'vue'
+import { Promotion, Setting } from '@element-plus/icons-vue'
+import { ElMessage } from 'element-plus'
 import type { AppContext } from '../types'
 
 interface Props {
@@ -40,6 +49,7 @@ const props = defineProps<Props>()
 
 interface Emits {
   (e: 'submit', prompt: string, options: { includeExplanation: boolean }): void
+  (e: 'open-settings'): void
 }
 const emit = defineEmits<Emits>()
 
@@ -50,6 +60,13 @@ const { t } = context.i18n
 // Input state
 const prompt = ref('')
 const includeExplanation = ref(false)
+
+watch(includeExplanation, (value) => {
+  if (value) {
+    ElMessage.info(t('ai.message.explanationNotSupported'))
+    includeExplanation.value = false
+  }
+})
 
 function handleSubmit() {
   if (!prompt.value.trim() || props.loading) return
@@ -74,6 +91,15 @@ function handleSubmit() {
 .input-options {
   margin-bottom: 12px;
   padding-left: 4px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.input-options .el-button {
+  display: flex;
+  align-items: center;
+  gap: 6px;
 }
 
 .input-controls {

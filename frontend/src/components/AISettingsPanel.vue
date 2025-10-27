@@ -240,6 +240,19 @@
     <div class="advanced-section">
       <el-divider>{{ t('ai.settings.advanced') }}</el-divider>
       <el-form :model="localConfig" label-width="120px">
+        <el-form-item :label="t('ai.settings.timeout')">
+          <div class="timeout-control">
+            <el-input-number
+              v-model="localConfig.timeout"
+              :min="10"
+              :max="900"
+              :step="10"
+            />
+            <span class="timeout-hint">
+              {{ isLocalProvider ? t('ai.settings.timeoutHintLocal') : t('ai.settings.timeoutHintCloud') }}
+            </span>
+          </div>
+        </el-form-item>
         <el-form-item :label="t('ai.settings.maxTokens')">
           <el-input-number
             v-model="localConfig.maxTokens"
@@ -287,7 +300,7 @@ interface Props {
   visible: boolean
   config: AIConfig
   availableModels: Model[]
-  modelsMap: Record<string, Model[]>
+  modelsMap?: Partial<Record<Provider, Model[]>>
 }
 const props = defineProps<Props>()
 
@@ -306,10 +319,15 @@ const { t } = context.i18n
 // Local config copy
 const localConfig = ref<AIConfig>({ ...props.config })
 
-const providerModels = computed<Record<string, Model[]>>(() => props.modelsMap || {})
-const localModels = computed(() => providerModels.value.ollama || [])
-const openaiModels = computed(() => providerModels.value.openai || [])
-const deepseekModels = computed(() => providerModels.value.deepseek || [])
+const providerModels = computed<Record<Provider, Model[]>>(() => ({
+  ollama: props.modelsMap?.ollama ?? props.availableModels ?? [],
+  openai: props.modelsMap?.openai ?? [],
+  deepseek: props.modelsMap?.deepseek ?? []
+}))
+const localModels = computed(() => providerModels.value.ollama)
+const openaiModels = computed(() => providerModels.value.openai)
+const deepseekModels = computed(() => providerModels.value.deepseek)
+const isLocalProvider = computed(() => localConfig.value.provider === 'ollama')
 
 // Active tab state - automatically switch based on provider
 const activeTab = computed({
@@ -329,6 +347,7 @@ const activeTab = computed({
 // Watch config changes
 watch(() => props.config, (newConfig) => {
   localConfig.value = { ...newConfig }
+  localConfig.value.timeout = clampTimeout(localConfig.value.timeout || 120)
 }, { deep: true })
 
 watch(() => localConfig.value.provider, (newProvider, oldProvider) => {
@@ -345,6 +364,21 @@ watch(() => localConfig.value.provider, (newProvider, oldProvider) => {
     provider: newProvider
   }
 })
+
+watch(() => localConfig.value.timeout, (value) => {
+  if (typeof value !== 'number' || Number.isNaN(value)) {
+    localConfig.value.timeout = 120
+  } else {
+    localConfig.value.timeout = clampTimeout(value)
+  }
+})
+
+const clampTimeout = (value: number): number => {
+  const clamped = Math.min(Math.max(Math.round(value), 10), 900)
+  return clamped
+}
+
+localConfig.value.timeout = clampTimeout(localConfig.value.timeout || 120)
 
 function handleSave() {
   // Copy local config back to props
@@ -464,6 +498,17 @@ function handleSave() {
 .refresh-btn {
   align-self: flex-start;
   font-size: 13px;
+}
+
+.timeout-control {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.timeout-hint {
+  font-size: 12px;
+  color: var(--el-text-color-secondary);
 }
 
 .model-option {

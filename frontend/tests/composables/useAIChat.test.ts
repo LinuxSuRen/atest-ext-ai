@@ -39,6 +39,7 @@ describe('useAIChat', () => {
 
       expect(config.value.provider).toBe('ollama')
       expect(config.value.endpoint).toBe('http://localhost:11434')
+      expect(config.value.timeout).toBe(120)
       expect(isConfigured.value).toBe(false)
       expect(messages.value).toEqual([])
       expect(isLoading.value).toBe(false)
@@ -48,6 +49,7 @@ describe('useAIChat', () => {
       localStorage.setItem('atest-ai-config-ollama', JSON.stringify({
         endpoint: 'http://localhost:11434',
         model: 'llama3.2:3b',
+        timeout: 150,
         maxTokens: 2048,
         apiKey: '',
         status: 'disconnected'
@@ -62,8 +64,9 @@ describe('useAIChat', () => {
         provider: 'openai'
       }))
       localStorage.setItem('atest-ai-config-openai', JSON.stringify({
-        endpoint: '',
+        endpoint: 'https://api.openai.com/v1',
         model: 'gpt-4o',
+        timeout: 200,
         maxTokens: 2048,
         apiKey: 'sk-test123',
         status: 'disconnected'
@@ -84,7 +87,7 @@ describe('useAIChat', () => {
 
       vi.mocked(aiService.generateSQL).mockResolvedValue(mockResponse)
 
-      const { messages, handleQuery } = useAIChat(mockContext)
+      const { config, messages, handleQuery } = useAIChat(mockContext)
 
       await handleQuery('show all users', { includeExplanation: false })
 
@@ -93,6 +96,9 @@ describe('useAIChat', () => {
       expect(messages.value[0].content).toBe('show all users')
       expect(messages.value[1].type).toBe('ai')
       expect(messages.value[1].sql).toBe('SELECT * FROM users')
+      expect(aiService.generateSQL).toHaveBeenCalledWith(expect.objectContaining({
+        timeout: config.value.timeout
+      }))
     })
 
     it('should add error message when API fails', async () => {

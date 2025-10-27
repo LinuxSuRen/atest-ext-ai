@@ -13,6 +13,9 @@
       "endpoint": "Endpoint",
       "model": "Model",
       "apiKey": "API Key",
+      "timeout": "Request Timeout (seconds)",
+      "timeoutHintLocal": "Increase this value if your local model needs more time to respond.",
+      "timeoutHintCloud": "Most cloud providers handle timeouts automatically; adjust only when needed.",
       "maxTokens": "Max Tokens",
       "advanced": "Advanced Settings",
       "localServices": "Local Services",
@@ -62,7 +65,8 @@
       "connectionSuccess": "Connection successful!",
       "connectionFailed": "Connection failed",
       "generating": "Generating SQL...",
-      "copiedSuccess": "Copied to clipboard"
+      "copiedSuccess": "Copied to clipboard",
+      "explanationNotSupported": "Detailed explanations are not supported yet."
     }
   }
 }

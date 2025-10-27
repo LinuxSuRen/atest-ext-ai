@@ -50,6 +50,7 @@ export function loadConfigForProvider(provider: Provider): AIConfig {
     })(),
     model: stored.model ?? defaults.model ?? '',
     apiKey: stored.apiKey ?? defaults.apiKey ?? '',
+    timeout: Number.isFinite(stored.timeout) ? Number(stored.timeout) : (defaults.timeout ?? 120),
     maxTokens: stored.maxTokens ?? defaults.maxTokens ?? 2048,
     status: stored.status ?? 'disconnected'
   }
@@ -75,6 +76,7 @@ export function saveConfig(config: AIConfig): void {
     endpoint: (rest.endpoint && String(rest.endpoint).trim()) || defaults.endpoint || '',
     model: rest.model ?? defaults.model ?? '',
     apiKey: rest.apiKey ?? defaults.apiKey ?? '',
+    timeout: (typeof rest.timeout === 'number' && rest.timeout > 0 ? rest.timeout : defaults.timeout ?? 120),
     maxTokens: rest.maxTokens ?? defaults.maxTokens ?? 2048
   }
 
@@ -89,14 +91,15 @@ export function saveConfig(config: AIConfig): void {
  */
 export function getDefaultConfig(provider: string): Partial<AIConfig> {
   const defaults: Record<string, Partial<AIConfig>> = {
-    ollama: { endpoint: 'http://localhost:11434', apiKey: '' },
-    openai: { endpoint: 'https://api.openai.com/v1', apiKey: '' },
-    deepseek: { endpoint: 'https://api.deepseek.com', apiKey: '' }
+    ollama: { endpoint: 'http://localhost:11434', apiKey: '', timeout: 120 },
+    openai: { endpoint: 'https://api.openai.com/v1', apiKey: '', timeout: 120 },
+    deepseek: { endpoint: 'https://api.deepseek.com', apiKey: '', timeout: 180 }
   }
 
   return {
     ...(defaults[provider] || defaults.ollama),
     model: '',
+    timeout: (defaults[provider] || defaults.ollama)?.timeout ?? 120,
     maxTokens: 2048,
     status: 'disconnected'
   }

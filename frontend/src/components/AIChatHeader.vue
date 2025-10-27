@@ -8,21 +8,12 @@
       <el-tag :type="statusType" size="small">
         {{ t(`ai.status.${props.status}`) }}
       </el-tag>
-      <el-button
-        type="primary"
-        size="small"
-        @click="emit('open-settings')"
-      >
-        <el-icon><Setting /></el-icon>
-        {{ t('ai.settings.title') }}
-      </el-button>
     </div>
   </div>
 </template>
 
 <script setup lang="ts">
 import { computed, inject } from 'vue'
-import { Setting } from '@element-plus/icons-vue'
 import type { AppContext } from '../types'
 
 interface Props {
@@ -30,11 +21,6 @@ interface Props {
   status: 'connected' | 'disconnected' | 'connecting'
 }
 const props = defineProps<Props>()
-
-interface Emits {
-  (e: 'open-settings'): void
-}
-const emit = defineEmits<Emits>()
 
 // Inject context from parent
 const context = inject<AppContext>('appContext')!

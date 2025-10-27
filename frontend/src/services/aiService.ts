@@ -58,7 +58,8 @@ export const aiService = {
       endpoint: config.endpoint,
       model: config.model,
       api_key: config.apiKey,
-      max_tokens: config.maxTokens
+      max_tokens: config.maxTokens,
+      timeout: formatTimeout(config.timeout)
     }
 
     const result = await callAPI<{
@@ -129,7 +130,8 @@ export const aiService = {
           provider: request.provider,
           endpoint: request.endpoint,
           api_key: request.apiKey,
-          max_tokens: request.maxTokens
+          max_tokens: request.maxTokens,
+          timeout: formatTimeout(request.timeout)
         })
       })
 
@@ -194,10 +196,19 @@ export const aiService = {
         endpoint: config.endpoint,
         model: config.model,
         api_key: config.apiKey,
-        max_tokens: config.maxTokens
+        max_tokens: config.maxTokens,
+        timeout: formatTimeout(config.timeout)
       }
     })
   }
+}
+
+function formatTimeout(timeout: number | undefined): string {
+  const value = Number(timeout)
+  if (!Number.isFinite(value) || value <= 0) {
+    return '60s'
+  }
+  return `${Math.round(value)}s`
 }
 
 /**

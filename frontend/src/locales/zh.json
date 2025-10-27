@@ -13,6 +13,9 @@
       "endpoint": "端点",
       "model": "模型",
       "apiKey": "API 密钥",
+      "timeout": "推理超时时间（秒）",
+      "timeoutHintLocal": "若本地模型响应较慢，可适当延长超时时间。",
+      "timeoutHintCloud": "云端服务通常自动处理超时，仅在必要时调整。",
       "maxTokens": "最大令牌数",
       "advanced": "高级设置",
       "localServices": "本地服务",
@@ -62,7 +65,8 @@
       "connectionSuccess": "连接成功！",
       "connectionFailed": "连接失败",
       "generating": "生成 SQL 中...",
-      "copiedSuccess": "已复制到剪贴板"
+      "copiedSuccess": "已复制到剪贴板",
+      "explanationNotSupported": "暂不支持生成详细解释。"
     }
   }
 }

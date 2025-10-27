@@ -3,7 +3,6 @@
     <AIChatHeader
       :provider="config.provider"
       :status="config.status"
-      @open-settings="showSettings = true"
     />
 
     <div v-if="!isConfigured" class="welcome-panel">
@@ -15,6 +14,7 @@
       <AIChatInput
         :loading="isLoading"
         @submit="handleQuery"
+        @open-settings="showSettings = true"
       />
     </div>
 

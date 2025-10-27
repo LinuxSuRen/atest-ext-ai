@@ -20,6 +20,7 @@ describe('config utils', () => {
       expect(config.provider).toBe('ollama')
       expect(config.endpoint).toBe('http://localhost:11434')
       expect(config.model).toBe('')
+      expect(config.timeout).toBe(120)
       expect(config.maxTokens).toBe(2048)
       expect(config.status).toBe('disconnected')
     })
@@ -33,6 +34,7 @@ describe('config utils', () => {
       expect(config.provider).toBe('openai')
       expect(config.endpoint).toBe('https://api.openai.com/v1')
       expect(config.apiKey).toBe('')
+      expect(config.timeout).toBe(120)
     })
 
     it('should load provider-specific config', () => {
@@ -42,6 +44,7 @@ describe('config utils', () => {
       localStorage.setItem('atest-ai-config-ollama', JSON.stringify({
         endpoint: 'http://localhost:11434',
         model: 'llama3.2:3b',
+        timeout: 180,
         maxTokens: 1024,
         apiKey: '',
         status: 'connected'
@@ -50,6 +53,7 @@ describe('config utils', () => {
       const config = loadConfig()
       expect(config.provider).toBe('ollama')
       expect(config.model).toBe('llama3.2:3b')
+      expect(config.timeout).toBe(180)
       expect(config.maxTokens).toBe(1024)
       expect(config.status).toBe('connected')
     })
@@ -62,13 +66,15 @@ describe('config utils', () => {
         endpoint: 'http://localhost:11434',
         model: 'deepseek-chat',
         apiKey: 'sk-test',
-        maxTokens: 1024
+        maxTokens: 1024,
+        timeout: 90
       }))
 
       const config = loadConfig()
       expect(config.provider).toBe('deepseek')
       expect(config.endpoint).toBe('https://api.deepseek.com')
       expect(config.model).toBe('deepseek-chat')
+      expect(config.timeout).toBe(180)
     })
   })
 
@@ -79,6 +85,7 @@ describe('config utils', () => {
         endpoint: 'https://api.deepseek.com',
         model: 'deepseek-chat',
         apiKey: 'sk-test123',
+        timeout: 240,
         maxTokens: 2048,
         status: 'disconnected'
       }
@@ -92,6 +99,7 @@ describe('config utils', () => {
       expect(providerConfig.endpoint).toBe('https://api.deepseek.com')
       expect(providerConfig.model).toBe('deepseek-chat')
       expect(providerConfig.apiKey).toBe('sk-test123')
+      expect(providerConfig.timeout).toBe(240)
       expect(providerConfig.provider).toBeUndefined()
       expect(providerConfig.status).toBeUndefined()
     })
@@ -102,6 +110,7 @@ describe('config utils', () => {
         endpoint: 'http://localhost:11434',
         model: 'llama3.2:3b',
         apiKey: '',
+        timeout: 90,
         maxTokens: 1024,
         status: 'connected'
       }
@@ -111,6 +120,7 @@ describe('config utils', () => {
       const providerConfig = JSON.parse(localStorage.getItem('atest-ai-config-ollama')!)
       expect(providerConfig.endpoint).toBe('http://localhost:11434')
       expect(providerConfig.model).toBe('llama3.2:3b')
+      expect(providerConfig.timeout).toBe(90)
     })
   })
 
@@ -120,6 +130,7 @@ describe('config utils', () => {
 
       expect(config.endpoint).toBe('http://localhost:11434')
       expect(config.apiKey).toBe('')
+      expect(config.timeout).toBe(120)
       expect(config.maxTokens).toBe(2048)
     })
 
@@ -128,11 +139,13 @@ describe('config utils', () => {
 
       expect(config.endpoint).toBe('https://api.openai.com/v1')
       expect(config.apiKey).toBe('')
+      expect(config.timeout).toBe(120)
     })
 
     it('should return ollama config for unknown provider', () => {
       const config = getDefaultConfig('unknown')
       expect(config.endpoint).toBe('http://localhost:11434')
+      expect(config.timeout).toBe(120)
     })
   })
 
