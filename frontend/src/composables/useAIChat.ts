@@ -1,6 +1,6 @@
 import { ref, computed, watch } from 'vue'
 import type { AppContext, AIConfig, Message, Model } from '@/types'
-import { loadConfig, loadConfigForProvider, saveConfig, getMockModels, generateId } from '@/utils/config'
+import { loadConfig, loadConfigForProvider, saveConfig, getMockModels, generateId, type Provider } from '@/utils/config'
 import { aiService } from '@/services/aiService'
 
 /**
@@ -13,11 +13,11 @@ export function useAIChat(_context: AppContext) {
   // Configuration management
   const config = ref<AIConfig>(loadConfig())
 
-  const resolveProviderKey = (provider: string): 'ollama' | 'openai' | 'deepseek' => {
+  const resolveProviderKey = (provider: string): Provider => {
     if (provider === 'local') {
       return 'ollama'
     }
-    return (provider as 'ollama' | 'openai' | 'deepseek')
+    return provider as Provider
   }
 
   // Store models separately for each provider to avoid cross-contamination
@@ -58,8 +58,8 @@ export function useAIChat(_context: AppContext) {
       return
     }
 
-    const normalizedProvider = newProvider === 'local' ? 'ollama' : newProvider
-    const providerConfig = loadConfigForProvider(normalizedProvider as 'ollama' | 'openai' | 'deepseek')
+    const normalizedProvider = resolveProviderKey(newProvider)
+    const providerConfig = loadConfigForProvider(normalizedProvider)
 
     config.value = {
       ...config.value,
@@ -68,11 +68,10 @@ export function useAIChat(_context: AppContext) {
       status: providerConfig.status ?? 'disconnected'
     }
 
-    await refreshModels()
+    await refreshModels(normalizedProvider)
 
     // Validate current model selection for new provider
-    const modelKey = resolveProviderKey(newProvider)
-    const models = modelsByProvider.value[modelKey] || []
+    const models = modelsByProvider.value[normalizedProvider] || []
     const currentModel = config.value.model
     const modelExists = models.some(m => m.id === currentModel)
 
@@ -84,8 +83,8 @@ export function useAIChat(_context: AppContext) {
   /**
    * Refresh available models for current provider
    */
-  async function refreshModels() {
-    const provider = config.value.provider
+  async function refreshModels(targetProvider?: string) {
+    const provider = targetProvider ?? config.value.provider
     const storeKey = resolveProviderKey(provider)
 
     try {
@@ -93,8 +92,8 @@ export function useAIChat(_context: AppContext) {
       const models = await aiService.fetchModels(provider)
       modelsByProvider.value[storeKey] = models
 
-      // Auto-select first model if none selected
-      if (!config.value.model && models.length > 0) {
+      // Auto-select first model if none selected and refreshing active provider
+      if (storeKey === resolveProviderKey(config.value.provider) && !config.value.model && models.length > 0) {
         config.value.model = models[0].id
       }
     } catch (error) {
@@ -240,6 +239,7 @@ export function useAIChat(_context: AppContext) {
     config,
     isConfigured,
     availableModels,
+    modelsByProvider,
     messages,
     isLoading,
     handleQuery,

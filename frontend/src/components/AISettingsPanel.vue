@@ -51,7 +51,7 @@
                     style="width: 100%"
                   >
                     <el-option
-                      v-for="model in props.availableModels"
+                      v-for="model in localModels"
                       :key="model.id"
                       :value="model.id"
                       :label="model.name"
@@ -65,7 +65,7 @@
                   <el-button
                     link
                     type="primary"
-                    @click="emit('refresh-models')"
+                    @click="emit('refresh-models', 'ollama')"
                     class="refresh-btn"
                   >
                     <el-icon><Refresh /></el-icon>
@@ -120,21 +120,47 @@
                     />
                   </el-form-item>
                   <el-form-item :label="t('ai.settings.model')">
-                    <el-select v-model="localConfig.model" style="width: 100%">
-                      <el-option-group label="GPT-5 Series (Latest 2025)">
-                        <el-option value="gpt-5" label="GPT-5 ⭐ Recommended" />
-                        <el-option value="gpt-5-mini" label="GPT-5 Mini" />
-                        <el-option value="gpt-5-nano" label="GPT-5 Nano" />
-                      </el-option-group>
-                      <el-option-group label="GPT-4.1 Series">
-                        <el-option value="gpt-4.1-2025-04-14" label="GPT-4.1" />
-                        <el-option value="gpt-4.1-mini-2025-04-14" label="GPT-4.1 Mini" />
-                      </el-option-group>
-                      <el-option-group label="GPT-4o Series">
-                        <el-option value="gpt-4o-2024-08-06" label="GPT-4o" />
-                        <el-option value="gpt-4o-mini-2024-07-18" label="GPT-4o Mini" />
-                      </el-option-group>
-                    </el-select>
+                    <div class="model-select-wrapper">
+                      <el-select v-model="localConfig.model" style="width: 100%">
+                        <template v-if="openaiModels.length">
+                          <el-option
+                            v-for="model in openaiModels"
+                            :key="model.id"
+                            :value="model.id"
+                            :label="model.name"
+                          >
+                            <div class="model-option">
+                              <span class="model-name">{{ model.name }}</span>
+                              <span class="model-size">{{ model.size }}</span>
+                            </div>
+                          </el-option>
+                        </template>
+                        <template v-else>
+                          <el-option-group label="GPT-5 Series (Latest 2025)">
+                            <el-option value="gpt-5" label="GPT-5 ⭐ Recommended" />
+                            <el-option value="gpt-5-mini" label="GPT-5 Mini" />
+                            <el-option value="gpt-5-nano" label="GPT-5 Nano" />
+                          </el-option-group>
+                          <el-option-group label="GPT-4.1 Series">
+                            <el-option value="gpt-4.1-2025-04-14" label="GPT-4.1" />
+                            <el-option value="gpt-4.1-mini-2025-04-14" label="GPT-4.1 Mini" />
+                          </el-option-group>
+                          <el-option-group label="GPT-4o Series">
+                            <el-option value="gpt-4o-2024-08-06" label="GPT-4o" />
+                            <el-option value="gpt-4o-mini-2024-07-18" label="GPT-4o Mini" />
+                          </el-option-group>
+                        </template>
+                      </el-select>
+                      <el-button
+                        link
+                        type="primary"
+                        @click="emit('refresh-models', 'openai')"
+                        class="refresh-btn"
+                      >
+                        <el-icon><Refresh /></el-icon>
+                        {{ t('ai.button.refresh') }}
+                      </el-button>
+                    </div>
                   </el-form-item>
                 </el-form>
               </el-collapse-transition>
@@ -170,11 +196,37 @@
                     />
                   </el-form-item>
                   <el-form-item :label="t('ai.settings.model')">
-                    <el-select v-model="localConfig.model" style="width: 100%">
-                      <el-option value="deepseek-reasoner" label="DeepSeek Reasoner ⭐" />
-                      <el-option value="deepseek-chat" label="DeepSeek Chat" />
-                      <el-option value="deepseek-coder" label="DeepSeek Coder" />
-                    </el-select>
+                    <div class="model-select-wrapper">
+                      <el-select v-model="localConfig.model" style="width: 100%">
+                        <template v-if="deepseekModels.length">
+                          <el-option
+                            v-for="model in deepseekModels"
+                            :key="model.id"
+                            :value="model.id"
+                            :label="model.name"
+                          >
+                            <div class="model-option">
+                              <span class="model-name">{{ model.name }}</span>
+                              <span class="model-size">{{ model.size }}</span>
+                            </div>
+                          </el-option>
+                        </template>
+                        <template v-else>
+                          <el-option value="deepseek-reasoner" label="DeepSeek Reasoner ⭐" />
+                          <el-option value="deepseek-chat" label="DeepSeek Chat" />
+                          <el-option value="deepseek-coder" label="DeepSeek Coder" />
+                        </template>
+                      </el-select>
+                      <el-button
+                        link
+                        type="primary"
+                        @click="emit('refresh-models', 'deepseek')"
+                        class="refresh-btn"
+                      >
+                        <el-icon><Refresh /></el-icon>
+                        {{ t('ai.button.refresh') }}
+                      </el-button>
+                    </div>
                   </el-form-item>
                 </el-form>
               </el-collapse-transition>
@@ -229,12 +281,13 @@ import {
   Check
 } from '@element-plus/icons-vue'
 import type { AppContext, AIConfig, Model } from '../types'
-import { loadConfigForProvider } from '../utils/config'
+import { loadConfigForProvider, type Provider } from '../utils/config'
 
 interface Props {
   visible: boolean
   config: AIConfig
   availableModels: Model[]
+  modelsMap: Record<string, Model[]>
 }
 const props = defineProps<Props>()
 
@@ -242,7 +295,7 @@ interface Emits {
   (e: 'update:visible', value: boolean): void
   (e: 'save'): void
   (e: 'test-connection'): void
-  (e: 'refresh-models'): void
+  (e: 'refresh-models', provider?: Provider): void
 }
 const emit = defineEmits<Emits>()
 
@@ -252,6 +305,11 @@ const { t } = context.i18n
 
 // Local config copy
 const localConfig = ref<AIConfig>({ ...props.config })
+
+const providerModels = computed<Record<string, Model[]>>(() => props.modelsMap || {})
+const localModels = computed(() => providerModels.value.ollama || [])
+const openaiModels = computed(() => providerModels.value.openai || [])
+const deepseekModels = computed(() => providerModels.value.deepseek || [])
 
 // Active tab state - automatically switch based on provider
 const activeTab = computed({
@@ -278,8 +336,8 @@ watch(() => localConfig.value.provider, (newProvider, oldProvider) => {
     return
   }
 
-  const normalizedProvider = newProvider === 'local' ? 'ollama' : newProvider
-  const providerConfig = loadConfigForProvider(normalizedProvider as 'ollama' | 'openai' | 'deepseek')
+  const normalizedProvider: Provider = newProvider === 'local' ? 'ollama' : newProvider as Provider
+  const providerConfig = loadConfigForProvider(normalizedProvider)
 
   localConfig.value = {
     ...localConfig.value,

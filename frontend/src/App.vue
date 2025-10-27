@@ -22,6 +22,7 @@
       v-model:visible="showSettings"
       :config="config"
       :available-models="availableModels"
+      :models-map="modelsByProvider"
       @save="handleSave"
       @test-connection="handleTest"
       @refresh-models="refreshModels"
@@ -64,6 +65,7 @@ const {
   config,
   isConfigured,
   availableModels,
+  modelsByProvider,
   messages,
   isLoading,
   handleQuery,

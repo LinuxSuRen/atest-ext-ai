@@ -20,9 +20,7 @@ build-frontend: ## Build frontend assets (Vue 3 + TypeScript)
 	@[ -d frontend/node_modules ] || (cd frontend && npm install)
 	cd frontend && npm run build
 
-build: $(BUILD_BIN) ## Build the plugin binary
-
-$(BUILD_BIN):
+build: ## Build the plugin binary
 	mkdir -p $(BUILD_DIR)
 	CGO_ENABLED=0 go build -ldflags "$(LDFLAGS)" -o $(BUILD_BIN) $(MAIN_PACKAGE)
 
