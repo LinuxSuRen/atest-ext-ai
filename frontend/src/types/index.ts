@@ -28,7 +28,6 @@ export interface AIConfig {
   endpoint: string
   model: string
   apiKey: string
-  temperature: number
   maxTokens: number
   status: 'connected' | 'disconnected' | 'connecting'
 }
@@ -63,7 +62,6 @@ export interface QueryRequest {
   provider: string
   endpoint: string
   apiKey: string
-  temperature: number
   maxTokens: number
   includeExplanation: boolean
 }

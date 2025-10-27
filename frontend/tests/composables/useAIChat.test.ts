@@ -48,7 +48,6 @@ describe('useAIChat', () => {
       localStorage.setItem('atest-ai-config-ollama', JSON.stringify({
         endpoint: 'http://localhost:11434',
         model: 'llama3.2:3b',
-        temperature: 0.7,
         maxTokens: 2048,
         apiKey: '',
         status: 'disconnected'
@@ -65,7 +64,6 @@ describe('useAIChat', () => {
       localStorage.setItem('atest-ai-config-openai', JSON.stringify({
         endpoint: '',
         model: 'gpt-4o',
-        temperature: 0.7,
         maxTokens: 2048,
         apiKey: 'sk-test123',
         status: 'disconnected'
@@ -214,14 +212,14 @@ describe('useAIChat', () => {
       const { config } = useAIChat(mockContext)
 
       config.value.model = 'new-model'
-      config.value.temperature = 0.9
+      config.value.maxTokens = 4096
 
       // Wait for watch to trigger
       await new Promise(resolve => setTimeout(resolve, 10))
 
       const saved = JSON.parse(localStorage.getItem('atest-ai-config-ollama')!)
       expect(saved.model).toBe('new-model')
-      expect(saved.temperature).toBe(0.9)
+      expect(saved.maxTokens).toBe(4096)
     })
   })
 })

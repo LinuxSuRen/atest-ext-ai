@@ -13,7 +13,6 @@
       "endpoint": "Endpoint",
       "model": "Model",
       "apiKey": "API Key",
-      "temperature": "Temperature",
       "maxTokens": "Max Tokens",
       "advanced": "Advanced Settings",
       "localServices": "Local Services",

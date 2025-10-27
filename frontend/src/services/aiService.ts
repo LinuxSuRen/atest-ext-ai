@@ -53,12 +53,20 @@ export const aiService = {
     provider: string
     error?: string
   }> {
+    const payload = {
+      provider: config.provider,
+      endpoint: config.endpoint,
+      model: config.model,
+      api_key: config.apiKey,
+      max_tokens: config.maxTokens
+    }
+
     const result = await callAPI<{
       success: string | boolean
       message: string
       provider: string
       error?: string
-    }>('test_connection', config)
+    }>('test_connection', payload)
 
     return {
       success: toBoolean(result.success),
@@ -121,7 +129,6 @@ export const aiService = {
           provider: request.provider,
           endpoint: request.endpoint,
           api_key: request.apiKey,
-          temperature: request.temperature,
           max_tokens: request.maxTokens
         })
       })
@@ -187,7 +194,6 @@ export const aiService = {
         endpoint: config.endpoint,
         model: config.model,
         api_key: config.apiKey,
-        temperature: config.temperature,
         max_tokens: config.maxTokens
       }
     })

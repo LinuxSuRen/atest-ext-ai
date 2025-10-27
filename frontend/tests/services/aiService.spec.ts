@@ -55,7 +55,6 @@ describe('aiService', () => {
       apiKey: '',
       model: 'demo',
       prompt: 'Select data',
-      temperature: 0.2,
       maxTokens: 256,
       includeExplanation: true
     })

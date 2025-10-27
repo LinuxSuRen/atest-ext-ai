@@ -20,7 +20,6 @@ describe('config utils', () => {
       expect(config.provider).toBe('ollama')
       expect(config.endpoint).toBe('http://localhost:11434')
       expect(config.model).toBe('')
-      expect(config.temperature).toBe(0.7)
       expect(config.maxTokens).toBe(2048)
       expect(config.status).toBe('disconnected')
     })
@@ -43,7 +42,6 @@ describe('config utils', () => {
       localStorage.setItem('atest-ai-config-ollama', JSON.stringify({
         endpoint: 'http://localhost:11434',
         model: 'llama3.2:3b',
-        temperature: 0.5,
         maxTokens: 1024,
         apiKey: '',
         status: 'connected'
@@ -52,7 +50,6 @@ describe('config utils', () => {
       const config = loadConfig()
       expect(config.provider).toBe('ollama')
       expect(config.model).toBe('llama3.2:3b')
-      expect(config.temperature).toBe(0.5)
       expect(config.maxTokens).toBe(1024)
       expect(config.status).toBe('connected')
     })
@@ -65,7 +62,6 @@ describe('config utils', () => {
         endpoint: 'https://api.deepseek.com',
         model: 'deepseek-chat',
         apiKey: 'sk-test123',
-        temperature: 0.8,
         maxTokens: 2048,
         status: 'disconnected'
       }
@@ -80,6 +76,7 @@ describe('config utils', () => {
       expect(providerConfig.model).toBe('deepseek-chat')
       expect(providerConfig.apiKey).toBe('sk-test123')
       expect(providerConfig.provider).toBeUndefined()
+      expect(providerConfig.status).toBeUndefined()
     })
   })
 
@@ -89,7 +86,6 @@ describe('config utils', () => {
 
       expect(config.endpoint).toBe('http://localhost:11434')
       expect(config.apiKey).toBe('')
-      expect(config.temperature).toBe(0.7)
       expect(config.maxTokens).toBe(2048)
     })
 

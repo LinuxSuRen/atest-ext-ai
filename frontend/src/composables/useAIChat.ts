@@ -1,6 +1,6 @@
 import { ref, computed, watch } from 'vue'
 import type { AppContext, AIConfig, Message, Model } from '@/types'
-import { loadConfig, saveConfig, getMockModels, generateId } from '@/utils/config'
+import { loadConfig, loadConfigForProvider, saveConfig, getMockModels, generateId } from '@/utils/config'
 import { aiService } from '@/services/aiService'
 
 /**
@@ -13,6 +13,13 @@ export function useAIChat(_context: AppContext) {
   // Configuration management
   const config = ref<AIConfig>(loadConfig())
 
+  const resolveProviderKey = (provider: string): 'ollama' | 'openai' | 'deepseek' => {
+    if (provider === 'local') {
+      return 'ollama'
+    }
+    return (provider as 'ollama' | 'openai' | 'deepseek')
+  }
+
   // Store models separately for each provider to avoid cross-contamination
   const modelsByProvider = ref<Record<string, Model[]>>({
     ollama: [],
@@ -22,13 +29,15 @@ export function useAIChat(_context: AppContext) {
 
   // Computed property to get models for current provider
   const availableModels = computed(() => {
-    return modelsByProvider.value[config.value.provider] || []
+    const key = resolveProviderKey(config.value.provider)
+    return modelsByProvider.value[key] || []
   })
 
   // Check if AI is properly configured
   const isConfigured = computed(() => {
     const c = config.value
-    if (c.provider === 'ollama') {
+    const providerKey = resolveProviderKey(c.provider)
+    if (providerKey === 'ollama') {
       return !!c.endpoint && !!c.model
     }
     return !!c.apiKey && !!c.model
@@ -45,18 +54,30 @@ export function useAIChat(_context: AppContext) {
 
   // Watch provider changes and refresh models
   watch(() => config.value.provider, async (newProvider, oldProvider) => {
-    if (newProvider !== oldProvider) {
-      await refreshModels()
+    if (newProvider === oldProvider) {
+      return
+    }
 
-      // Validate current model selection for new provider
-      const models = modelsByProvider.value[newProvider] || []
-      const currentModel = config.value.model
-      const modelExists = models.some(m => m.id === currentModel)
+    const normalizedProvider = newProvider === 'local' ? 'ollama' : newProvider
+    const providerConfig = loadConfigForProvider(normalizedProvider as 'ollama' | 'openai' | 'deepseek')
 
-      // If current model doesn't exist in new provider, clear selection
-      if (!modelExists && currentModel) {
-        config.value.model = models.length > 0 ? models[0].id : ''
-      }
+    config.value = {
+      ...config.value,
+      ...providerConfig,
+      provider: newProvider,
+      status: providerConfig.status ?? 'disconnected'
+    }
+
+    await refreshModels()
+
+    // Validate current model selection for new provider
+    const modelKey = resolveProviderKey(newProvider)
+    const models = modelsByProvider.value[modelKey] || []
+    const currentModel = config.value.model
+    const modelExists = models.some(m => m.id === currentModel)
+
+    if (!modelExists) {
+      config.value.model = models.length > 0 ? models[0].id : ''
     }
   })
 
@@ -65,10 +86,12 @@ export function useAIChat(_context: AppContext) {
    */
   async function refreshModels() {
     const provider = config.value.provider
+    const storeKey = resolveProviderKey(provider)
+
     try {
       // Fetch and store models for this specific provider
       const models = await aiService.fetchModels(provider)
-      modelsByProvider.value[provider] = models
+      modelsByProvider.value[storeKey] = models
 
       // Auto-select first model if none selected
       if (!config.value.model && models.length > 0) {
@@ -77,7 +100,7 @@ export function useAIChat(_context: AppContext) {
     } catch (error) {
       console.error('Failed to fetch models:', error)
       // Use mock models as fallback for this provider
-      modelsByProvider.value[provider] = getMockModels(provider)
+      modelsByProvider.value[storeKey] = getMockModels(storeKey)
     }
   }
 
@@ -117,7 +140,6 @@ export function useAIChat(_context: AppContext) {
         apiKey: config.value.apiKey,
         model: config.value.model,
         prompt,
-        temperature: config.value.temperature,
         maxTokens: config.value.maxTokens,
         includeExplanation: options.includeExplanation
       })

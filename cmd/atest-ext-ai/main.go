@@ -47,7 +47,7 @@ func main() {
 
 	// Setup structured logging
 	log.SetFlags(log.LstdFlags | log.Lshortfile)
-	log.Printf("=== Starting atest-ext-ai plugin v1.0.0 ===")
+	log.Printf("=== Starting atest-ext-ai plugin %s ===", plugin.PluginVersion)
 	log.Printf("Build info: Go version %s, OS %s, Arch %s", runtime.Version(), runtime.GOOS, runtime.GOARCH)
 	log.Printf("Process PID: %d", os.Getpid())
 

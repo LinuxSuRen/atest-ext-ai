@@ -13,7 +13,6 @@
       "endpoint": "端点",
       "model": "模型",
       "apiKey": "API 密钥",
-      "temperature": "温度",
       "maxTokens": "最大令牌数",
       "advanced": "高级设置",
       "localServices": "本地服务",

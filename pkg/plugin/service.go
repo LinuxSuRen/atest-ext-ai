@@ -600,16 +600,16 @@ func (s *AIPluginService) GetVersion(ctx context.Context, _ *server.Empty) (*ser
 	}, nil
 }
 
-const (
+var (
 	// APIVersion is the current API version for the AI plugin
 	APIVersion = "v1"
-	// PluginVersion is the plugin implementation version
-	PluginVersion = "1.0.0"
-	// GRPCInterfaceVersion is the expected gRPC interface version from api-testing
-	// This helps detect incompatibilities between plugin and main project
-	GRPCInterfaceVersion = "v0.0.19"
-	// MinCompatibleAPITestingVersion is the minimum api-testing version required
-	MinCompatibleAPITestingVersion = "v0.0.19"
+	// PluginVersion is the plugin implementation version (resolved at build time or via module metadata)
+	PluginVersion = detectPluginVersion()
+	// GRPCInterfaceVersion is the expected gRPC interface version from api-testing.
+	// This helps detect incompatibilities between plugin and main project.
+	GRPCInterfaceVersion = detectAPITestingVersion()
+	// MinCompatibleAPITestingVersion is the minimum api-testing version required.
+	MinCompatibleAPITestingVersion = GRPCInterfaceVersion
 )
 
 // handleAIGenerate handles ai.generate calls

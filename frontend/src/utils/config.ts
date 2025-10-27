@@ -1,25 +1,40 @@
 import type { AIConfig, Model } from '@/types'
 
+export type Provider = 'ollama' | 'openai' | 'deepseek'
+
 /**
  * Load configuration from localStorage
  */
 export function loadConfig(): AIConfig {
   const globalConfig = localStorage.getItem('atest-ai-global-config')
-  let provider: 'ollama' | 'openai' | 'deepseek' = 'ollama'
+  let provider: Provider = 'ollama'
 
   if (globalConfig) {
     const parsed = JSON.parse(globalConfig)
-    provider = parsed.provider || provider
+    provider = (parsed.provider as Provider) || provider
   }
 
-  const providerConfig = localStorage.getItem(`atest-ai-config-${provider}`)
+  return loadConfigForProvider(provider)
+}
+
+/**
+ * Load configuration for a specific provider from localStorage
+ */
+export function loadConfigForProvider(provider: Provider): AIConfig {
   const defaults = getDefaultConfig(provider)
+  const providerConfig = localStorage.getItem(`atest-ai-config-${provider}`)
+  const stored = providerConfig ? JSON.parse(providerConfig) : {}
 
-  if (providerConfig) {
-    return { ...defaults, ...JSON.parse(providerConfig), provider } as AIConfig
+  const config: AIConfig = {
+    provider,
+    endpoint: stored.endpoint ?? defaults.endpoint ?? '',
+    model: stored.model ?? defaults.model ?? '',
+    apiKey: stored.apiKey ?? defaults.apiKey ?? '',
+    maxTokens: stored.maxTokens ?? defaults.maxTokens ?? 2048,
+    status: stored.status ?? 'disconnected'
   }
 
-  return { ...defaults, provider } as AIConfig
+  return config
 }
 
 /**
@@ -33,11 +48,13 @@ export function saveConfig(config: AIConfig): void {
   }))
 
   // Save provider-specific config
-  const providerConfig = { ...config }
-  delete (providerConfig as any).provider
+  const { provider, status, ...rest } = config
+  const providerConfig = {
+    ...rest
+  }
 
   localStorage.setItem(
-    `atest-ai-config-${config.provider}`,
+    `atest-ai-config-${provider}`,
     JSON.stringify(providerConfig)
   )
 }
@@ -55,7 +72,6 @@ export function getDefaultConfig(provider: string): Partial<AIConfig> {
   return {
     ...(defaults[provider] || defaults.ollama),
     model: '',
-    temperature: 0.7,
     maxTokens: 2048,
     status: 'disconnected'
   }

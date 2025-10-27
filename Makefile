@@ -9,7 +9,7 @@ MAIN_PACKAGE ?= ./cmd/atest-ext-ai
 DOCKER_IMAGE ?= atest-ext-ai
 DOCKER_REGISTRY ?= ghcr.io/linuxsuren
 VERSION ?= $(shell git describe --tags --always --dirty 2>/dev/null || echo dev)
-LDFLAGS ?= -s -w -X main.version=$(VERSION)
+LDFLAGS ?= -s -w -X github.com/linuxsuren/atest-ext-ai/pkg/plugin.buildPluginVersion=$(VERSION)
 BUILD_BIN := $(BUILD_DIR)/$(BINARY_NAME)
 
 .PHONY: default build-frontend build test test-watch deps clean install install-local dev fmt lint lint-check vet verify check benchmark docker-build docker-release docker-release-github coverage integration-test help

@@ -188,16 +188,6 @@
     <div class="advanced-section">
       <el-divider>{{ t('ai.settings.advanced') }}</el-divider>
       <el-form :model="localConfig" label-width="120px">
-        <el-form-item :label="t('ai.settings.temperature')">
-          <el-slider
-            v-model="localConfig.temperature"
-            :min="0"
-            :max="1"
-            :step="0.1"
-            show-input
-          />
-        </el-form-item>
-
         <el-form-item :label="t('ai.settings.maxTokens')">
           <el-input-number
             v-model="localConfig.maxTokens"
@@ -239,6 +229,7 @@ import {
   Check
 } from '@element-plus/icons-vue'
 import type { AppContext, AIConfig, Model } from '../types'
+import { loadConfigForProvider } from '../utils/config'
 
 interface Props {
   visible: boolean
@@ -281,6 +272,21 @@ const activeTab = computed({
 watch(() => props.config, (newConfig) => {
   localConfig.value = { ...newConfig }
 }, { deep: true })
+
+watch(() => localConfig.value.provider, (newProvider, oldProvider) => {
+  if (newProvider === oldProvider) {
+    return
+  }
+
+  const normalizedProvider = newProvider === 'local' ? 'ollama' : newProvider
+  const providerConfig = loadConfigForProvider(normalizedProvider as 'ollama' | 'openai' | 'deepseek')
+
+  localConfig.value = {
+    ...localConfig.value,
+    ...providerConfig,
+    provider: newProvider
+  }
+})
 
 function handleSave() {
   // Copy local config back to props
