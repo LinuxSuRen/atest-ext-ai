@@ -31,7 +31,7 @@ describe('config utils', () => {
 
       const config = loadConfig()
       expect(config.provider).toBe('openai')
-      expect(config.endpoint).toBe('')
+      expect(config.endpoint).toBe('https://api.openai.com/v1')
       expect(config.apiKey).toBe('')
     })
 
@@ -78,6 +78,23 @@ describe('config utils', () => {
       expect(providerConfig.provider).toBeUndefined()
       expect(providerConfig.status).toBeUndefined()
     })
+
+    it('should normalize local provider key to ollama', () => {
+      const config: AIConfig = {
+        provider: 'local',
+        endpoint: 'http://localhost:11434',
+        model: 'llama3.2:3b',
+        apiKey: '',
+        maxTokens: 1024,
+        status: 'connected'
+      }
+
+      saveConfig(config)
+
+      const providerConfig = JSON.parse(localStorage.getItem('atest-ai-config-ollama')!)
+      expect(providerConfig.endpoint).toBe('http://localhost:11434')
+      expect(providerConfig.model).toBe('llama3.2:3b')
+    })
   })
 
   describe('getDefaultConfig', () => {
@@ -92,7 +109,7 @@ describe('config utils', () => {
     it('should return openai default config', () => {
       const config = getDefaultConfig('openai')
 
-      expect(config.endpoint).toBe('')
+      expect(config.endpoint).toBe('https://api.openai.com/v1')
       expect(config.apiKey).toBe('')
     })
 

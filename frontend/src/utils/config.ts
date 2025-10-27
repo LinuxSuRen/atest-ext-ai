@@ -49,12 +49,17 @@ export function saveConfig(config: AIConfig): void {
 
   // Save provider-specific config
   const { provider, status, ...rest } = config
+  const normalizedProvider = (provider === 'local' ? 'ollama' : provider) as Provider
+  const defaults = getDefaultConfig(normalizedProvider)
   const providerConfig = {
-    ...rest
+    endpoint: (rest.endpoint && String(rest.endpoint).trim()) || defaults.endpoint || '',
+    model: rest.model ?? defaults.model ?? '',
+    apiKey: rest.apiKey ?? defaults.apiKey ?? '',
+    maxTokens: rest.maxTokens ?? defaults.maxTokens ?? 2048
   }
 
   localStorage.setItem(
-    `atest-ai-config-${provider}`,
+    `atest-ai-config-${normalizedProvider}`,
     JSON.stringify(providerConfig)
   )
 }
@@ -65,8 +70,8 @@ export function saveConfig(config: AIConfig): void {
 export function getDefaultConfig(provider: string): Partial<AIConfig> {
   const defaults: Record<string, Partial<AIConfig>> = {
     ollama: { endpoint: 'http://localhost:11434', apiKey: '' },
-    openai: { endpoint: '', apiKey: '' },
-    deepseek: { endpoint: '', apiKey: '' }
+    openai: { endpoint: 'https://api.openai.com/v1', apiKey: '' },
+    deepseek: { endpoint: 'https://api.deepseek.com', apiKey: '' }
   }
 
   return {
