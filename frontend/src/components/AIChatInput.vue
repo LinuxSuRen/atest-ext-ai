@@ -125,13 +125,14 @@ function handleSubmit() {
 
 .action-buttons {
   position: absolute;
-  top: 50%;
-  right: 24px;
+  top: 16px;
+  right: 20px;
+  bottom: 16px;
   display: flex;
   flex-direction: column;
+  justify-content: space-between;
   align-items: center;
   gap: 12px;
-  transform: translateY(-50%);
 }
 
 .icon-btn {
