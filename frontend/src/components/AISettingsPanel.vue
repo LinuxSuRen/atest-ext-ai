@@ -5,11 +5,6 @@
     size="550px"
     @close="emit('update:visible', false)"
   >
-    <div class="status-banner">
-      <el-tag :type="statusTagType" size="large">
-        {{ statusLabel }}
-      </el-tag>
-    </div>
     <el-tabs v-model="activeTab" class="provider-tabs">
       <!-- Local Services Tab -->
       <el-tab-pane name="local">
@@ -123,6 +118,7 @@
                       v-model="localConfig.apiKey"
                       type="password"
                       show-password
+                      autocomplete="new-password"
                       placeholder="sk-..."
                     />
                   </el-form-item>
@@ -204,6 +200,7 @@
                       v-model="localConfig.apiKey"
                       type="password"
                       show-password
+                      autocomplete="new-password"
                       placeholder="sk-..."
                     />
                   </el-form-item>
@@ -354,19 +351,6 @@ const openaiModels = computed(() => providerModels.value.openai)
 const deepseekModels = computed(() => providerModels.value.deepseek)
 const isLocalProvider = computed(() => (localConfig.value.provider === 'ollama' || localConfig.value.provider === 'local'))
 
-const statusTagType = computed(() => {
-  switch (props.config.status) {
-    case 'connected':
-      return 'success'
-    case 'connecting':
-      return 'warning'
-    default:
-      return 'info'
-  }
-})
-
-const statusLabel = computed(() => t(`ai.status.${props.config.status}`))
-
 const explanation = computed({
   get: () => props.includeExplanation,
   set: (value: boolean) => emit('update:include-explanation', value)
@@ -444,13 +428,6 @@ function handleTestConnectionClick() {
 </script>
 
 <style scoped>
-/* Status */
-.status-banner {
-  display: flex;
-  justify-content: flex-end;
-  padding: 12px 20px 0;
-}
-
 /* Tabs styling */
 .provider-tabs {
   margin: -12px -20px 0;

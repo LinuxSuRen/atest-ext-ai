@@ -1415,8 +1415,41 @@ func (s *AIPluginService) handleTestConnection(ctx context.Context, req *server.
 	// Parse configuration from SQL field
 	var config universal.Config
 	if req.Sql != "" {
-		if err := json.Unmarshal([]byte(req.Sql), &config); err != nil {
+		var payload map[string]any
+		if err := json.Unmarshal([]byte(req.Sql), &payload); err != nil {
 			logging.Logger.Error("Failed to parse connection config", "error", err)
+			return nil, apperrors.ToGRPCErrorf(apperrors.ErrInvalidConfig, "invalid configuration: %v", err)
+		}
+
+		if rawTimeout, ok := payload["timeout"]; ok {
+			switch value := rawTimeout.(type) {
+			case string:
+				if value != "" {
+					if duration, err := time.ParseDuration(value); err == nil {
+						payload["timeout"] = duration.Nanoseconds()
+					} else {
+						logging.Logger.Warn("Invalid timeout string provided", "timeout", value, "error", err)
+						payload["timeout"] = time.Duration(0)
+					}
+				}
+			case float64:
+				// Assume the frontend sent seconds when the value is small
+				if value < float64(time.Second) {
+					payload["timeout"] = int64(value * float64(time.Second))
+				} else {
+					payload["timeout"] = int64(value)
+				}
+			}
+		}
+
+		normalizedPayload, err := json.Marshal(payload)
+		if err != nil {
+			logging.Logger.Error("Failed to normalize connection config", "error", err)
+			return nil, apperrors.ToGRPCErrorf(apperrors.ErrInvalidConfig, "invalid configuration: %v", err)
+		}
+
+		if err := json.Unmarshal(normalizedPayload, &config); err != nil {
+			logging.Logger.Error("Failed to decode normalized connection config", "error", err)
 			return nil, apperrors.ToGRPCErrorf(apperrors.ErrInvalidConfig, "invalid configuration: %v", err)
 		}
 	}
