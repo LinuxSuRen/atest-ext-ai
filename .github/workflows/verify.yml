@@ -18,20 +18,17 @@ jobs:
         with:
           go-version: 1.22
 
-      - name: Install Task runner
-        run: go install github.com/go-task/task/v3/cmd/task@latest
-
       - name: Install golangci-lint
         run: |
           curl -sSfL https://raw.githubusercontent.com/golangci/golangci-lint/master/install.sh | sh -s -- -b "$(go env GOPATH)/bin" latest
 
       - name: Run verification task
-        run: task verify
+        run: make verify
 
       - name: Ensure working tree clean
         run: |
           if ! git diff --quiet; then
-            echo "Code formatting introduced changes. Please run 'task verify' locally and commit the results."
+            echo "Code formatting introduced changes. Please run 'make verify' locally and commit the results."
             git status --short
             exit 1
           fi
