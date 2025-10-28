@@ -112,32 +112,30 @@ function handleSubmit() {
 }
 
 .action-buttons {
-  display: flex;
-  flex-direction: column;
-  justify-content: center;
-  align-items: stretch;
+  display: grid;
+  grid-template-rows: repeat(2, 1fr);
   gap: 12px;
-  min-width: 200px;
+  min-width: 210px;
   height: 100%;
 }
 
 .action-buttons .el-button {
+  box-sizing: border-box;
   display: flex;
   justify-content: center;
   align-items: center;
   width: 100%;
+  height: 100%;
   padding: 0 24px;
   border-radius: 12px;
   font-size: 14px;
   font-weight: 500;
   white-space: nowrap;
   transition: all 0.3s ease;
-  flex: 1;
 }
 
 .configure-btn {
   gap: 6px;
-  min-height: 0;
   padding: 0 28px;
   border: 2px solid var(--el-color-primary-light-7);
   background: var(--el-color-primary-light-9);
@@ -150,7 +148,6 @@ function handleSubmit() {
 }
 
 .generate-btn {
-  min-height: 0;
   background: var(--el-color-primary);
   border: none;
   box-shadow: 0 4px 12px var(--el-box-shadow);

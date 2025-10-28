@@ -87,6 +87,35 @@ func contextError(ctx context.Context) error {
 	return nil
 }
 
+func normalizeDurationField(payload map[string]any, key string) {
+	raw, ok := payload[key]
+	if !ok || raw == nil {
+		return
+	}
+
+	switch value := raw.(type) {
+	case string:
+		if value == "" {
+			return
+		}
+		duration, err := time.ParseDuration(value)
+		if err != nil {
+			logging.Logger.Warn("Invalid duration string", "field", key, "value", value, "error", err)
+			return
+		}
+		payload[key] = duration.Nanoseconds()
+	case float64:
+		if value == 0 {
+			return
+		}
+		if value < float64(time.Second) {
+			payload[key] = int64(value * float64(time.Second))
+		} else {
+			payload[key] = int64(value)
+		}
+	}
+}
+
 // AIPluginService implements the Loader gRPC service for AI functionality
 type AIPluginService struct {
 	remote.UnimplementedLoaderServer
@@ -1421,26 +1450,7 @@ func (s *AIPluginService) handleTestConnection(ctx context.Context, req *server.
 			return nil, apperrors.ToGRPCErrorf(apperrors.ErrInvalidConfig, "invalid configuration: %v", err)
 		}
 
-		if rawTimeout, ok := payload["timeout"]; ok {
-			switch value := rawTimeout.(type) {
-			case string:
-				if value != "" {
-					if duration, err := time.ParseDuration(value); err == nil {
-						payload["timeout"] = duration.Nanoseconds()
-					} else {
-						logging.Logger.Warn("Invalid timeout string provided", "timeout", value, "error", err)
-						payload["timeout"] = time.Duration(0)
-					}
-				}
-			case float64:
-				// Assume the frontend sent seconds when the value is small
-				if value < float64(time.Second) {
-					payload["timeout"] = int64(value * float64(time.Second))
-				} else {
-					payload["timeout"] = int64(value)
-				}
-			}
-		}
+		normalizeDurationField(payload, "timeout")
 
 		normalizedPayload, err := json.Marshal(payload)
 		if err != nil {
@@ -1500,8 +1510,25 @@ func (s *AIPluginService) handleUpdateConfig(ctx context.Context, req *server.Da
 	}
 
 	if req.Sql != "" {
-		if err := json.Unmarshal([]byte(req.Sql), &updateReq); err != nil {
+		var payload map[string]any
+		if err := json.Unmarshal([]byte(req.Sql), &payload); err != nil {
 			logging.Logger.Error("Failed to parse update request", "error", err)
+			return nil, apperrors.ToGRPCErrorf(apperrors.ErrInvalidRequest, "invalid update request: %v", err)
+		}
+
+		if configPayload, ok := payload["config"].(map[string]any); ok {
+			normalizeDurationField(configPayload, "timeout")
+			payload["config"] = configPayload
+		}
+
+		normalizedPayload, err := json.Marshal(payload)
+		if err != nil {
+			logging.Logger.Error("Failed to normalize update config payload", "error", err)
+			return nil, apperrors.ToGRPCErrorf(apperrors.ErrInvalidRequest, "invalid update request: %v", err)
+		}
+
+		if err := json.Unmarshal(normalizedPayload, &updateReq); err != nil {
+			logging.Logger.Error("Failed to decode normalized update request", "error", err)
 			return nil, apperrors.ToGRPCErrorf(apperrors.ErrInvalidRequest, "invalid update request: %v", err)
 		}
 	}
