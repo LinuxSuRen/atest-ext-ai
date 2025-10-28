@@ -1,15 +1,9 @@
 <template>
   <div class="chat-input">
-    <div class="input-options">
-      <div class="spacer"></div>
-      <el-button class="configure-btn" type="primary" plain @click="emit('open-settings')">
-        <el-icon><Setting /></el-icon>
-        {{ t('ai.button.configure') }}
-      </el-button>
-    </div>
     <div class="input-controls">
       <el-input
         v-model="prompt"
+        class="prompt-input"
         type="textarea"
         :rows="3"
         :placeholder="t('ai.input.placeholder')"
@@ -17,15 +11,22 @@
         @keydown.enter.ctrl="handleSubmit"
         @keydown.enter.meta="handleSubmit"
       />
-      <el-button
-        type="primary"
-        :loading="props.loading"
-        :disabled="!prompt.trim()"
-        @click="handleSubmit"
-      >
-        <el-icon v-if="!props.loading"><Promotion /></el-icon>
-        {{ props.loading ? t('ai.message.generating') : t('ai.button.generate') }}
-      </el-button>
+      <div class="action-buttons">
+        <el-button class="configure-btn" type="primary" plain @click="emit('open-settings')">
+          <el-icon><Setting /></el-icon>
+          {{ t('ai.button.configure') }}
+        </el-button>
+        <el-button
+          class="generate-btn"
+          type="primary"
+          :loading="props.loading"
+          :disabled="!prompt.trim()"
+          @click="handleSubmit"
+        >
+          <el-icon v-if="!props.loading"><Promotion /></el-icon>
+          {{ props.loading ? t('ai.message.generating') : t('ai.button.generate') }}
+        </el-button>
+      </div>
     </div>
   </div>
 </template>
@@ -74,33 +75,15 @@ function handleSubmit() {
   box-shadow: 0 -4px 12px var(--el-box-shadow-lighter);
 }
 
-.input-options {
-  margin-bottom: 12px;
-  padding-left: 4px;
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  gap: 16px;
-}
-
-.spacer {
-  flex: 1;
-}
-
-.configure-btn {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  height: 44px;
-  padding: 0 24px;
-  border-radius: 12px;
-  font-weight: 500;
-}
-
 .input-controls {
   display: flex;
-  gap: 12px;
-  align-items: flex-end;
+  gap: 16px;
+  align-items: stretch;
+}
+
+.prompt-input {
+  flex: 1;
+  min-height: 0;
 }
 
 .input-controls :deep(.el-textarea__inner) {
@@ -112,6 +95,7 @@ function handleSubmit() {
   resize: none;
   transition: all 0.3s ease;
   box-shadow: 0 2px 8px var(--el-box-shadow-lighter);
+  min-height: 124px;
 }
 
 .input-controls :deep(.el-textarea__inner:focus) {
@@ -123,35 +107,66 @@ function handleSubmit() {
   color: var(--el-text-color-placeholder);
 }
 
-.input-controls .el-button {
-  height: 48px;
-  padding: 0 28px;
+.action-buttons {
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  align-items: stretch;
+  gap: 12px;
+  min-width: 168px;
+}
+
+.action-buttons .el-button {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  height: 100%;
+  padding: 0 24px;
   border-radius: 12px;
   font-size: 14px;
   font-weight: 500;
   white-space: nowrap;
-  background: var(--el-color-primary);
-  border: none;
-  box-shadow: 0 4px 12px var(--el-box-shadow);
   transition: all 0.3s ease;
 }
 
-.input-controls .el-button:hover:not(:disabled) {
+.configure-btn {
+  gap: 6px;
+  min-height: 56px;
+  border: 2px solid var(--el-color-primary-light-7);
+  background: var(--el-color-primary-light-9);
+  color: var(--el-color-primary-dark-2);
+}
+
+.configure-btn:hover {
+  background: var(--el-color-primary-light-8);
+  border-color: var(--el-color-primary-light-6);
+}
+
+.generate-btn {
+  min-height: 56px;
+  background: var(--el-color-primary);
+  border: none;
+  box-shadow: 0 4px 12px var(--el-box-shadow);
+  color: var(--el-color-white);
+}
+
+.generate-btn:hover:not(:disabled) {
   transform: translateY(-2px);
   background: var(--el-color-primary-light-3);
   box-shadow: 0 6px 16px var(--el-box-shadow-dark);
 }
 
-.input-controls .el-button:active:not(:disabled) {
+.generate-btn:active:not(:disabled) {
   transform: translateY(0);
 }
 
-.input-controls .el-button:disabled {
+.generate-btn:disabled {
   background: var(--el-fill-color);
   box-shadow: none;
+  color: var(--el-text-color-placeholder);
 }
 
-.input-controls .el-button.is-loading {
+.generate-btn.is-loading {
   background: var(--el-color-primary);
   opacity: 0.8;
 }

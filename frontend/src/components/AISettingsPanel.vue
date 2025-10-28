@@ -291,7 +291,7 @@
         <el-button @click="emit('update:visible', false)">
           {{ t('ai.button.close') }}
         </el-button>
-        <el-button @click="emit('test-connection')">
+        <el-button @click="handleTestConnectionClick">
           <el-icon><Connection /></el-icon>
           {{ t('ai.button.testConnection') }}
         </el-button>
@@ -331,7 +331,7 @@ const props = defineProps<Props>()
 interface Emits {
   (e: 'update:visible', value: boolean): void
   (e: 'save'): void
-  (e: 'test-connection'): void
+  (e: 'test-connection', value: AIConfig): void
   (e: 'refresh-models', provider?: Provider): void
   (e: 'update:include-explanation', value: boolean): void
 }
@@ -436,6 +436,10 @@ function handleSave() {
   // Copy local config back to props
   Object.assign(props.config, localConfig.value)
   emit('save')
+}
+
+function handleTestConnectionClick() {
+  emit('test-connection', { ...localConfig.value })
 }
 </script>
 
@@ -552,6 +556,12 @@ function handleSave() {
   display: flex;
   flex-direction: column;
   gap: 8px;
+  width: 100%;
+  align-items: stretch;
+}
+
+.model-select-wrapper :deep(.el-select) {
+  width: 100%;
 }
 
 .refresh-btn {

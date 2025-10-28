@@ -35,7 +35,7 @@
 <script setup lang="ts">
 import { ref, provide } from 'vue'
 import { ElMessage } from 'element-plus'
-import type { AppContext } from './types'
+import type { AppContext, AIConfig } from './types'
 import { useAIChat } from './composables/useAIChat'
 import AIChatHeader from './components/AIChatHeader.vue'
 import AIChatMessages from './components/AIChatMessages.vue'
@@ -95,8 +95,8 @@ async function handleSave() {
 }
 
 // Test connection
-async function handleTest() {
-  const result = await handleTestConnection()
+async function handleTest(updatedConfig?: AIConfig) {
+  const result = await handleTestConnection(updatedConfig)
 
   if (result.success) {
     ElMessage.success(t('ai.message.connectionSuccess'))

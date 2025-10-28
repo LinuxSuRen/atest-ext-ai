@@ -5,6 +5,10 @@
       <span class="subtitle">{{ t('ai.subtitle') }}</span>
       <span class="provider-label">
         {{ providerLabelText }}
+        <span class="status-indicator" :class="props.status">
+          <span class="status-dot" />
+          {{ statusText }}
+        </span>
       </span>
     </div>
   </div>
@@ -32,6 +36,7 @@ const providerLabel = computed(() => {
 })
 
 const providerLabelText = computed(() => `${t('ai.providerLabel')}: ${providerLabel.value}`)
+const statusText = computed(() => t(`ai.status.${props.status}`))
 </script>
 
 <style scoped>
@@ -44,6 +49,12 @@ const providerLabelText = computed(() => `${t('ai.providerLabel')}: ${providerLa
   border-bottom: 1px solid var(--el-border-color);
 }
 
+.header-left {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
 .header-left h2 {
   margin: 0;
   font-size: 18px;
@@ -52,15 +63,54 @@ const providerLabelText = computed(() => `${t('ai.providerLabel')}: ${providerLa
 }
 
 .subtitle {
-  margin-left: 12px;
   font-size: 13px;
   color: var(--el-text-color-secondary);
 }
 
 .provider-label {
   display: block;
-  margin-top: 6px;
   font-size: 12px;
   color: var(--el-text-color-regular);
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.status-indicator {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 3px 10px;
+  border-radius: 999px;
+  font-size: 12px;
+  font-weight: 500;
+  background: var(--el-fill-color);
+  color: var(--el-text-color-regular);
+  border: 1px solid var(--el-border-color);
+}
+
+.status-indicator.connected {
+  background: var(--el-color-success-light-9);
+  color: var(--el-color-success-dark-2);
+  border-color: var(--el-color-success-light-5);
+}
+
+.status-indicator.connecting {
+  background: var(--el-color-warning-light-9);
+  color: var(--el-color-warning-dark-2);
+  border-color: var(--el-color-warning-light-5);
+}
+
+.status-indicator.disconnected {
+  background: var(--el-color-danger-light-9);
+  color: var(--el-color-danger-dark-2);
+  border-color: var(--el-color-danger-light-5);
+}
+
+.status-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: currentColor;
 }
 </style>

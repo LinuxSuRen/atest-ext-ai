@@ -131,6 +131,7 @@ export function useAIChat(_context: AppContext) {
 
     // Show loading
     isLoading.value = true
+    config.value.status = 'connecting'
     try {
       console.log('🚀 [useAIChat] Sending generateSQL request...')
 
@@ -153,6 +154,7 @@ export function useAIChat(_context: AppContext) {
       })
 
       if (response.success && response.sql) {
+        config.value.status = 'connected'
         // Add AI response
         messages.value.push({
           id: generateId(),
@@ -172,6 +174,7 @@ export function useAIChat(_context: AppContext) {
         throw new Error(errorMsg)
       }
     } catch (error) {
+      config.value.status = 'disconnected'
       console.error('💥 [useAIChat] Exception caught', {
         error,
         message: (error as Error).message,
@@ -206,10 +209,14 @@ export function useAIChat(_context: AppContext) {
   /**
    * Test connection to AI provider
    */
-  async function handleTestConnection() {
+  async function handleTestConnection(testConfig?: AIConfig) {
     config.value.status = 'connecting'
+    const payload: AIConfig = {
+      ...config.value,
+      ...(testConfig ?? {})
+    }
     try {
-      const result = await aiService.testConnection(config.value)
+      const result = await aiService.testConnection(payload)
       config.value.status = result.success ? 'connected' : 'disconnected'
       return result
     } catch (error) {
@@ -217,7 +224,7 @@ export function useAIChat(_context: AppContext) {
       return {
         success: false,
         message: (error as Error).message || 'Connection failed',
-        provider: config.value.provider,
+        provider: payload.provider,
         error: (error as Error).message
       }
     }
