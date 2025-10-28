@@ -1,6 +1,6 @@
 <template>
   <div class="chat-input">
-    <div class="input-controls">
+    <div class="input-box">
       <el-input
         v-model="prompt"
         class="prompt-input"
@@ -16,27 +16,38 @@
         @keydown.enter.meta="handleSubmit"
       />
       <div class="action-buttons">
-        <el-button class="configure-btn" type="primary" plain @click="emit('open-settings')">
-          <el-icon><Setting /></el-icon>
-          {{ t('ai.button.configure') }}
-        </el-button>
-        <el-button
-          class="generate-btn"
-          type="primary"
-          :loading="props.loading"
-          :disabled="!prompt.trim()"
-          @click="handleSubmit"
-        >
-          <el-icon v-if="!props.loading"><Promotion /></el-icon>
-          {{ props.loading ? t('ai.message.generating') : t('ai.button.generate') }}
-        </el-button>
+        <el-tooltip :content="configureTooltip" placement="left">
+          <el-button
+            class="icon-btn configure-btn"
+            type="primary"
+            plain
+            circle
+            :aria-label="configureTooltip"
+            @click="emit('open-settings')"
+          >
+            <el-icon><Setting /></el-icon>
+          </el-button>
+        </el-tooltip>
+        <el-tooltip :content="generateTooltip" placement="left">
+          <el-button
+            class="icon-btn generate-btn"
+            type="primary"
+            circle
+            :aria-label="generateTooltip"
+            :loading="props.loading"
+            :disabled="!prompt.trim()"
+            @click="handleSubmit"
+          >
+            <el-icon v-if="!props.loading"><Promotion /></el-icon>
+          </el-button>
+        </el-tooltip>
       </div>
     </div>
   </div>
 </template>
 
 <script setup lang="ts">
-import { ref, inject } from 'vue'
+import { ref, inject, computed } from 'vue'
 import { Promotion, Setting } from '@element-plus/icons-vue'
 import type { AppContext } from '../types'
 
@@ -59,6 +70,9 @@ const { t } = context.i18n
 // Input state
 const prompt = ref('')
 
+const configureTooltip = computed(() => t('ai.tooltip.configure'))
+const generateTooltip = computed(() => (props.loading ? t('ai.message.generating') : t('ai.tooltip.generate')))
+
 function handleSubmit() {
   if (!prompt.value.trim() || props.loading) return
 
@@ -79,18 +93,15 @@ function handleSubmit() {
   box-shadow: 0 -4px 12px var(--el-box-shadow-lighter);
 }
 
-.input-controls {
-  display: flex;
-  gap: 16px;
-  align-items: stretch;
+.input-box {
+  position: relative;
 }
 
 .prompt-input {
-  flex: 1;
-  min-height: 0;
+  display: block;
 }
 
-.input-controls :deep(.el-textarea__inner) {
+.input-box :deep(.el-textarea__inner) {
   border-radius: 12px;
   border: 2px solid var(--el-border-color);
   padding: 12px 16px;
@@ -100,43 +111,39 @@ function handleSubmit() {
   transition: all 0.3s ease;
   box-shadow: 0 2px 8px var(--el-box-shadow-lighter);
   min-height: 124px;
+  padding-right: 96px;
 }
 
-.input-controls :deep(.el-textarea__inner:focus) {
+.input-box :deep(.el-textarea__inner:focus) {
   border-color: var(--el-color-primary);
   box-shadow: 0 0 0 3px var(--el-color-primary-light-9);
 }
 
-.input-controls :deep(.el-textarea__inner::placeholder) {
+.input-box :deep(.el-textarea__inner::placeholder) {
   color: var(--el-text-color-placeholder);
 }
 
 .action-buttons {
-  display: grid;
-  grid-template-rows: repeat(2, 1fr);
-  gap: 12px;
-  min-width: 210px;
-  height: 100%;
+  position: absolute;
+  top: 16px;
+  right: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
 }
 
-.action-buttons .el-button {
+.icon-btn {
   box-sizing: border-box;
   display: flex;
   justify-content: center;
   align-items: center;
-  width: 100%;
-  height: 100%;
-  padding: 0 24px;
-  border-radius: 12px;
-  font-size: 14px;
-  font-weight: 500;
-  white-space: nowrap;
+  width: 48px;
+  height: 48px;
   transition: all 0.3s ease;
+  backdrop-filter: blur(4px);
 }
 
 .configure-btn {
-  gap: 6px;
-  padding: 0 28px;
   border: 2px solid var(--el-color-primary-light-7);
   background: var(--el-color-primary-light-9);
   color: var(--el-color-primary-dark-2);
@@ -152,6 +159,7 @@ function handleSubmit() {
   border: none;
   box-shadow: 0 4px 12px var(--el-box-shadow);
   color: var(--el-color-white);
+  padding: 0;
 }
 
 .generate-btn:hover:not(:disabled) {

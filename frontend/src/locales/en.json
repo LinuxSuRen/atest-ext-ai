@@ -21,16 +21,18 @@
       "localServices": "Local Services",
       "cloudServices": "Cloud Services"
     },
-    "button": {
-      "generate": "Generate",
-      "save": "Save",
-      "reset": "Reset",
-      "refresh": "Refresh",
-      "testConnection": "Test Connection",
-      "configure": "Configure",
-      "close": "Close",
-      "copy": "Copy"
-    },
+  "button": {
+    "save": "Save",
+    "reset": "Reset",
+    "refresh": "Refresh",
+    "testConnection": "Test Connection",
+    "close": "Close",
+    "copy": "Copy"
+  },
+  "tooltip": {
+    "configure": "Open AI settings",
+    "generate": "Generate SQL"
+  },
     "input": {
       "placeholder": "Enter your query in natural language..."
     },
