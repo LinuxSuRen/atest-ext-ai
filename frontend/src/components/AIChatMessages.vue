@@ -111,7 +111,8 @@ async function copySQL(sql: string) {
   overflow-y: auto;
   padding: 24px 40px;
   min-height: 360px;
-  background: var(--el-bg-color-page);
+  background: var(--atest-bg-surface);
+  color: var(--atest-text-primary);
 }
 
 /* Empty state */
@@ -126,7 +127,7 @@ async function copySQL(sql: string) {
 }
 
 .empty-state p {
-  color: var(--el-text-color-secondary);
+  color: var(--atest-text-secondary);
   font-size: 14px;
   margin: 0;
 }
@@ -176,9 +177,9 @@ async function copySQL(sql: string) {
 /* Bubble content */
 .message-content {
   padding: 14px 18px;
-  border-radius: 16px;
+  border-radius: var(--atest-radius-lg);
   position: relative;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+  box-shadow: var(--atest-shadow-sm);
   animation: fadeIn 0.3s ease-in-out;
 }
 
@@ -195,7 +196,7 @@ async function copySQL(sql: string) {
 
 /* AI message bubble (white) */
 .message-ai .message-content {
-  background: #ffffff;
+  background: var(--atest-bg-surface);
   border-bottom-left-radius: 4px;
 }
 
@@ -240,16 +241,16 @@ async function copySQL(sql: string) {
 
 /* User message bubble */
 .message-user .message-content {
-  background: var(--el-color-primary);
+  background: var(--atest-color-accent);
   color: #fff;
   border-bottom-right-radius: 4px;
 }
 
 /* Error message bubble */
 .message-error .message-content {
-  background: var(--el-color-danger-light-9);
-  border: 1px solid var(--el-color-danger-light-7);
-  color: var(--el-color-danger);
+  background: var(--atest-color-danger-soft);
+  border: 1px solid var(--el-color-danger-light-7, rgba(245, 108, 108, 0.3));
+  color: var(--el-color-danger, #f56c6c);
 }
 
 /* Message text */
@@ -262,7 +263,7 @@ async function copySQL(sql: string) {
 /* SQL code block */
 .message-sql {
   margin-top: 12px;
-  background: #282c34;
+  background: color-mix(in srgb, var(--atest-color-accent) 12%, #1f2933);
   border-radius: 8px;
   overflow: hidden;
 }
@@ -272,20 +273,20 @@ async function copySQL(sql: string) {
   justify-content: space-between;
   align-items: center;
   padding: 8px 12px;
-  background: #21252b;
-  border-bottom: 1px solid #181a1f;
+  background: color-mix(in srgb, var(--atest-color-accent) 18%, #111827);
+  border-bottom: 1px solid transparent;
 }
 
 .sql-label {
   font-size: 11px;
   font-weight: 600;
-  color: var(--el-text-color-regular);
+  color: var(--atest-text-regular);
   text-transform: uppercase;
   letter-spacing: 0.5px;
 }
 
 .copy-btn {
-  color: var(--el-color-primary) !important;
+  color: var(--atest-color-accent) !important;
   font-size: 12px;
 }
 
@@ -299,10 +300,10 @@ async function copySQL(sql: string) {
   font-family: 'Monaco', 'Menlo', 'Courier New', monospace;
   font-size: 13px;
   line-height: 1.5;
-  color: var(--el-text-color-primary);
+  color: var(--atest-text-primary);
   white-space: pre-wrap;
   word-wrap: break-word;
-  background: var(--el-fill-color-darker);
+  background: color-mix(in srgb, var(--atest-bg-surface) 85%, #000 15%);
 }
 
 /* Message metadata */
@@ -315,7 +316,7 @@ async function copySQL(sql: string) {
 }
 
 .message-ai .message-meta {
-  color: var(--el-text-color-secondary);
+  color: var(--atest-text-regular);
 }
 
 .message-user .message-meta {

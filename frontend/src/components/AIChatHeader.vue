@@ -44,9 +44,9 @@ const statusText = computed(() => t(`ai.status.${props.status}`))
   display: flex;
   justify-content: space-between;
   align-items: center;
-  padding: 16px 24px;
-  background: var(--el-bg-color);
-  border-bottom: 1px solid var(--el-border-color);
+  padding: var(--atest-spacing-md) clamp(20px, 4vw, 28px);
+  background: var(--atest-bg-surface);
+  border-bottom: 1px solid var(--atest-border-color);
 }
 
 .header-left {
@@ -59,18 +59,18 @@ const statusText = computed(() => t(`ai.status.${props.status}`))
   margin: 0;
   font-size: 18px;
   font-weight: 600;
-  color: var(--el-text-color-primary);
+  color: var(--atest-text-primary);
 }
 
 .subtitle {
   font-size: 13px;
-  color: var(--el-text-color-secondary);
+  color: var(--atest-text-secondary);
 }
 
 .provider-label {
   display: block;
   font-size: 12px;
-  color: var(--el-text-color-regular);
+  color: var(--atest-text-regular);
   display: flex;
   align-items: center;
   gap: 8px;
@@ -84,9 +84,9 @@ const statusText = computed(() => t(`ai.status.${props.status}`))
   border-radius: 999px;
   font-size: 12px;
   font-weight: 500;
-  background: var(--el-fill-color);
-  color: var(--el-text-color-regular);
-  border: 1px solid var(--el-border-color);
+  background: var(--atest-bg-elevated);
+  color: var(--atest-text-regular);
+  border: 1px solid var(--atest-border-color);
 }
 
 .status-indicator.connected {

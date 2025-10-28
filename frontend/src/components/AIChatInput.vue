@@ -88,9 +88,9 @@ function handleSubmit() {
 <style scoped>
 .chat-input {
   padding: 20px 40px 24px;
-  background: var(--el-bg-color);
-  border-top: 1px solid var(--el-border-color);
-  box-shadow: 0 -4px 12px var(--el-box-shadow-lighter);
+  background: var(--atest-bg-surface);
+  border-top: 1px solid var(--atest-border-color);
+  box-shadow: var(--atest-shadow-sm);
 }
 
 .input-box {
@@ -103,7 +103,7 @@ function handleSubmit() {
 
 .input-box :deep(.el-textarea__inner) {
   border-radius: 12px;
-  border: 2px solid var(--el-border-color);
+  border: 2px solid var(--atest-border-color);
   padding: 12px 16px;
   font-size: 14px;
   line-height: 1.6;
@@ -115,12 +115,12 @@ function handleSubmit() {
 }
 
 .input-box :deep(.el-textarea__inner:focus) {
-  border-color: var(--el-color-primary);
-  box-shadow: 0 0 0 3px var(--el-color-primary-light-9);
+  border-color: var(--atest-color-accent);
+  box-shadow: 0 0 0 3px var(--atest-color-accent-soft);
 }
 
 .input-box :deep(.el-textarea__inner::placeholder) {
-  color: var(--el-text-color-placeholder);
+  color: var(--atest-text-placeholder);
 }
 
 .action-buttons {
@@ -147,8 +147,8 @@ function handleSubmit() {
 
 .configure-btn {
   border: none;
-  background: var(--el-color-primary-light-8);
-  color: var(--el-color-primary-dark-2);
+  background: var(--atest-color-accent-soft);
+  color: var(--atest-color-accent);
 }
 
 .configure-btn:hover {
@@ -156,9 +156,9 @@ function handleSubmit() {
 }
 
 .generate-btn {
-  background: var(--el-color-primary);
+  background: var(--atest-color-accent);
   border: none;
-  box-shadow: 0 4px 12px var(--el-box-shadow);
+  box-shadow: var(--atest-shadow-sm);
   color: var(--el-color-white);
   padding: 0;
 }

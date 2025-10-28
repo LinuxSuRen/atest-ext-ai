@@ -33,7 +33,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, provide } from 'vue'
+import { ref, provide, computed, watchEffect } from 'vue'
 import { ElMessage } from 'element-plus'
 import type { AppContext, AIConfig } from './types'
 import { useAIChat } from './composables/useAIChat'
@@ -51,13 +51,27 @@ interface Props {
 const props = defineProps<Props>()
 
 // Wrap host i18n with plugin fallbacks
+const translator = computed(() => {
+  // ensure locale reactivity tracked
+  // eslint-disable-next-line @typescript-eslint/no-unused-expressions
+  props.context.i18n.locale.value
+  return createTranslator(props.context.i18n)
+})
+
 const pluginContext: AppContext = {
   ...props.context,
   i18n: {
-    ...props.context.i18n,
-    t: createTranslator(props.context.i18n)
+    locale: props.context.i18n.locale,
+    t: translator.value
   }
 }
+
+watchEffect(() => {
+  pluginContext.API = props.context.API
+  pluginContext.Cache = props.context.Cache
+  pluginContext.i18n.locale = props.context.i18n.locale
+  pluginContext.i18n.t = translator.value
+})
 
 // Provide context to all child components
 provide('appContext', pluginContext)
@@ -132,6 +146,7 @@ async function handleTest(updatedConfig?: AIConfig) {
   padding: clamp(16px, 4vw, 32px);
   box-sizing: border-box;
   gap: clamp(12px, 2vw, 20px);
+  background: var(--atest-bg-base);
 }
 
 .welcome-panel {
@@ -147,8 +162,8 @@ async function handleTest(updatedConfig?: AIConfig) {
   flex-direction: column;
   overflow: hidden;
   border-radius: 16px;
-  background: var(--el-bg-color);
-  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.08);
+  background: var(--atest-bg-surface);
+  box-shadow: var(--atest-shadow-md);
 }
 
 @media (max-width: 1024px) {
