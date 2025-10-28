@@ -113,4 +113,32 @@ const statusText = computed(() => t(`ai.status.${props.status}`))
   border-radius: 50%;
   background: currentColor;
 }
+
+@media (max-width: 768px) {
+  .ai-chat-header {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 8px;
+    padding: 16px 20px;
+  }
+
+  .header-left h2 {
+    font-size: 16px;
+  }
+
+  .subtitle {
+    font-size: 12px;
+  }
+}
+
+@media (max-width: 480px) {
+  .ai-chat-header {
+    padding: 14px 16px;
+  }
+
+  .status-indicator {
+    font-size: 11px;
+    padding: 2px 8px;
+  }
+}
 </style>

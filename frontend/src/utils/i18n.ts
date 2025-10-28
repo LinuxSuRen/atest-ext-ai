@@ -7,6 +7,25 @@ const messages: Record<string, any> = {
   zh
 }
 
+function normalizeLocale(locale: string | undefined): string {
+  if (!locale) {
+    return 'en'
+  }
+
+  const lower = locale.toLowerCase()
+
+  if (lower.startsWith('zh')) {
+    return 'zh'
+  }
+
+  if (lower.startsWith('en')) {
+    return 'en'
+  }
+
+  const [base] = lower.split('-')
+  return base || 'en'
+}
+
 function resolveMessage(locale: string, key: string): string | undefined {
   const segments = key.split('.')
   const localeMessages = messages[locale] || messages.en
@@ -34,7 +53,7 @@ export function createTranslator(i18n: AppContext['i18n']) {
       return hostValue
     }
 
-    const locale = i18n.locale.value || 'en'
+    const locale = normalizeLocale(i18n.locale.value)
     return resolveMessage(locale, key) ?? resolveMessage('en', key) ?? key
   }
 }

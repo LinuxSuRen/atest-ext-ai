@@ -185,4 +185,60 @@ function handleSubmit() {
   background: var(--el-color-primary);
   opacity: 0.8;
 }
+
+@media (max-width: 1024px) {
+  .chat-input {
+    padding: 18px 28px 22px;
+  }
+
+  .action-buttons {
+    right: 18px;
+    bottom: 18px;
+  }
+}
+
+@media (max-width: 768px) {
+  .chat-input {
+    padding: 16px 20px;
+  }
+
+  .input-box {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+  }
+
+  .input-box :deep(.el-textarea__inner) {
+    padding-right: 16px;
+    min-height: 112px;
+  }
+
+  .action-buttons {
+    position: static;
+    flex-direction: row;
+    justify-content: flex-end;
+    width: 100%;
+    gap: 10px;
+  }
+
+  .icon-btn {
+    width: 44px;
+    height: 44px;
+  }
+}
+
+@media (max-width: 480px) {
+  .chat-input {
+    padding: 14px 16px;
+  }
+
+  .icon-btn {
+    width: 40px;
+    height: 40px;
+  }
+
+  .input-box :deep(.el-textarea__inner) {
+    min-height: 100px;
+  }
+}
 </style>

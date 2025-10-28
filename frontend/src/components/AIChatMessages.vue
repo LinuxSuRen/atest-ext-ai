@@ -110,7 +110,7 @@ async function copySQL(sql: string) {
   flex: 1;
   overflow-y: auto;
   padding: 24px 40px;
-  min-height: 400px;
+  min-height: 360px;
   background: var(--el-bg-color-page);
 }
 
@@ -197,6 +197,45 @@ async function copySQL(sql: string) {
 .message-ai .message-content {
   background: #ffffff;
   border-bottom-left-radius: 4px;
+}
+
+@media (max-width: 1024px) {
+  .chat-messages {
+    padding: 20px 24px;
+  }
+}
+
+@media (max-width: 768px) {
+  .chat-messages {
+    padding: 16px 18px;
+  }
+
+  .message-wrapper {
+    gap: 10px;
+  }
+
+  .message-bubble {
+    max-width: 100%;
+    min-width: 0;
+  }
+
+  .message-content {
+    padding: 12px 14px;
+  }
+}
+
+@media (max-width: 480px) {
+  .chat-messages {
+    padding: 12px 12px;
+  }
+
+  .message-content {
+    padding: 10px 12px;
+  }
+
+  .message-wrapper {
+    margin-bottom: 16px;
+  }
 }
 
 /* User message bubble */

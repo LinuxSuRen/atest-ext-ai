@@ -127,8 +127,14 @@ async function handleTest(updatedConfig?: AIConfig) {
 .ai-chat-container {
   display: flex;
   flex-direction: column;
-  height: 100%;
+  min-height: 100%;
+  width: 100%;
+  max-width: 960px;
+  margin: 0 auto;
+  padding: 0 32px 32px;
+  box-sizing: border-box;
   background: #f5f7fa;
+  gap: 16px;
 }
 
 .welcome-panel {
@@ -143,5 +149,26 @@ async function handleTest(updatedConfig?: AIConfig) {
   display: flex;
   flex-direction: column;
   overflow: hidden;
+  border-radius: 16px;
+  background: var(--el-bg-color);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.08);
+}
+
+@media (max-width: 1024px) {
+  .ai-chat-container {
+    padding: 0 24px 24px;
+    max-width: 840px;
+  }
+}
+
+@media (max-width: 768px) {
+  .ai-chat-container {
+    padding: 0 16px 16px;
+    gap: 12px;
+  }
+
+  .chat-content {
+    border-radius: 12px;
+  }
 }
 </style>
