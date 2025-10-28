@@ -28,6 +28,8 @@ server:
   host: 0.0.0.0
   port: 8080
   socket_path: /tmp/atest-ext-ai.sock
+  # Windows hosts会自动使用本地 TCP 端口，如果需要自定义可修改此项
+  listen_address: 127.0.0.1:38081
 
 # Logging configuration
 logging:

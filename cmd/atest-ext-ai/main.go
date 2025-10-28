@@ -27,6 +27,7 @@ import (
 	"path/filepath"
 	"runtime"
 	"runtime/debug"
+	"strings"
 	"syscall"
 	"time"
 
@@ -39,7 +40,35 @@ import (
 const (
 	// SocketFileName is the socket file name for AI plugin
 	SocketFileName = "atest-ext-ai.sock"
+	// defaultWindowsTCPAddress is the fallback TCP address for Windows hosts
+	defaultWindowsTCPAddress = "127.0.0.1:38081"
 )
+
+type listenerConfig struct {
+	network string
+	address string
+	isUnix  bool
+}
+
+func (l listenerConfig) URI() string {
+	switch l.network {
+	case "unix":
+		path := l.address
+		if !strings.HasPrefix(path, "/") {
+			path = "/" + strings.TrimPrefix(path, "/")
+		}
+		return "unix://" + path
+	default:
+		return fmt.Sprintf("%s://%s", l.network, l.address)
+	}
+}
+
+func (l listenerConfig) Display() string {
+	if l.isUnix {
+		return l.address
+	}
+	return l.address
+}
 
 func main() {
 	// Configure memory optimization
@@ -51,28 +80,34 @@ func main() {
 	log.Printf("Build info: Go version %s, OS %s, Arch %s", runtime.Version(), runtime.GOOS, runtime.GOARCH)
 	log.Printf("Process PID: %d", os.Getpid())
 
-	socketPath := getSocketPath()
-	log.Printf("Socket configuration: %s", socketPath)
+	listenCfg := resolveListenerConfig()
+	log.Printf("Socket configuration: %s (%s)", listenCfg.Display(), listenCfg.network)
 
 	// Clean up any existing socket file
-	log.Printf("Step 1/4: Cleaning up any existing socket file...")
-	if err := cleanupSocketFile(socketPath); err != nil {
-		log.Fatalf("FATAL: Failed to cleanup existing socket file at %s: %v\nTroubleshooting: Check file permissions and ensure no other process is using the socket", socketPath, err)
+	if listenCfg.isUnix {
+		log.Printf("Step 1/4: Cleaning up any existing socket file...")
+		if err := cleanupSocketFile(listenCfg.address); err != nil {
+			log.Fatalf("FATAL: Failed to cleanup existing socket file at %s: %v\nTroubleshooting: Check file permissions and ensure no other process is using the socket", listenCfg.address, err)
+		}
+	} else {
+		log.Printf("Step 1/4: Preparing TCP listener on %s...", listenCfg.address)
 	}
 
-	// Create Unix socket listener
-	log.Printf("Step 2/4: Creating Unix socket listener...")
-	listener, err := createSocketListener(socketPath)
+	// Create listener
+	log.Printf("Step 2/4: Creating %s listener...", strings.ToUpper(listenCfg.network))
+	listener, err := createListener(listenCfg)
 	if err != nil {
-		log.Fatalf("FATAL: Failed to create socket listener at %s: %v\nTroubleshooting: Check directory permissions, disk space, and SELinux/AppArmor policies", socketPath, err)
+		log.Fatalf("FATAL: Failed to create listener at %s: %v\nTroubleshooting: Check address availability, permissions, and security policies", listenCfg.Display(), err)
 	}
 	defer func() {
 		log.Println("Performing cleanup...")
 		if err := listener.Close(); err != nil {
 			log.Printf("Warning: Error closing listener: %v", err)
 		}
-		if err := cleanupSocketFile(socketPath); err != nil {
-			log.Printf("Warning: Error during socket cleanup: %v", err)
+		if listenCfg.isUnix {
+			if err := cleanupSocketFile(listenCfg.address); err != nil {
+				log.Printf("Warning: Error during socket cleanup: %v", err)
+			}
 		}
 		log.Println("Socket cleanup completed")
 	}()
@@ -129,9 +164,9 @@ func main() {
 	}()
 
 	log.Printf("\n=== Plugin startup completed successfully ===")
-	log.Printf("Socket path: %s", socketPath)
+	log.Printf("Socket endpoint: %s", listenCfg.URI())
 	log.Printf("Status: Ready to accept gRPC connections from api-testing")
-	log.Printf("To test: Use api-testing to connect to unix://%s", socketPath)
+	log.Printf("To test: Use api-testing to connect to %s", listenCfg.URI())
 	log.Printf("\n")
 
 	// Start serving
@@ -144,17 +179,96 @@ func main() {
 
 }
 
-// getSocketPath returns the socket path from environment or default
-func getSocketPath() string {
-	if path := os.Getenv("AI_PLUGIN_SOCKET_PATH"); path != "" {
-		log.Printf("Using socket path from environment: %s", path)
-		return path
+// resolveListenerConfig determines the appropriate listener settings based on
+// environment variables and operating system defaults.
+func resolveListenerConfig() listenerConfig {
+	// Highest priority: explicit listen address (supports tcp:// or unix://)
+	if raw := os.Getenv("AI_PLUGIN_LISTEN_ADDR"); raw != "" {
+		if cfg, err := parseListenAddress(raw); err == nil {
+			log.Printf("Using listener configuration from AI_PLUGIN_LISTEN_ADDR: %s", cfg.URI())
+			return cfg
+		}
+		log.Printf("Warning: invalid AI_PLUGIN_LISTEN_ADDR value '%s', falling back to OS defaults", raw)
 	}
 
-	// Use /tmp path to match main server's expectation: unix:///tmp/atest-ext-ai.sock
+	// Windows default: TCP loopback
+	if runtime.GOOS == "windows" {
+		address := os.Getenv("AI_PLUGIN_TCP_ADDR")
+		if address == "" {
+			address = defaultWindowsTCPAddress
+		}
+		log.Printf("Detected Windows platform, using TCP listener at %s", address)
+		return listenerConfig{
+			network: "tcp",
+			address: address,
+			isUnix:  false,
+		}
+	}
+
+	// POSIX default: Unix domain socket
+	if path := os.Getenv("AI_PLUGIN_SOCKET_PATH"); path != "" {
+		log.Printf("Using socket path from AI_PLUGIN_SOCKET_PATH: %s", path)
+		return listenerConfig{
+			network: "unix",
+			address: path,
+			isUnix:  true,
+		}
+	}
+
 	socketPath := "/tmp/" + SocketFileName
-	log.Printf("Using default socket path: %s", socketPath)
-	return socketPath
+	log.Printf("Using default Unix socket path: %s", socketPath)
+	return listenerConfig{
+		network: "unix",
+		address: socketPath,
+		isUnix:  true,
+	}
+}
+
+func parseListenAddress(value string) (listenerConfig, error) {
+	addr := strings.TrimSpace(value)
+	if addr == "" {
+		return listenerConfig{}, fmt.Errorf("empty listen address")
+	}
+
+	switch {
+	case strings.HasPrefix(addr, "unix://"):
+		path := strings.TrimPrefix(addr, "unix://")
+		if path == "" {
+			return listenerConfig{}, fmt.Errorf("unix listen address requires a path")
+		}
+		return listenerConfig{
+			network: "unix",
+			address: path,
+			isUnix:  true,
+		}, nil
+	case strings.HasPrefix(addr, "tcp://"):
+		target := strings.TrimPrefix(addr, "tcp://")
+		if target == "" {
+			return listenerConfig{}, fmt.Errorf("tcp listen address requires host:port")
+		}
+		return listenerConfig{
+			network: "tcp",
+			address: target,
+			isUnix:  false,
+		}, nil
+	default:
+		// Infer from simple patterns: path -> unix, host:port -> tcp
+		if strings.HasPrefix(addr, "/") || strings.Contains(addr, "\\") {
+			return listenerConfig{
+				network: "unix",
+				address: addr,
+				isUnix:  true,
+			}, nil
+		}
+		if strings.Contains(addr, ":") {
+			return listenerConfig{
+				network: "tcp",
+				address: addr,
+				isUnix:  false,
+			}, nil
+		}
+		return listenerConfig{}, fmt.Errorf("cannot determine network type from address: %s", addr)
+	}
 }
 
 // cleanupSocketFile removes existing socket file if it exists
@@ -168,57 +282,59 @@ func cleanupSocketFile(path string) error {
 	return nil
 }
 
-// createSocketListener creates and configures Unix socket listener with flexible permissions
-func createSocketListener(path string) (net.Listener, error) {
-	// Ensure the parent directory exists
-	dir := filepath.Dir(path)
-	if err := os.MkdirAll(dir, 0o755); err != nil { //nolint:gosec // socket directory must remain accessible to API clients
-		return nil, fmt.Errorf("failed to create socket directory %s: %w", dir, err)
-	}
-
-	listener, err := net.Listen("unix", path)
-	if err != nil {
-		return nil, fmt.Errorf("failed to create Unix socket listener: %w", err)
-	}
-
-	// Get socket permissions from environment or use default
-	// SOCKET_PERMISSIONS can be set to customize permissions (e.g., "0666" for world-writable)
-	// Default is 0666 to allow connections from different users/groups
-	perms := os.FileMode(0666)
-	if permStr := os.Getenv("SOCKET_PERMISSIONS"); permStr != "" {
-		// Parse octal permission string (e.g., "0660", "0666")
-		var permInt uint32
-		if _, err := fmt.Sscanf(permStr, "%o", &permInt); err == nil {
-			perms = os.FileMode(permInt)
-			log.Printf("Using custom socket permissions from SOCKET_PERMISSIONS: %04o", perms)
-		} else {
-			log.Printf("Warning: invalid SOCKET_PERMISSIONS '%s', using default 0666: %v", permStr, err)
+// createListener creates either a Unix domain socket listener or a TCP listener
+// depending on the provided configuration.
+func createListener(cfg listenerConfig) (net.Listener, error) {
+	if cfg.network == "unix" {
+		dir := filepath.Dir(cfg.address)
+		if err := os.MkdirAll(dir, 0o755); err != nil { //nolint:gosec // socket directory must remain accessible to API clients
+			return nil, fmt.Errorf("failed to create socket directory %s: %w", dir, err)
 		}
+
+		listener, err := net.Listen("unix", cfg.address)
+		if err != nil {
+			return nil, fmt.Errorf("failed to create Unix socket listener: %w", err)
+		}
+
+		perms := os.FileMode(0666)
+		if permStr := os.Getenv("SOCKET_PERMISSIONS"); permStr != "" {
+			var permInt uint32
+			if _, err := fmt.Sscanf(permStr, "%o", &permInt); err == nil {
+				perms = os.FileMode(permInt)
+				log.Printf("Using custom socket permissions from SOCKET_PERMISSIONS: %04o", perms)
+			} else {
+				log.Printf("Warning: invalid SOCKET_PERMISSIONS '%s', using default 0666: %v", permStr, err)
+			}
+		}
+
+		if err := os.Chmod(cfg.address, perms); err != nil { //nolint:gosec // G302: Socket permissions configurable via env
+			_ = listener.Close()
+			return nil, fmt.Errorf("failed to set socket permissions to %04o: %w", perms, err)
+		}
+
+		if fileInfo, err := os.Stat(cfg.address); err == nil {
+			log.Printf("Socket created successfully:")
+			log.Printf("  Path: %s", cfg.address)
+			log.Printf("  Permissions: %04o (%s)", fileInfo.Mode().Perm(), fileInfo.Mode().String())
+			log.Printf("  Size: %d bytes", fileInfo.Size())
+			log.Printf("Troubleshooting tips:")
+			log.Printf("  - If connection fails with 'permission denied', check:")
+			log.Printf("    1. Client process user has read/write access (permissions: %04o)", fileInfo.Mode().Perm())
+			log.Printf("    2. Client process user is in the same group (or use SOCKET_PERMISSIONS=0666)")
+			log.Printf("    3. SELinux/AppArmor policies allow socket access")
+			log.Printf("  - Set SOCKET_PERMISSIONS environment variable to customize (e.g., SOCKET_PERMISSIONS=0666)")
+		} else {
+			log.Printf("Warning: could not stat socket file for diagnostics: %v", err)
+		}
+
+		return listener, nil
 	}
 
-	// Set socket permissions
-	if err := os.Chmod(path, perms); err != nil { //nolint:gosec // G302: Socket permissions configurable via env
-		_ = listener.Close()
-		return nil, fmt.Errorf("failed to set socket permissions to %04o: %w", perms, err)
+	listener, err := net.Listen(cfg.network, cfg.address)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create %s listener: %w", strings.ToUpper(cfg.network), err)
 	}
-
-	// Print diagnostic information for troubleshooting
-	if fileInfo, err := os.Stat(path); err == nil {
-		log.Printf("Socket created successfully:")
-		log.Printf("  Path: %s", path)
-		log.Printf("  Permissions: %04o (%s)", fileInfo.Mode().Perm(), fileInfo.Mode().String())
-		log.Printf("  Size: %d bytes", fileInfo.Size())
-
-		log.Printf("Troubleshooting tips:")
-		log.Printf("  - If connection fails with 'permission denied', check:")
-		log.Printf("    1. Client process user has read/write access (permissions: %04o)", fileInfo.Mode().Perm())
-		log.Printf("    2. Client process user is in the same group (or use SOCKET_PERMISSIONS=0666)")
-		log.Printf("    3. SELinux/AppArmor policies allow socket access")
-		log.Printf("  - Set SOCKET_PERMISSIONS environment variable to customize (e.g., SOCKET_PERMISSIONS=0666)")
-	} else {
-		log.Printf("Warning: could not stat socket file for diagnostics: %v", err)
-	}
-
+	log.Printf("TCP listener created successfully on %s", cfg.address)
 	return listener, nil
 }
 

@@ -108,15 +108,26 @@ integration-test: install-local ## Run integration tests with plugin
 	@~/.config/atest/bin/$(BINARY_NAME) & \
 	PLUGIN_PID=$$!; \
 	sleep 2; \
-	if [ -S /tmp/atest-ext-ai.sock ]; then \
-	  echo "✅ Socket created successfully"; \
-	else \
-	  echo "❌ Socket not found"; \
-	  kill $$PLUGIN_PID 2>/dev/null; \
-	  exit 1; \
-	fi; \
+	OS_NAME=$$(uname -s 2>/dev/null || echo Windows); \
+	case "$$OS_NAME" in \
+	  CYGWIN*|MINGW*|MSYS*|Windows*) \
+	    echo "Skipping Unix socket check on $$OS_NAME (plugin listens on TCP loopback)"; \
+	    ;; \
+	  *) \
+	    if [ -S /tmp/atest-ext-ai.sock ]; then \
+	      echo "✅ Socket created successfully"; \
+	    else \
+	      echo "❌ Socket not found"; \
+	      kill $$PLUGIN_PID 2>/dev/null; \
+	      exit 1; \
+	    fi; \
+	    ;; \
+	esac; \
 	kill $$PLUGIN_PID; \
-	rm -f /tmp/atest-ext-ai.sock
+	case "$$OS_NAME" in \
+	  CYGWIN*|MINGW*|MSYS*|Windows*) ;; \
+	  *) rm -f /tmp/atest-ext-ai.sock ;; \
+	esac
 
 help: ## Show available targets
 	@printf "Available targets:\n"

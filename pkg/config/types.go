@@ -29,13 +29,14 @@ type Config struct {
 
 // ServerConfig contains server-specific configuration
 type ServerConfig struct {
-	Host         string   `yaml:"host" json:"host"`
-	Port         int      `yaml:"port" json:"port" validate:"min=1,max=65535"`
-	Timeout      Duration `yaml:"timeout" json:"timeout"`
-	MaxConns     int      `yaml:"max_connections" json:"max_connections"`
-	SocketPath   string   `yaml:"socket_path" json:"socket_path"`
-	ReadTimeout  Duration `yaml:"read_timeout" json:"read_timeout"`
-	WriteTimeout Duration `yaml:"write_timeout" json:"write_timeout"`
+	Host          string   `yaml:"host" json:"host"`
+	Port          int      `yaml:"port" json:"port" validate:"min=1,max=65535"`
+	Timeout       Duration `yaml:"timeout" json:"timeout"`
+	MaxConns      int      `yaml:"max_connections" json:"max_connections"`
+	SocketPath    string   `yaml:"socket_path" json:"socket_path"`
+	ListenAddress string   `yaml:"listen_address" json:"listen_address"`
+	ReadTimeout   Duration `yaml:"read_timeout" json:"read_timeout"`
+	WriteTimeout  Duration `yaml:"write_timeout" json:"write_timeout"`
 }
 
 // PluginConfig contains plugin-specific configuration

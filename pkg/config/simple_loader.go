@@ -22,11 +22,17 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"runtime"
 	"strconv"
 	"strings"
 	"time"
 
 	"gopkg.in/yaml.v2"
+)
+
+const (
+	defaultUnixSocketPath       = "/tmp/atest-ext-ai.sock"
+	defaultWindowsListenAddress = "127.0.0.1:38081"
 )
 
 // LoadConfig loads configuration from file and environment variables
@@ -118,6 +124,9 @@ func applyEnvOverrides(cfg *Config) {
 	}
 	if socketPath := os.Getenv("ATEST_EXT_AI_SERVER_SOCKET_PATH"); socketPath != "" {
 		cfg.Server.SocketPath = socketPath
+	}
+	if listenAddr := os.Getenv("ATEST_EXT_AI_SERVER_LISTEN_ADDR"); listenAddr != "" {
+		cfg.Server.ListenAddress = listenAddr
 	}
 	if timeout := os.Getenv("ATEST_EXT_AI_SERVER_TIMEOUT"); timeout != "" {
 		if d, err := time.ParseDuration(timeout); err == nil {
@@ -242,8 +251,14 @@ func applyDefaults(cfg *Config) {
 	if cfg.Server.Port == 0 {
 		cfg.Server.Port = 8080
 	}
-	if cfg.Server.SocketPath == "" {
-		cfg.Server.SocketPath = "/tmp/atest-ext-ai.sock"
+	if runtime.GOOS == "windows" {
+		if cfg.Server.ListenAddress == "" {
+			cfg.Server.ListenAddress = defaultWindowsListenAddress
+		}
+	} else {
+		if cfg.Server.SocketPath == "" {
+			cfg.Server.SocketPath = defaultUnixSocketPath
+		}
 	}
 	if cfg.Server.Timeout.Duration == 0 {
 		cfg.Server.Timeout = Duration{Duration: 30 * time.Second}
@@ -469,13 +484,14 @@ func validateConfig(cfg *Config) error {
 func defaultConfig() *Config {
 	return &Config{
 		Server: ServerConfig{
-			Host:         "0.0.0.0",
-			Port:         8080,
-			SocketPath:   "/tmp/atest-ext-ai.sock",
-			Timeout:      Duration{Duration: 30 * time.Second},
-			ReadTimeout:  Duration{Duration: 15 * time.Second},
-			WriteTimeout: Duration{Duration: 15 * time.Second},
-			MaxConns:     100,
+			Host:          "0.0.0.0",
+			Port:          8080,
+			SocketPath:    defaultUnixSocketPath,
+			ListenAddress: defaultWindowsListenAddress,
+			Timeout:       Duration{Duration: 30 * time.Second},
+			ReadTimeout:   Duration{Duration: 15 * time.Second},
+			WriteTimeout:  Duration{Duration: 15 * time.Second},
+			MaxConns:      100,
 		},
 		Plugin: PluginConfig{
 			Name:        "atest-ext-ai",
