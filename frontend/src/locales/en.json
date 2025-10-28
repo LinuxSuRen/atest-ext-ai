@@ -62,14 +62,19 @@
       }
     },
     "providerLabel": "Provider",
-    "message": {
-      "configSaved": "Configuration saved successfully",
-      "configSaveFailed": "Saved locally, backend sync failed",
-      "connectionSuccess": "Connection successful!",
-      "connectionFailed": "Connection failed",
-      "generating": "Generating SQL...",
-      "copiedSuccess": "Copied to clipboard",
-      "explanationNotSupported": "Detailed explanations are not supported yet."
-    }
+  "message": {
+    "configSaved": "Configuration saved successfully",
+    "configSaveFailed": "Saved locally, backend sync failed",
+    "connectionSuccess": "Connection successful!",
+    "connectionFailed": "Connection failed",
+    "generating": "Generating SQL...",
+    "copiedSuccess": "Copied to clipboard",
+    "explanationNotSupported": "Detailed explanations are not supported yet."
+  },
+  "statusBanner": {
+    "connecting": "Connecting to {provider}...",
+    "disconnected": "Connection lost. Check the settings and try again.",
+    "setup": "Complete the configuration to start chatting."
   }
+}
 }

@@ -113,6 +113,8 @@ async function copySQL(sql: string) {
   min-height: 360px;
   background: var(--atest-bg-surface);
   color: var(--atest-text-primary);
+  border: 1px solid var(--atest-border-color);
+  border-radius: var(--atest-radius-md);
 }
 
 /* Empty state */

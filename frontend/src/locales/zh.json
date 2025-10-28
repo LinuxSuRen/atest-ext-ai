@@ -62,14 +62,19 @@
       }
     },
     "providerLabel": "当前服务商",
-    "message": {
-      "configSaved": "配置保存成功",
-      "configSaveFailed": "本地保存成功，后端同步失败",
-      "connectionSuccess": "连接成功！",
-      "connectionFailed": "连接失败",
-      "generating": "生成 SQL 中...",
-      "copiedSuccess": "已复制到剪贴板",
-      "explanationNotSupported": "暂不支持生成详细解释。"
-    }
+  "message": {
+    "configSaved": "配置保存成功",
+    "configSaveFailed": "本地保存成功，后端同步失败",
+    "connectionSuccess": "连接成功！",
+    "connectionFailed": "连接失败",
+    "generating": "生成 SQL 中...",
+    "copiedSuccess": "已复制到剪贴板",
+    "explanationNotSupported": "暂不支持生成详细解释。"
+  },
+  "statusBanner": {
+    "connecting": "正在连接 {provider}...",
+    "disconnected": "连接已断开，请检查设置后重试。",
+    "setup": "请先完成配置再开始对话。"
   }
+}
 }

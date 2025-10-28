@@ -14,6 +14,9 @@
       <AIChatInput
         :loading="isLoading"
         :include-explanation="includeExplanation"
+        :provider="config.provider"
+        :status="inputStatus"
+        :disabled="isInputDisabled"
         @submit="handleQuery"
         @open-settings="showSettings = true"
       />
@@ -94,6 +97,15 @@ const {
 const showSettings = ref(false)
 const includeExplanation = ref(false)
 
+const inputStatus = computed<'connected' | 'disconnected' | 'connecting' | 'setup'>(() => {
+  if (!isConfigured.value) {
+    return 'setup'
+  }
+  return config.value.status
+})
+
+const isInputDisabled = computed(() => inputStatus.value !== 'connected')
+
 // Get translation function from context
 const { t } = pluginContext.i18n
 
@@ -158,12 +170,14 @@ async function handleTest(updatedConfig?: AIConfig) {
 
 .chat-content {
   flex: 1;
-  display: flex;
-  flex-direction: column;
+  display: grid;
+  grid-template-rows: 1fr auto;
+  gap: var(--atest-spacing-md);
   overflow: hidden;
-  border-radius: 16px;
+  border-radius: var(--atest-radius-lg);
   background: var(--atest-bg-surface);
   box-shadow: var(--atest-shadow-md);
+  padding: clamp(12px, 3vw, 24px);
 }
 
 @media (max-width: 1024px) {
@@ -179,13 +193,18 @@ async function handleTest(updatedConfig?: AIConfig) {
   }
 
   .chat-content {
-    border-radius: 12px;
+    border-radius: var(--atest-radius-md);
+    padding: 16px;
   }
 }
 
 @media (max-width: 480px) {
   .ai-chat-container {
     padding: 16px;
+  }
+
+  .chat-content {
+    padding: 12px;
   }
 }
 </style>
