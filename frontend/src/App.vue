@@ -129,12 +129,9 @@ async function handleTest(updatedConfig?: AIConfig) {
   flex-direction: column;
   min-height: 100%;
   width: 100%;
-  max-width: 960px;
-  margin: 0 auto;
-  padding: 0 32px 32px;
+  padding: clamp(16px, 4vw, 32px);
   box-sizing: border-box;
-  background: #f5f7fa;
-  gap: 16px;
+  gap: clamp(12px, 2vw, 20px);
 }
 
 .welcome-panel {
@@ -156,19 +153,24 @@ async function handleTest(updatedConfig?: AIConfig) {
 
 @media (max-width: 1024px) {
   .ai-chat-container {
-    padding: 0 24px 24px;
-    max-width: 840px;
+    padding: 24px;
   }
 }
 
 @media (max-width: 768px) {
   .ai-chat-container {
-    padding: 0 16px 16px;
+    padding: 20px;
     gap: 12px;
   }
 
   .chat-content {
     border-radius: 12px;
+  }
+}
+
+@media (max-width: 480px) {
+  .ai-chat-container {
+    padding: 16px;
   }
 }
 </style>

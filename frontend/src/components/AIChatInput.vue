@@ -127,10 +127,9 @@ function handleSubmit() {
   position: absolute;
   top: 16px;
   right: 20px;
-  bottom: 16px;
   display: flex;
   flex-direction: column;
-  justify-content: space-between;
+  justify-content: flex-start;
   align-items: center;
   gap: 12px;
 }
@@ -143,18 +142,17 @@ function handleSubmit() {
   width: 48px;
   height: 48px;
   transition: all 0.3s ease;
-  backdrop-filter: blur(4px);
+  backdrop-filter: blur(8px);
 }
 
 .configure-btn {
-  border: 2px solid var(--el-color-primary-light-7);
-  background: var(--el-color-primary-light-9);
+  border: none;
+  background: var(--el-color-primary-light-8);
   color: var(--el-color-primary-dark-2);
 }
 
 .configure-btn:hover {
-  background: var(--el-color-primary-light-8);
-  border-color: var(--el-color-primary-light-6);
+  background: var(--el-color-primary-light-7);
 }
 
 .generate-btn {
