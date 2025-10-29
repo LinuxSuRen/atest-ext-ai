@@ -14,15 +14,20 @@ BUILD_BIN := $(BUILD_DIR)/$(BINARY_NAME)
 
 .PHONY: default build-frontend build test test-watch deps clean install install-local dev fmt lint lint-check vet verify check benchmark docker-build docker-release docker-release-github coverage integration-test help
 
+FRONTEND_ASSETS := pkg/plugin/assets/ai-chat.js pkg/plugin/assets/ai-chat.css
+
 default: clean build test ## Clean, build and test
 
 build-frontend: ## Build frontend assets (Vue 3 + TypeScript)
 	@[ -d frontend/node_modules ] || (cd frontend && npm install)
 	cd frontend && npm run build
 
-build: ## Build the plugin binary
+build: $(FRONTEND_ASSETS) ## Build the plugin binary
 	mkdir -p $(BUILD_DIR)
 	CGO_ENABLED=0 go build -ldflags "$(LDFLAGS)" -o $(BUILD_BIN) $(MAIN_PACKAGE)
+
+pkg/plugin/assets/ai-chat.js: build-frontend ;
+pkg/plugin/assets/ai-chat.css: build-frontend ;
 
 test: ## Run tests with coverage
 	go test -v -race -coverprofile=coverage.out ./...
@@ -42,13 +47,14 @@ deps: ## Install and verify dependencies
 clean: ## Clean build artifacts and caches
 	rm -rf $(BUILD_DIR)
 	rm -f coverage.out
+	rm -f $(FRONTEND_ASSETS)
 	go clean -cache -testcache -modcache
 
 install: build ## Install to system location (/usr/local/bin)
 	sudo cp $(BUILD_BIN) /usr/local/bin/
 	sudo chmod +x /usr/local/bin/$(BINARY_NAME)
 
-install-local: build-frontend build ## Install to local development directory (~/.config/atest/bin)
+install-local: build ## Install to local development directory (~/.config/atest/bin)
 	mkdir -p ~/.config/atest/bin/
 	cp $(BUILD_BIN) ~/.config/atest/bin/
 	chmod +x ~/.config/atest/bin/$(BINARY_NAME)

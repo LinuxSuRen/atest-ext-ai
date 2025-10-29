@@ -173,3 +173,7 @@ pids/
 
 # Task runner cache
 .task/
+
+# Generated frontend assets (created during npm build)
+pkg/plugin/assets/*.css
+pkg/plugin/assets/*.js
