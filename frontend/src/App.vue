@@ -94,6 +94,7 @@ async function handleSave() {
     await handleSaveConfig()
     ElMessage.success(t('ai.message.configSaved'))
     showSettings.value = false
+    await handleTest(config.value)
   } catch (error) {
     ElMessage.warning(t('ai.message.configSaveFailed'))
   }
@@ -125,6 +126,8 @@ async function handleTest(updatedConfig?: AIConfig) {
       customClass: 'connection-error-message'
     })
   }
+
+  return result
 }
 </script>
 
@@ -132,8 +135,9 @@ async function handleTest(updatedConfig?: AIConfig) {
 .ai-chat-container {
   display: flex;
   flex-direction: column;
-  min-height: 100%;
   width: 100%;
+  height: 100%;
+  min-height: 0;
   padding: clamp(16px, 4vw, 32px);
   box-sizing: border-box;
   gap: clamp(12px, 2vw, 20px);
@@ -150,13 +154,14 @@ async function handleTest(updatedConfig?: AIConfig) {
 .chat-content {
   flex: 1;
   display: grid;
-  grid-template-rows: 1fr auto;
+  grid-template-rows: minmax(0, 1fr) auto;
   gap: var(--atest-spacing-md);
   overflow: hidden;
   border-radius: var(--atest-radius-lg);
   background: var(--atest-bg-surface);
   box-shadow: var(--atest-shadow-md);
   padding: clamp(12px, 3vw, 24px);
+  min-height: 0;
 }
 
 @media (max-width: 1024px) {
@@ -185,5 +190,18 @@ async function handleTest(updatedConfig?: AIConfig) {
   .chat-content {
     padding: 12px;
   }
+}
+</style>
+
+<style>
+:global(#plugin-container) {
+  height: 100%;
+  display: flex;
+}
+
+:global(#plugin-container > *) {
+  flex: 1;
+  min-height: 0;
+  display: flex;
 }
 </style>

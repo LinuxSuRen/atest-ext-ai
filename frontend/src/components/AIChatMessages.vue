@@ -107,10 +107,10 @@ async function copySQL(sql: string) {
 
 <style scoped>
 .chat-messages {
-  flex: 1;
+  height: 100%;
+  min-height: 0;
   overflow-y: auto;
   padding: 24px 40px;
-  min-height: 360px;
   background: var(--atest-bg-surface);
   color: var(--atest-text-primary);
   border: 1px solid var(--atest-border-color);

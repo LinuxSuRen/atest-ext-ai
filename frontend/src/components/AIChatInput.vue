@@ -2,7 +2,7 @@
   <div :class="['chat-input', { 'is-disabled': props.disabled }]">
     <transition name="status-fade">
       <div v-if="showStatusBanner" class="status-banner" :class="props.status">
-        <el-icon v-if="statusIcon" :class="['status-icon', { spin: props.status === 'connecting' }]">
+        <el-icon v-if="statusIcon" class="status-icon">
           <component :is="statusIcon" />
         </el-icon>
         <span class="banner-text">{{ statusBanner }}</span>
@@ -17,7 +17,8 @@
         </el-button>
       </div>
     </transition>
-    <div :class="['input-box', { 'has-banner': showStatusBanner }]">
+
+    <div class="input-shell">
       <el-input
         v-model="prompt"
         class="prompt-input"
@@ -32,25 +33,26 @@
         @keydown.enter.ctrl="handleSubmit"
         @keydown.enter.meta="handleSubmit"
       />
-      <div class="action-buttons">
-        <el-tooltip :content="configureTooltip" placement="left">
+    </div>
+
+    <div class="input-footer">
+      <div class="footer-left">
+        <el-tooltip :content="configureTooltip" placement="top">
           <el-button
-            class="icon-btn configure-btn"
-            type="primary"
-            plain
-            circle
-            :aria-label="configureTooltip"
+            class="footer-btn configure-btn"
+            type="default"
+            :disabled="props.disabled"
             @click="emit('open-settings')"
           >
             <el-icon><Setting /></el-icon>
           </el-button>
         </el-tooltip>
-        <el-tooltip :content="generateTooltip" placement="left">
+      </div>
+      <div class="footer-right">
+        <el-tooltip :content="generateTooltip" placement="top">
           <el-button
-            class="icon-btn generate-btn"
+            class="footer-btn generate-btn"
             type="primary"
-            circle
-            :aria-label="generateTooltip"
             :loading="props.loading"
             :disabled="props.disabled || !prompt.trim()"
             @click="handleSubmit"
@@ -65,7 +67,7 @@
 
 <script setup lang="ts">
 import { ref, inject, computed } from 'vue'
-import { Promotion, Setting, WarningFilled, InfoFilled, Loading } from '@element-plus/icons-vue'
+import { Promotion, Setting, WarningFilled, InfoFilled } from '@element-plus/icons-vue'
 import type { AppContext } from '../types'
 
 interface Props {
@@ -117,8 +119,6 @@ const statusBanner = computed(() => {
 
 const statusIcon = computed(() => {
   switch (props.status) {
-    case 'connecting':
-      return Loading
     case 'disconnected':
       return WarningFilled
     case 'setup':
@@ -128,8 +128,8 @@ const statusIcon = computed(() => {
   }
 })
 
-const showStatusBanner = computed(() => Boolean(statusBanner.value))
-const showConfigureLink = computed(() => props.status === 'disconnected' || props.status === 'setup')
+const showStatusBanner = computed(() => props.status === 'disconnected' || props.status === 'setup')
+const showConfigureLink = showStatusBanner
 
 function handleSubmit() {
   if (!prompt.value.trim() || props.loading || props.disabled) return
@@ -155,19 +155,15 @@ function handleSubmit() {
   gap: var(--atest-spacing-sm);
 }
 
-.input-box {
+.input-shell {
   position: relative;
-}
-
-.input-box.has-banner {
-  margin-top: var(--atest-spacing-sm);
 }
 
 .prompt-input {
   display: block;
 }
 
-.input-box :deep(.el-textarea__inner) {
+.input-shell :deep(.el-textarea__inner) {
   border-radius: 12px;
   border: 2px solid var(--atest-border-color);
   padding: 12px 16px;
@@ -177,79 +173,16 @@ function handleSubmit() {
   transition: var(--atest-transition-base);
   box-shadow: 0 2px 8px var(--el-box-shadow-lighter);
   min-height: 124px;
-  padding-right: 96px;
 }
 
-.input-box :deep(.el-textarea__inner:focus) {
+.input-shell :deep(.el-textarea__inner:focus) {
   border-color: var(--atest-color-accent);
   box-shadow: 0 0 0 3px var(--atest-color-accent-soft);
 }
 
-.input-box :deep(.el-textarea__inner::placeholder) {
+.input-shell :deep(.el-textarea__inner::placeholder) {
   color: var(--atest-text-placeholder);
 }
-
-.action-buttons {
-  position: absolute;
-  top: 16px;
-  right: 20px;
-  display: flex;
-  flex-direction: column;
-  justify-content: flex-start;
-  align-items: center;
-  gap: 12px;
-}
-
-.icon-btn {
-  box-sizing: border-box;
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  width: 48px;
-  height: 48px;
-  transition: var(--atest-transition-base);
-  backdrop-filter: blur(8px);
-}
-
-.configure-btn {
-  border: none;
-  background: var(--atest-color-accent-soft);
-  color: var(--atest-color-accent);
-}
-
-.configure-btn:hover {
-  background: var(--el-color-primary-light-7);
-}
-
-.generate-btn {
-  background: var(--atest-color-accent);
-  border: none;
-  box-shadow: var(--atest-shadow-sm);
-  color: var(--el-color-white);
-  padding: 0;
-}
-
-.generate-btn:hover:not(:disabled) {
-  transform: translateY(-2px);
-  background: var(--el-color-primary-light-3);
-  box-shadow: var(--atest-shadow-md);
-}
-
-.generate-btn:active:not(:disabled) {
-  transform: translateY(0);
-}
-
-.generate-btn:disabled {
-  background: var(--el-fill-color);
-  box-shadow: none;
-  color: var(--atest-text-placeholder);
-}
-
-.generate-btn.is-loading {
-  background: var(--atest-color-accent);
-  opacity: 0.8;
-}
-
 .chat-input.is-disabled .prompt-input :deep(.el-textarea__inner) {
   background-color: color-mix(in srgb, var(--atest-bg-surface) 85%, #000 15%);
   color: var(--atest-text-placeholder);
@@ -258,6 +191,58 @@ function handleSubmit() {
 .chat-input.is-disabled .generate-btn {
   opacity: 0.5;
   cursor: not-allowed;
+}
+
+.input-footer {
+  margin-top: var(--atest-spacing-sm);
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  align-items: center;
+  gap: var(--atest-spacing-sm);
+}
+
+.footer-left,
+.footer-right {
+  display: flex;
+  align-items: center;
+}
+
+.footer-left {
+  justify-content: flex-start;
+}
+
+.footer-right {
+  justify-content: flex-end;
+}
+
+.footer-btn {
+  display: inline-flex;
+  justify-content: center;
+  align-items: center;
+  width: 48px;
+  height: 48px;
+  border-radius: 12px;
+  transition: var(--atest-transition-base);
+}
+
+.configure-btn {
+  border: 1px solid var(--atest-border-color);
+  background: var(--atest-bg-elevated);
+  color: var(--atest-color-accent);
+}
+
+.configure-btn:hover:not(:disabled) {
+  border-color: var(--atest-color-accent);
+  background: var(--atest-color-accent-soft);
+}
+
+.generate-btn {
+  background: var(--atest-color-accent);
+  color: #fff;
+}
+
+.generate-btn:hover:not(:disabled) {
+  background: var(--el-color-primary-light-3);
 }
 
 .status-banner {
@@ -293,10 +278,6 @@ function handleSubmit() {
   align-items: center;
 }
 
-.status-icon.spin {
-  animation: spin 1.2s linear infinite;
-}
-
 .banner-action {
   margin-left: auto;
 }
@@ -321,26 +302,11 @@ function handleSubmit() {
     padding: 16px 20px;
   }
 
-  .input-box {
-    display: flex;
-    flex-direction: column;
-    gap: 12px;
-  }
-
-  .input-box :deep(.el-textarea__inner) {
-    padding-right: 16px;
+  .input-shell :deep(.el-textarea__inner) {
     min-height: 112px;
   }
 
-  .action-buttons {
-    position: static;
-    flex-direction: row;
-    justify-content: flex-end;
-    width: 100%;
-    gap: 10px;
-  }
-
-  .icon-btn {
+  .footer-btn {
     width: 44px;
     height: 44px;
   }
@@ -351,12 +317,12 @@ function handleSubmit() {
     padding: 14px 16px;
   }
 
-  .icon-btn {
+  .footer-btn {
     width: 40px;
     height: 40px;
   }
 
-  .input-box :deep(.el-textarea__inner) {
+  .input-shell :deep(.el-textarea__inner) {
     min-height: 100px;
   }
 }
@@ -370,14 +336,5 @@ function handleSubmit() {
 .status-fade-leave-to {
   opacity: 0;
   transform: translateY(-4px);
-}
-
-@keyframes spin {
-  0% {
-    transform: rotate(0deg);
-  }
-  100% {
-    transform: rotate(360deg);
-  }
 }
 </style>
