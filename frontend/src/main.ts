@@ -4,9 +4,13 @@ import 'element-plus/dist/index.css'
 import App from './App.vue'
 import type { AppContext } from './types'
 import './styles/tokens.css'
+import { createPluginContextBridge, type PluginContextBridge } from './utils/pluginContext'
+import { normalizeLocale } from './utils/i18n'
 
 // Store Vue app instance for potential cleanup
 let app: VueApp | null = null
+let bridge: PluginContextBridge | null = null
+let pendingLocale: string | null = null
 
 /**
  * Plugin interface exposed to main application
@@ -15,22 +19,29 @@ const ATestPlugin = {
   /**
    * Mount plugin with context from main app
    * @param container - DOM container element
-   * @param context - Context from main app (i18n, API, Cache)
+   * @param context - Optional context from main app (i18n, API, Cache)
    */
-  mount(container: HTMLElement, context: AppContext) {
+  mount(container: HTMLElement, context?: AppContext) {
     // Cleanup previous instance if exists
     if (app) {
       app.unmount()
     }
 
+    bridge = createPluginContextBridge(context)
+
     // Create new Vue app with context passed as props
-    app = createApp(App, { context })
+    app = createApp(App, { context: bridge.context })
 
     // Use Element Plus
     app.use(ElementPlus)
 
     // Mount to container
     app.mount(container)
+
+    if (pendingLocale) {
+      bridge.setLocale(pendingLocale)
+      pendingLocale = null
+    }
   },
 
   /**
@@ -40,6 +51,19 @@ const ATestPlugin = {
     if (app) {
       app.unmount()
       app = null
+    }
+    bridge = null
+  },
+
+  /**
+   * Allow host application to toggle locale proactively
+   */
+  setLocale(locale: string) {
+    const normalized = normalizeLocale(locale)
+    if (bridge) {
+      bridge.setLocale(normalized)
+    } else {
+      pendingLocale = normalized
     }
   }
 }

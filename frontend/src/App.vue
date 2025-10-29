@@ -36,7 +36,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, provide, computed, watchEffect } from 'vue'
+import { ref, provide, computed } from 'vue'
 import { ElMessage } from 'element-plus'
 import type { AppContext, AIConfig } from './types'
 import { useAIChat } from './composables/useAIChat'
@@ -45,38 +45,17 @@ import AIChatMessages from './components/AIChatMessages.vue'
 import AIChatInput from './components/AIChatInput.vue'
 import AISettingsPanel from './components/AISettingsPanel.vue'
 import AIWelcomePanel from './components/AIWelcomePanel.vue'
-import { createTranslator } from './utils/i18n'
+import { createPluginContextBridge } from './utils/pluginContext'
 
 // Props passed from main.ts
 interface Props {
-  context: AppContext
+  context?: AppContext
 }
 const props = defineProps<Props>()
 
-// Wrap host i18n with plugin fallbacks
-const translator = computed(() => {
-  // ensure locale reactivity tracked
-  // eslint-disable-next-line @typescript-eslint/no-unused-expressions
-  props.context.i18n.locale.value
-  return createTranslator(props.context.i18n)
-})
+const bridge = props.context ? { context: props.context } : createPluginContextBridge()
+const pluginContext = bridge.context
 
-const pluginContext: AppContext = {
-  ...props.context,
-  i18n: {
-    locale: props.context.i18n.locale,
-    t: translator.value
-  }
-}
-
-watchEffect(() => {
-  pluginContext.API = props.context.API
-  pluginContext.Cache = props.context.Cache
-  pluginContext.i18n.locale = props.context.i18n.locale
-  pluginContext.i18n.t = translator.value
-})
-
-// Provide context to all child components
 provide('appContext', pluginContext)
 
 // Use composable with context

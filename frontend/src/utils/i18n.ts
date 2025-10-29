@@ -7,7 +7,7 @@ const messages: Record<string, any> = {
   zh
 }
 
-function normalizeLocale(locale: string | undefined): string {
+export function normalizeLocale(locale: string | undefined): string {
   if (!locale) {
     return 'en'
   }
