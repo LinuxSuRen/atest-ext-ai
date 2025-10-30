@@ -1,0 +1,52 @@
+:root {
+  --atest-spacing-2xs: 4px;
+  --atest-spacing-xs: 8px;
+  --atest-spacing-sm: 12px;
+  --atest-spacing-md: clamp(16px, 2vw, 24px);
+  --atest-spacing-lg: clamp(20px, 3vw, 32px);
+  --atest-spacing-xl: clamp(24px, 4vw, 48px);
+
+  --atest-radius-sm: 8px;
+  --atest-radius-md: 12px;
+  --atest-radius-lg: 16px;
+  --atest-radius-xl: 20px;
+
+  --atest-shadow-sm: 0 2px 8px rgba(0, 0, 0, 0.08);
+  --atest-shadow-md: 0 8px 24px rgba(0, 0, 0, 0.12);
+  --atest-shadow-lg: 0 16px 40px rgba(0, 0, 0, 0.14);
+
+  --atest-bg-base: var(--el-bg-color-page, #f5f7fa);
+  --atest-bg-surface: var(--el-bg-color, #ffffff);
+  --atest-bg-elevated: var(--el-bg-color-overlay, rgba(255, 255, 255, 0.95));
+  --atest-border-color: var(--el-border-color, rgba(0, 0, 0, 0.08));
+  --atest-border-strong: color-mix(in srgb, var(--el-border-color, rgba(0,0,0,0.12)) 80%, transparent);
+
+  --atest-text-primary: var(--el-text-color-primary, #1f2937);
+  --atest-text-secondary: var(--el-text-color-secondary, #4b5563);
+  --atest-text-regular: var(--el-text-color-regular, #6b7280);
+  --atest-text-placeholder: var(--el-text-color-placeholder, #9ca3af);
+
+  --atest-color-accent: var(--el-color-primary, #409eff);
+  --atest-color-accent-soft: color-mix(in srgb, var(--atest-color-accent) 12%, transparent);
+  --atest-color-success-soft: color-mix(in srgb, var(--el-color-success, #67c23a) 18%, transparent);
+  --atest-color-danger-soft: color-mix(in srgb, var(--el-color-danger, #f56c6c) 18%, transparent);
+
+  --atest-transition-base: all 0.25s ease;
+}
+
+html.dark {
+  --atest-bg-base: var(--el-bg-color-page, #0f172a);
+  --atest-bg-surface: var(--el-bg-color, #111827);
+  --atest-bg-elevated: var(--el-bg-color-overlay, rgba(17, 24, 39, 0.92));
+  --atest-border-color: rgba(255, 255, 255, 0.08);
+  --atest-border-strong: rgba(255, 255, 255, 0.16);
+
+  --atest-text-primary: var(--el-text-color-primary, #f9fafb);
+  --atest-text-secondary: var(--el-text-color-secondary, #e5e7eb);
+  --atest-text-regular: var(--el-text-color-regular, #d1d5db);
+  --atest-text-placeholder: var(--el-text-color-placeholder, #94a3b8);
+
+  --atest-shadow-sm: 0 2px 12px rgba(0, 0, 0, 0.45);
+  --atest-shadow-md: 0 12px 32px rgba(0, 0, 0, 0.55);
+  --atest-shadow-lg: 0 20px 48px rgba(0, 0, 0, 0.6);
+}

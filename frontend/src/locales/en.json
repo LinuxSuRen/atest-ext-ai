@@ -1,0 +1,86 @@
+{
+  "ai": {
+    "title": "AI Assistant",
+    "subtitle": "Natural language to SQL query generator",
+    "status": {
+      "connected": "Connected",
+      "disconnected": "Disconnected",
+      "connecting": "Connecting..."
+    },
+    "settings": {
+      "title": "Settings",
+      "provider": "Provider",
+      "endpoint": "Endpoint",
+      "model": "Model",
+      "apiKey": "API Key",
+      "timeout": "Request Timeout (seconds)",
+      "timeoutHintLocal": "Increase this value if your local model needs more time to respond.",
+      "timeoutHintCloud": "Most cloud providers handle timeouts automatically; adjust only when needed.",
+      "maxTokens": "Max Tokens",
+      "advanced": "Advanced Settings",
+      "localServices": "Local Services",
+      "cloudServices": "Cloud Services"
+    },
+  "button": {
+    "save": "Save",
+    "reset": "Reset",
+    "refresh": "Refresh",
+    "close": "Close",
+    "copy": "Copy"
+  },
+  "tooltip": {
+    "configure": "Open AI settings",
+    "generate": "Generate SQL",
+    "dialect": "Select database dialect"
+  },
+    "input": {
+      "placeholder": "Enter your query in natural language..."
+    },
+    "option": {
+      "includeExplanation": "Include explanation"
+    },
+    "welcome": {
+      "title": "Welcome to AI Assistant",
+      "message": "Configure your AI provider to get started",
+      "noModels": "No AI models found",
+      "startChat": "Start a conversation by asking your first question"
+    },
+    "provider": {
+      "local": "Local service",
+      "cloud": "Cloud service",
+      "ollama": {
+        "name": "Ollama",
+        "description": "Local AI, privacy-first"
+      },
+      "openai": {
+        "name": "OpenAI",
+        "description": "GPT-4 and more"
+      },
+      "deepseek": {
+        "name": "DeepSeek",
+        "description": "Powerful reasoning AI"
+      }
+    },
+    "dialect": {
+      "label": "Database",
+      "mysql": "MySQL",
+      "postgresql": "PostgreSQL",
+      "sqlite": "SQLite"
+    },
+    "providerLabel": "Provider",
+  "message": {
+    "configSaved": "Configuration saved successfully",
+    "configSaveFailed": "Saved locally, backend sync failed",
+    "connectionSuccess": "Connection successful!",
+    "connectionFailed": "Connection failed",
+    "generating": "Generating SQL...",
+    "copiedSuccess": "Copied to clipboard",
+    "explanationNotSupported": "Detailed explanations are not supported yet."
+  },
+  "statusBanner": {
+    "connecting": "Connecting to {provider}...",
+    "disconnected": "Connection lost. Check the settings and try again.",
+    "setup": "Complete the configuration to start chatting."
+  }
+}
+}

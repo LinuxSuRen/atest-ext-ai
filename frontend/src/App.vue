@@ -1,0 +1,239 @@
+<template>
+  <div class="ai-chat-container">
+    <AIChatHeader
+      :provider="config.provider"
+      :status="config.status"
+    />
+
+    <div v-if="!isConfigured" class="welcome-panel">
+      <AIWelcomePanel @configure="showSettings = true" />
+    </div>
+
+    <div v-else class="chat-content">
+      <AIChatMessages :messages="messages" />
+      <AIChatInput
+        :loading="isLoading"
+        :include-explanation="includeExplanation"
+        :provider="config.provider"
+        :status="inputStatus"
+        :disabled="isInputDisabled"
+        v-model:database-dialect="databaseDialect"
+        :dialect-options="dialectOptions"
+        @submit="handleQuery"
+        @open-settings="showSettings = true"
+      />
+    </div>
+
+    <AISettingsPanel
+      v-model:visible="showSettings"
+      :config="config"
+      :available-models="availableModels"
+      :models-map="modelsByProvider"
+      v-model:include-explanation="includeExplanation"
+      @save="handleSave"
+      @refresh-models="refreshModels"
+    />
+  </div>
+</template>
+
+<script setup lang="ts">
+import { ref, provide, computed } from 'vue'
+import { ElMessage } from 'element-plus'
+import type { AppContext, AIConfig, DatabaseDialect } from './types'
+import { useAIChat } from './composables/useAIChat'
+import AIChatHeader from './components/AIChatHeader.vue'
+import AIChatMessages from './components/AIChatMessages.vue'
+import AIChatInput from './components/AIChatInput.vue'
+import AISettingsPanel from './components/AISettingsPanel.vue'
+import AIWelcomePanel from './components/AIWelcomePanel.vue'
+import { createPluginContextBridge } from './utils/pluginContext'
+
+// Props passed from main.ts
+interface Props {
+  context?: AppContext
+}
+const props = defineProps<Props>()
+
+const bridge = props.context ? { context: props.context } : createPluginContextBridge()
+const pluginContext = bridge.context
+
+provide('appContext', pluginContext)
+
+// Use composable with context
+const {
+  config,
+  isConfigured,
+  availableModels,
+  modelsByProvider,
+  messages,
+  isLoading,
+  handleQuery,
+  handleSaveConfig,
+  handleTestConnection,
+  refreshModels
+} = useAIChat(pluginContext)
+
+if (!config.value.databaseDialect) {
+  config.value.databaseDialect = 'mysql'
+}
+
+// UI state
+const showSettings = ref(false)
+const includeExplanation = ref(false)
+const databaseDialect = computed<DatabaseDialect>({
+  get: () => config.value.databaseDialect ?? 'mysql',
+  set: (value) => {
+    config.value.databaseDialect = value
+  }
+})
+
+const inputStatus = computed<'connected' | 'disconnected' | 'connecting' | 'setup'>(() => {
+  if (!isConfigured.value) {
+    return 'setup'
+  }
+  return config.value.status
+})
+
+const isInputDisabled = computed(() => inputStatus.value !== 'connected')
+
+// Get translation function from context
+const { t } = pluginContext.i18n
+const dialectOptions = computed(() => ([
+  { value: 'mysql' as DatabaseDialect, label: t('ai.dialect.mysql') },
+  { value: 'postgresql' as DatabaseDialect, label: t('ai.dialect.postgresql') },
+  { value: 'sqlite' as DatabaseDialect, label: t('ai.dialect.sqlite') }
+]))
+
+// Save configuration
+async function handleSave() {
+  try {
+    await handleSaveConfig()
+    ElMessage.success(t('ai.message.configSaved'))
+    showSettings.value = false
+    await handleTest(config.value)
+  } catch (error) {
+    ElMessage.warning(t('ai.message.configSaveFailed'))
+  }
+}
+
+// Test connection
+async function handleTest(updatedConfig?: AIConfig) {
+  const result = await handleTestConnection(updatedConfig)
+
+  if (result.success) {
+    ElMessage.success(t('ai.message.connectionSuccess'))
+  } else {
+    // Show detailed error message
+    let errorMsg = result.message || t('ai.message.connectionFailed')
+
+    // Add helpful tips for Ollama connection issues
+    if (result.provider === 'ollama' && result.error) {
+      errorMsg += '\n\nTroubleshooting tips:\n' +
+        '• Make sure Ollama is running: ollama serve\n' +
+        '• Verify endpoint is correct (default: http://localhost:11434)\n' +
+        '• Check if firewall is blocking the connection'
+    }
+
+    ElMessage({
+      message: errorMsg,
+      type: 'error',
+      duration: 5000,
+      dangerouslyUseHTMLString: false,
+      customClass: 'connection-error-message'
+    })
+  }
+
+  return result
+}
+</script>
+
+<style scoped>
+.ai-chat-container {
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  height: 100%;
+  max-height: 100%;
+  min-height: 0;
+  padding: clamp(16px, 4vw, 32px);
+  box-sizing: border-box;
+  gap: clamp(12px, 2vw, 20px);
+  background: var(--atest-bg-base);
+}
+
+.welcome-panel {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.chat-content {
+  flex: 1;
+  display: grid;
+  grid-template-rows: minmax(0, 1fr) auto;
+  gap: var(--atest-spacing-md);
+  overflow: hidden;
+  border-radius: var(--atest-radius-lg);
+  background: var(--atest-bg-surface);
+  box-shadow: var(--atest-shadow-md);
+  padding: clamp(12px, 3vw, 24px);
+  min-height: 0;
+  max-height: 100%;
+}
+
+@media (max-width: 1024px) {
+  .ai-chat-container {
+    padding: 24px;
+  }
+}
+
+@media (max-width: 768px) {
+  .ai-chat-container {
+    padding: 20px;
+    gap: 12px;
+  }
+
+  .chat-content {
+    border-radius: var(--atest-radius-md);
+    padding: 16px;
+  }
+}
+
+@media (max-width: 480px) {
+  .ai-chat-container {
+    padding: 16px;
+  }
+
+  .chat-content {
+    padding: 12px;
+  }
+}
+</style>
+
+<style>
+:global(html) {
+  height: 100%;
+}
+
+:global(body) {
+  height: 100%;
+  margin: 0;
+  background: var(--atest-bg-base);
+}
+
+:global(#app) {
+  height: 100%;
+}
+
+:global(#plugin-container) {
+  height: 100%;
+  display: flex;
+}
+
+:global(#plugin-container > *) {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+}
+</style>

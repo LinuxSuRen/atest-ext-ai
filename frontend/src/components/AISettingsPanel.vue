@@ -1,0 +1,602 @@
+<template>
+  <el-drawer
+    :model-value="props.visible"
+    :title="t('ai.settings.title')"
+    size="550px"
+    @close="emit('update:visible', false)"
+  >
+    <el-tabs v-model="activeTab" class="provider-tabs">
+      <!-- Local Services Tab -->
+      <el-tab-pane name="local">
+        <template #label>
+          <div class="tab-label">
+            <el-icon><Monitor /></el-icon>
+            <span>{{ t('ai.settings.localServices') }}</span>
+          </div>
+        </template>
+
+        <div class="provider-section">
+          <!-- Ollama Provider Card -->
+          <el-card class="provider-card" shadow="hover">
+            <template #header>
+              <div class="provider-header">
+                <div class="provider-title">
+                  <el-icon :size="20" class="provider-icon"><Cpu /></el-icon>
+                  <span>{{ t('ai.provider.ollama.name') }}</span>
+                </div>
+                <el-tag size="small" type="success" effect="light">
+                  {{ t('ai.provider.local') }}
+                </el-tag>
+              </div>
+              <div class="provider-description">
+                {{ t('ai.provider.ollama.description') }}
+              </div>
+            </template>
+
+            <el-form :model="localConfig" label-width="100px" label-position="top">
+              <!-- Endpoint -->
+              <el-form-item :label="t('ai.settings.endpoint')">
+                <el-input
+                  v-model="localConfig.endpoint"
+                  placeholder="http://localhost:11434"
+                />
+              </el-form-item>
+
+              <!-- Model Selection -->
+              <el-form-item :label="t('ai.settings.model')">
+                <div class="model-select-wrapper">
+                  <el-select
+                    v-model="localConfig.model"
+                    :placeholder="t('ai.welcome.noModels')"
+                    style="width: 100%"
+                    popper-class="model-dropdown"
+                    :fit-input-width="false"
+                  >
+                    <el-option
+                      v-for="model in localModels"
+                      :key="model.id"
+                      :value="model.id"
+                      :label="model.name"
+                    >
+                      <div class="model-option">
+                        <span class="model-name">{{ model.name }}</span>
+                        <span class="model-size">{{ model.size }}</span>
+                      </div>
+                    </el-option>
+                  </el-select>
+                  <el-button
+                    link
+                    type="primary"
+                    @click="emit('refresh-models', 'ollama')"
+                    class="refresh-btn"
+                  >
+                    <el-icon><Refresh /></el-icon>
+                    {{ t('ai.button.refresh') }}
+                  </el-button>
+                </div>
+              </el-form-item>
+            </el-form>
+          </el-card>
+        </div>
+      </el-tab-pane>
+
+      <!-- Cloud Services Tab -->
+      <el-tab-pane name="cloud">
+        <template #label>
+          <div class="tab-label">
+            <el-icon><CloudIcon /></el-icon>
+            <span>{{ t('ai.settings.cloudServices') }}</span>
+          </div>
+        </template>
+
+        <div class="provider-section">
+          <!-- Provider Radio Group -->
+          <el-radio-group v-model="localConfig.provider" class="provider-radio-group">
+            <!-- OpenAI -->
+            <el-card class="provider-card" :class="{ 'is-selected': localConfig.provider === 'openai' }" shadow="hover">
+              <template #header>
+                <el-radio value="openai" size="large">
+                  <div class="provider-header">
+                    <div class="provider-title">
+                      <el-icon :size="20" class="provider-icon"><MagicStick /></el-icon>
+                      <span>{{ t('ai.provider.openai.name') }}</span>
+                    </div>
+                    <el-tag size="small" type="primary" effect="light">
+                      {{ t('ai.provider.cloud') }}
+                    </el-tag>
+                  </div>
+                </el-radio>
+                <div class="provider-description">
+                  {{ t('ai.provider.openai.description') }}
+                </div>
+              </template>
+
+              <el-collapse-transition>
+                <el-form v-show="localConfig.provider === 'openai'" :model="localConfig" label-width="100px" label-position="top">
+                  <el-form-item :label="t('ai.settings.apiKey')">
+                    <el-input
+                      v-model="localConfig.apiKey"
+                      type="password"
+                      show-password
+                      autocomplete="new-password"
+                      placeholder="sk-..."
+                    />
+                  </el-form-item>
+                  <el-form-item :label="t('ai.settings.model')">
+                    <div class="model-select-wrapper">
+                      <el-select
+                        v-model="localConfig.model"
+                        style="width: 100%"
+                        popper-class="model-dropdown"
+                        :fit-input-width="false"
+                      >
+                        <template v-if="openaiModels.length">
+                          <el-option
+                            v-for="model in openaiModels"
+                            :key="model.id"
+                            :value="model.id"
+                            :label="model.name"
+                          >
+                            <div class="model-option">
+                              <span class="model-name">{{ model.name }}</span>
+                              <span class="model-size">{{ model.size }}</span>
+                            </div>
+                          </el-option>
+                        </template>
+                        <template v-else>
+                          <el-option value="gpt-5" label="GPT-5 ⭐ Recommended" />
+                          <el-option value="gpt-5-mini" label="GPT-5 Mini" />
+                          <el-option value="gpt-5-nano" label="GPT-5 Nano" />
+                          <el-option value="gpt-5-pro" label="GPT-5 Pro" />
+                          <el-option value="gpt-4.1" label="GPT-4.1" />
+                        </template>
+                      </el-select>
+                      <el-button
+                        link
+                        type="primary"
+                        @click="emit('refresh-models', 'openai')"
+                        class="refresh-btn"
+                      >
+                        <el-icon><Refresh /></el-icon>
+                        {{ t('ai.button.refresh') }}
+                      </el-button>
+                    </div>
+                  </el-form-item>
+                </el-form>
+              </el-collapse-transition>
+            </el-card>
+
+            <!-- DeepSeek -->
+            <el-card class="provider-card" :class="{ 'is-selected': localConfig.provider === 'deepseek' }" shadow="hover">
+              <template #header>
+                <el-radio value="deepseek" size="large">
+                  <div class="provider-header">
+                    <div class="provider-title">
+                      <el-icon :size="20" class="provider-icon"><Connection /></el-icon>
+                      <span>{{ t('ai.provider.deepseek.name') }}</span>
+                    </div>
+                    <el-tag size="small" type="warning" effect="light">
+                      {{ t('ai.provider.cloud') }}
+                    </el-tag>
+                  </div>
+                </el-radio>
+                <div class="provider-description">
+                  {{ t('ai.provider.deepseek.description') }}
+                </div>
+              </template>
+
+              <el-collapse-transition>
+                <el-form v-show="localConfig.provider === 'deepseek'" :model="localConfig" label-width="100px" label-position="top">
+                  <el-form-item :label="t('ai.settings.apiKey')">
+                    <el-input
+                      v-model="localConfig.apiKey"
+                      type="password"
+                      show-password
+                      autocomplete="new-password"
+                      placeholder="sk-..."
+                    />
+                  </el-form-item>
+                  <el-form-item :label="t('ai.settings.model')">
+                    <div class="model-select-wrapper">
+                      <el-select
+                        v-model="localConfig.model"
+                        style="width: 100%"
+                        popper-class="model-dropdown"
+                        :fit-input-width="false"
+                      >
+                        <template v-if="deepseekModels.length">
+                          <el-option
+                            v-for="model in deepseekModels"
+                            :key="model.id"
+                            :value="model.id"
+                            :label="model.name"
+                          >
+                            <div class="model-option">
+                              <span class="model-name">{{ model.name }}</span>
+                              <span class="model-size">{{ model.size }}</span>
+                            </div>
+                          </el-option>
+                        </template>
+                        <template v-else>
+                          <el-option value="deepseek-reasoner" label="DeepSeek Reasoner ⭐" />
+                          <el-option value="deepseek-chat" label="DeepSeek Chat" />
+                        </template>
+                      </el-select>
+                      <el-button
+                        link
+                        type="primary"
+                        @click="emit('refresh-models', 'deepseek')"
+                        class="refresh-btn"
+                      >
+                        <el-icon><Refresh /></el-icon>
+                        {{ t('ai.button.refresh') }}
+                      </el-button>
+                    </div>
+                  </el-form-item>
+                </el-form>
+              </el-collapse-transition>
+            </el-card>
+          </el-radio-group>
+        </div>
+      </el-tab-pane>
+    </el-tabs>
+
+    <!-- Advanced Settings (Common for all providers) -->
+    <div class="advanced-section">
+      <el-divider>{{ t('ai.settings.advanced') }}</el-divider>
+      <el-form :model="localConfig" label-width="120px">
+        <el-form-item :label="t('ai.option.includeExplanation')">
+          <el-checkbox v-model="explanation">
+            {{ t('ai.option.includeExplanation') }}
+          </el-checkbox>
+        </el-form-item>
+        <el-form-item :label="t('ai.settings.timeout')">
+          <div class="timeout-control">
+            <el-input-number
+              v-model="localConfig.timeout"
+              :min="10"
+              :max="900"
+              :step="10"
+            />
+            <span class="timeout-hint">
+              {{ isLocalProvider ? t('ai.settings.timeoutHintLocal') : t('ai.settings.timeoutHintCloud') }}
+            </span>
+          </div>
+        </el-form-item>
+        <el-form-item :label="t('ai.settings.maxTokens')">
+          <el-input-number
+            v-model="localConfig.maxTokens"
+            :min="256"
+            :max="8192"
+            :step="256"
+          />
+        </el-form-item>
+      </el-form>
+    </div>
+
+    <template #footer>
+      <div class="dialog-footer">
+        <el-button @click="emit('update:visible', false)">
+          {{ t('ai.button.close') }}
+        </el-button>
+        <el-button type="primary" @click="handleSave">
+          <el-icon><Check /></el-icon>
+          {{ t('ai.button.save') }}
+        </el-button>
+      </div>
+    </template>
+  </el-drawer>
+</template>
+
+<script setup lang="ts">
+import { ref, inject, watch, computed } from 'vue'
+import {
+  Refresh,
+  Monitor,
+  Cloudy as CloudIcon,
+  Cpu,
+  MagicStick,
+  Check
+} from '@element-plus/icons-vue'
+import { ElMessage } from 'element-plus'
+import type { AppContext, AIConfig, Model } from '../types'
+import { loadConfigForProvider, type Provider } from '../utils/config'
+
+interface Props {
+  visible: boolean
+  config: AIConfig
+  availableModels: Model[]
+  modelsMap?: Partial<Record<Provider, Model[]>>
+  includeExplanation: boolean
+}
+const props = defineProps<Props>()
+
+interface Emits {
+  (e: 'update:visible', value: boolean): void
+  (e: 'save'): void
+  (e: 'refresh-models', provider?: Provider): void
+  (e: 'update:include-explanation', value: boolean): void
+}
+const emit = defineEmits<Emits>()
+
+// Inject context
+const context = inject<AppContext>('appContext')!
+const { t } = context.i18n
+
+// Local config copy
+const localConfig = ref<AIConfig>({ ...props.config })
+
+const providerModels = computed<Record<Provider, Model[]>>(() => ({
+  ollama: props.modelsMap?.ollama ?? props.availableModels ?? [],
+  local: props.modelsMap?.ollama ?? props.availableModels ?? [],  // Alias for ollama
+  openai: props.modelsMap?.openai ?? [],
+  deepseek: props.modelsMap?.deepseek ?? []
+}))
+const localModels = computed(() => providerModels.value.ollama)
+const openaiModels = computed(() => providerModels.value.openai)
+const deepseekModels = computed(() => providerModels.value.deepseek)
+const isLocalProvider = computed(() => (localConfig.value.provider === 'ollama' || localConfig.value.provider === 'local'))
+
+const explanation = computed({
+  get: () => props.includeExplanation,
+  set: (value: boolean) => emit('update:include-explanation', value)
+})
+
+// Active tab state - automatically switch based on provider
+const activeTab = computed({
+  get() {
+    return localConfig.value.provider === 'ollama' ? 'local' : 'cloud'
+  },
+  set(tab: string) {
+    // When switching tabs, update provider to a default for that category
+    if (tab === 'local') {
+      localConfig.value.provider = 'ollama'
+    } else if (tab === 'cloud' && localConfig.value.provider === 'ollama') {
+      localConfig.value.provider = 'openai'
+    }
+  }
+})
+
+// Watch config changes
+watch(() => props.config, (newConfig) => {
+  localConfig.value = { ...newConfig }
+  localConfig.value.timeout = clampTimeout(localConfig.value.timeout || 120)
+}, { deep: true })
+
+watch(() => localConfig.value.provider, (newProvider, oldProvider) => {
+  if (newProvider === oldProvider) {
+    return
+  }
+
+  const normalizedProvider: Provider = newProvider === 'local' ? 'ollama' : newProvider as Provider
+  const providerConfig = loadConfigForProvider(normalizedProvider)
+
+  localConfig.value = {
+    ...localConfig.value,
+    ...providerConfig,
+    provider: newProvider
+  }
+
+  localConfig.value.timeout = clampTimeout(localConfig.value.timeout || (normalizedProvider === 'ollama' ? 120 : 180))
+})
+
+watch(() => localConfig.value.timeout, (value) => {
+  if (typeof value !== 'number' || Number.isNaN(value)) {
+    localConfig.value.timeout = 120
+  } else {
+    localConfig.value.timeout = clampTimeout(value)
+  }
+})
+
+const clampTimeout = (value: number): number => {
+  const clamped = Math.min(Math.max(Math.round(value), 10), 900)
+  return clamped
+}
+
+localConfig.value.timeout = clampTimeout(localConfig.value.timeout || 120)
+
+watch(explanation, (value) => {
+  if (value) {
+    ElMessage.info(t('ai.message.explanationNotSupported'))
+    explanation.value = false
+  }
+})
+
+function handleSave() {
+  // Copy local config back to props
+  Object.assign(props.config, localConfig.value)
+  emit('save')
+}
+</script>
+
+<style scoped>
+/* Tabs styling */
+.provider-tabs {
+  margin: -12px -20px 0;
+}
+
+.provider-tabs :deep(.el-tabs__header) {
+  background: var(--el-bg-color-page);
+  margin: 0;
+  padding: 0 20px;
+}
+
+.provider-tabs :deep(.el-tabs__nav-wrap) {
+  padding-top: 8px;
+}
+
+.provider-tabs :deep(.el-tabs__content) {
+  padding: 20px;
+}
+
+.tab-label {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 14px;
+  font-weight: 500;
+}
+
+/* Provider Section */
+.provider-section {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+/* Provider Card */
+.provider-card {
+  border-radius: 12px;
+  transition: all 0.3s ease;
+}
+
+.provider-card.is-selected {
+  border-color: var(--el-color-primary);
+  box-shadow: 0 4px 12px var(--el-color-primary-light-8);
+}
+
+.provider-card :deep(.el-card__header) {
+  padding: 16px 20px;
+  background: var(--el-fill-color-light);
+  border-bottom: 1px solid var(--el-border-color);
+}
+
+.provider-card :deep(.el-card__body) {
+  padding: 20px;
+}
+
+/* Provider Header */
+.provider-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 8px;
+}
+
+.provider-title {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 16px;
+  font-weight: 600;
+  color: var(--el-text-color-primary);
+}
+
+.provider-icon {
+  color: var(--el-color-primary);
+}
+
+.provider-description {
+  font-size: 13px;
+  color: var(--el-text-color-regular);
+  margin-top: 8px;
+  line-height: 1.5;
+}
+
+/* Provider Radio Group */
+.provider-radio-group {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  width: 100%;
+}
+
+.provider-radio-group :deep(.el-radio) {
+  margin-right: 0;
+}
+
+.provider-radio-group :deep(.el-radio__label) {
+  width: 100%;
+  padding-left: 0;
+}
+
+/* Model Select */
+.model-select-wrapper {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  width: 100%;
+  align-items: stretch;
+}
+
+.model-select-wrapper :deep(.el-select) {
+  width: 100%;
+}
+
+.refresh-btn {
+  align-self: flex-start;
+  font-size: 13px;
+}
+
+.timeout-control {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.timeout-hint {
+  font-size: 12px;
+  color: var(--el-text-color-secondary);
+}
+
+.model-option {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  width: 100%;
+}
+
+:deep(.model-dropdown) {
+  min-width: 360px;
+  max-width: 520px;
+}
+
+.model-name {
+  font-weight: 500;
+}
+
+.model-size {
+  font-size: 12px;
+  color: var(--el-text-color-secondary);
+}
+
+/* Advanced Section */
+.advanced-section {
+  margin-top: 24px;
+  padding: 0 20px;
+}
+
+.advanced-section .el-divider {
+  margin: 24px 0 20px;
+}
+
+/* Dialog Footer */
+.dialog-footer {
+  display: flex;
+  justify-content: flex-end;
+  gap: 12px;
+  padding: 16px 20px;
+}
+
+.dialog-footer .el-button {
+  padding: 10px 20px;
+  border-radius: 8px;
+}
+
+/* Form styling */
+:deep(.el-form-item__label) {
+  font-weight: 500;
+  color: var(--el-text-color-regular);
+}
+
+:deep(.el-input__inner),
+:deep(.el-select) {
+  border-radius: 8px;
+}
+
+:deep(.el-select-dropdown__item) {
+  height: auto;
+  line-height: 1.5;
+  padding: 10px 16px;
+}
+</style>

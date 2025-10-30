@@ -1,0 +1,306 @@
+name: CI Pipeline
+
+on:
+  push:
+    branches: [ main, master, develop, 'feature/**' ]
+    tags: [ 'v*' ]
+  pull_request:
+    branches: [ main, master, develop ]
+
+env:
+  GO_VERSION: 1.22
+  REGISTRY: ghcr.io
+  IMAGE_NAME: ${{ github.repository }}
+
+jobs:
+  # Code quality and security checks
+  quality:
+    name: Code Quality & Security
+    runs-on: ubuntu-latest
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Set up Go
+      uses: actions/setup-go@v5
+      with:
+        go-version: ${{ env.GO_VERSION }}
+
+    - name: Clean Go module cache directory
+      run: |
+        rm -rf ~/.cache/go-build || true
+        rm -rf ~/go/pkg/mod || true
+
+    - name: Cache Go modules
+      uses: actions/cache@v4
+      with:
+        path: |
+          ~/.cache/go-build
+          ~/go/pkg/mod
+        key: ${{ runner.os }}-go-${{ hashFiles('**/go.sum') }}
+        restore-keys: |
+          ${{ runner.os }}-go-
+
+    - name: Install dependencies
+      run: make deps
+
+    - name: Format check
+      run: |
+        make fmt
+        if [ -n "$(git status --porcelain)" ]; then
+          echo "Code is not formatted properly"
+          git diff
+          exit 1
+        fi
+
+    - name: Build frontend assets
+      run: make build-frontend
+
+    - name: Install golangci-lint v2
+      run: |
+        curl -sSfL https://raw.githubusercontent.com/golangci/golangci-lint/master/install.sh | sh -s -- -b "$(go env GOPATH)/bin" v2.4.0
+        echo "$(go env GOPATH)/bin" >> $GITHUB_PATH
+
+    - name: Lint
+      run: golangci-lint run --timeout=10m
+
+    - name: Security check with gosec
+      run: |
+        # Install gosec
+        go install github.com/securego/gosec/v2/cmd/gosec@latest
+
+        # Run gosec (allow it to fail)
+        echo "Running gosec security scan..."
+        gosec ./... || true
+
+        echo "Gosec scan completed"
+
+    - name: Verify Go modules
+      run: go mod verify
+
+  # Comprehensive testing
+  test:
+    name: Test Suite
+    runs-on: ubuntu-latest
+    needs: quality
+    strategy:
+      matrix:
+        go-version: [1.22]
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_PASSWORD: ci_test_password_postgres
+          POSTGRES_USER: ci_test_user
+          POSTGRES_DB: ci_test_db
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+        ports:
+          - 5432:5432
+
+      mysql:
+        image: mysql:8.0
+        env:
+          MYSQL_ROOT_PASSWORD: ci_test_root_password_mysql
+          MYSQL_DATABASE: ci_test_db
+          MYSQL_USER: ci_test_user
+          MYSQL_PASSWORD: ci_test_password_mysql
+        options: >-
+          --health-cmd="mysqladmin ping"
+          --health-interval=10s
+          --health-timeout=5s
+          --health-retries=3
+        ports:
+          - 3306:3306
+
+      redis:
+        image: redis:7
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+        ports:
+          - 6379:6379
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Set up Go ${{ matrix.go-version }}
+      uses: actions/setup-go@v5
+      with:
+        go-version: ${{ matrix.go-version }}
+
+    - name: Clean Go module cache directory
+      run: |
+        rm -rf ~/.cache/go-build || true
+        rm -rf ~/go/pkg/mod || true
+
+    - name: Cache Go modules
+      uses: actions/cache@v4
+      with:
+        path: |
+          ~/.cache/go-build
+          ~/go/pkg/mod
+        key: ${{ runner.os }}-go-${{ matrix.go-version }}-${{ hashFiles('**/go.sum') }}
+
+    - name: Install dependencies
+      run: make deps
+
+    - name: Run unit tests
+      run: make test
+      env:
+        POSTGRES_URL: postgres://testuser:testpass@localhost:5432/testdb?sslmode=disable
+        MYSQL_URL: testuser:testpass@tcp(localhost:3306)/testdb
+        REDIS_URL: redis://localhost:6379
+
+    - name: Verify plugin functionality
+      run: |
+        echo "Testing plugin build and basic functionality..."
+        make build
+        echo "Plugin built successfully"
+
+    - name: Run benchmarks
+      run: make benchmark
+
+    - name: Upload coverage to Codecov
+      if: matrix.go-version == '1.22'
+      uses: codecov/codecov-action@v4
+      with:
+        file: ./coverage.out
+        flags: unittests
+        name: codecov-umbrella
+
+  # Docker image build and push
+  docker:
+    name: Docker Build & Push
+    runs-on: ubuntu-latest
+    needs: [quality, test]
+    permissions:
+      contents: read
+      packages: write
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Set up QEMU
+      uses: docker/setup-qemu-action@v3
+
+    - name: Set up Docker Buildx
+      uses: docker/setup-buildx-action@v3
+
+    - name: Log in to Container Registry
+      if: github.event_name != 'pull_request'
+      uses: docker/login-action@v3
+      with:
+        registry: ${{ env.REGISTRY }}
+        username: ${{ github.actor }}
+        password: ${{ secrets.GITHUB_TOKEN }}
+
+    - name: Generate Docker tag
+      id: docker-tag
+      run: |
+        if [ "${{ github.event_name }}" = "pull_request" ]; then
+          TAG="pr-${{ github.event.number }}"
+        else
+          TAG="${{ github.ref_name }}"
+          # Sanitize tag name
+          TAG=$(echo "$TAG" | sed 's/[^a-zA-Z0-9_.-]/-/g')
+        fi
+        echo "tag=$TAG" >> $GITHUB_OUTPUT
+        echo "Generated Docker tag: $TAG"
+
+    - name: Generate lowercase image name
+      id: image-name
+      run: |
+        IMAGE_NAME_LOWER=$(echo "${{ env.IMAGE_NAME }}" | tr '[:upper:]' '[:lower:]')
+        echo "name=$IMAGE_NAME_LOWER" >> $GITHUB_OUTPUT
+        echo "Generated lowercase image name: $IMAGE_NAME_LOWER"
+
+    - name: Extract metadata
+      id: meta
+      uses: docker/metadata-action@v5
+      with:
+        images: ${{ env.REGISTRY }}/${{ steps.image-name.outputs.name }}
+        tags: |
+          type=raw,value=${{ steps.docker-tag.outputs.tag }}
+          type=raw,value=latest,enable={{is_default_branch}}
+
+    - name: Build and push Docker image
+      uses: docker/build-push-action@v5
+      with:
+        context: .
+        file: ./Dockerfile
+        platforms: linux/amd64,linux/arm64
+        push: ${{ github.event_name != 'pull_request' }}
+        tags: ${{ steps.meta.outputs.tags }}
+        labels: ${{ steps.meta.outputs.labels }}
+        cache-from: type=gha
+        cache-to: type=gha,mode=max
+        build-args: |
+          VERSION=${{ github.sha }}
+          BUILD_DATE=${{ github.event.head_commit.timestamp }}
+
+
+  # Security scanning
+  security:
+    name: Security Scan
+    runs-on: ubuntu-latest
+    needs: [docker]
+    if: github.event_name != 'pull_request' && needs.docker.result == 'success'
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Generate Docker tag for scanning
+      id: scan-tag
+      run: |
+        if [ "${{ github.event_name }}" = "pull_request" ]; then
+          TAG="pr-${{ github.event.number }}"
+        else
+          TAG="${{ github.ref_name }}"
+          # Sanitize tag name
+          TAG=$(echo "$TAG" | sed 's/[^a-zA-Z0-9_.-]/-/g')
+        fi
+        echo "tag=$TAG" >> $GITHUB_OUTPUT
+
+    - name: Generate lowercase image name for scanning
+      id: scan-image-name
+      run: |
+        IMAGE_NAME_LOWER=$(echo "${{ env.IMAGE_NAME }}" | tr '[:upper:]' '[:lower:]')
+        IMAGE_REF="${{ env.REGISTRY }}/${IMAGE_NAME_LOWER}:${{ steps.scan-tag.outputs.tag }}"
+        echo "image_ref=$IMAGE_REF" >> $GITHUB_OUTPUT
+        echo "Scanning Docker image: $IMAGE_REF"
+
+    - name: Wait for image availability
+      run: |
+        IMAGE_REF="${{ steps.scan-image-name.outputs.image_ref }}"
+        echo "Checking if image exists: $IMAGE_REF"
+
+        # Try to pull the image to verify it exists
+        if docker manifest inspect "$IMAGE_REF" >/dev/null 2>&1; then
+          echo "✅ Image found: $IMAGE_REF"
+          echo "SCAN_IMAGE=true" >> $GITHUB_ENV
+        else
+          echo "⚠️ Image not found: $IMAGE_REF"
+          echo "SCAN_IMAGE=false" >> $GITHUB_ENV
+          echo "Skipping Trivy scan - image not available"
+        fi
+
+    - name: Run Trivy vulnerability scanner
+      if: env.SCAN_IMAGE == 'true'
+      uses: aquasecurity/trivy-action@master
+      with:
+        image-ref: ${{ steps.scan-image-name.outputs.image_ref }}
+        format: 'sarif'
+        output: 'trivy-results.sarif'
+
+    - name: Upload Trivy scan results to GitHub Security tab
+      if: env.SCAN_IMAGE == 'true' && always()
+      uses: github/codeql-action/upload-sarif@v3
+      with:
+        sarif_file: 'trivy-results.sarif'

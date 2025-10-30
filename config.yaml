@@ -1,0 +1,38 @@
+# atest-ext-ai Minimal Configuration
+# This file provides minimal working defaults for quick start
+
+# Plugin metadata
+plugin:
+  name: atest-ext-ai
+  version: 1.0.0
+  log_level: info
+  environment: production
+
+# AI Service Configuration
+ai:
+  default_service: ollama
+  timeout: 60s
+
+  services:
+    # Local Ollama (default configuration)
+    ollama:
+      enabled: true
+      provider: ollama
+      endpoint: http://localhost:11434
+      model: qwen2.5-coder:latest
+      max_tokens: 4096
+      timeout: 60s
+
+# Server configuration
+server:
+  host: 0.0.0.0
+  port: 8080
+  socket_path: /tmp/atest-ext-ai.sock
+  # Windows hosts会自动使用本地 TCP 端口，如果需要自定义可修改此项
+  listen_address: 127.0.0.1:38081
+
+# Logging configuration
+logging:
+  level: info
+  format: json
+  output: stdout
