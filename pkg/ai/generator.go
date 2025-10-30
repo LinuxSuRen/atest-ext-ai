@@ -676,6 +676,7 @@ func (g *SQLGenerator) getOrCreateRuntimeClient(options *GenerateOptions) (inter
 	return client, false, nil
 }
 
+// Close releases all cached runtime clients held by the generator.
 func (g *SQLGenerator) Close() {
 	g.runtimeMu.Lock()
 	defer g.runtimeMu.Unlock()

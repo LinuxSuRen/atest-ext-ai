@@ -99,8 +99,7 @@ type aiEngine struct {
 	manager   *Manager
 }
 
-// NewEngine creates a new AI engine based on configuration
-
+// NewEngine creates a new AI engine based on configuration.
 func NewEngine(cfg config.AIConfig) (Engine, error) {
 	manager, err := NewAIManager(cfg)
 	if err != nil {
@@ -156,6 +155,7 @@ func newEngineFromManager(manager *Manager, cfg config.AIConfig) (Engine, error)
 	}, nil
 }
 
+// NewEngineWithManager constructs an Engine using a pre-configured Manager.
 func NewEngineWithManager(manager *Manager, cfg config.AIConfig) (Engine, error) {
 	if manager == nil {
 		return nil, fmt.Errorf("manager cannot be nil")

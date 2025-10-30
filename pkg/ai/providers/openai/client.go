@@ -25,6 +25,7 @@ import (
 	"time"
 
 	"github.com/linuxsuren/atest-ext-ai/pkg/interfaces"
+	"github.com/linuxsuren/atest-ext-ai/pkg/logging"
 	"github.com/tmc/langchaingo/llms"
 	"github.com/tmc/langchaingo/llms/openai"
 )
@@ -289,7 +290,11 @@ func (c *Client) HealthCheck(ctx context.Context) (*interfaces.HealthStatus, err
 		status.Errors = []string{err.Error()}
 		return status, nil
 	}
-	defer resp.Body.Close()
+	defer func() {
+		if cerr := resp.Body.Close(); cerr != nil {
+			logging.Logger.Warn("Failed to close OpenAI health check response body", "error", cerr)
+		}
+	}()
 
 	if resp.StatusCode >= 200 && resp.StatusCode < 300 {
 		status.Healthy = true

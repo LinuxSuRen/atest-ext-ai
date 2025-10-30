@@ -1258,7 +1258,7 @@ func (s *AIPluginService) handleTestConnection(ctx context.Context, req *server.
 }
 
 // handleUpdateConfig updates the configuration for a provider
-func (s *AIPluginService) handleUpdateConfig(ctx context.Context, req *server.DataQuery) (*server.DataQueryResult, error) {
+func (s *AIPluginService) handleUpdateConfig(_ context.Context, req *server.DataQuery) (*server.DataQueryResult, error) {
 	logging.Logger.Debug("Handling update config request", "sql_length", len(req.Sql))
 
 	// Parse update request from SQL field
