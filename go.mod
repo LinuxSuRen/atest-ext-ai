@@ -6,6 +6,7 @@ toolchain go1.24.2
 
 require (
 	github.com/linuxsuren/api-testing v0.0.19
+	github.com/prometheus/client_golang v1.22.0
 	github.com/stretchr/testify v1.11.1
 	github.com/tmc/langchaingo v0.1.13
 	google.golang.org/grpc v1.73.0
@@ -26,7 +27,6 @@ require (
 	github.com/evanphx/json-patch v0.5.2 // indirect
 	github.com/expr-lang/expr v1.15.6 // indirect
 	github.com/flopp/go-findfont v0.1.0 // indirect
-	github.com/fsnotify/fsnotify v1.9.0 // indirect
 	github.com/ghodss/yaml v1.0.0 // indirect
 	github.com/go-logr/logr v1.4.3 // indirect
 	github.com/go-logr/zapr v1.3.0 // indirect
@@ -58,7 +58,6 @@ require (
 	github.com/pkg/errors v0.9.1 // indirect
 	github.com/pkoukk/tiktoken-go v0.1.6 // indirect
 	github.com/pmezard/go-difflib v1.0.0 // indirect
-	github.com/prometheus/client_golang v1.22.0 // indirect
 	github.com/prometheus/client_model v0.6.2 // indirect
 	github.com/prometheus/common v0.65.0 // indirect
 	github.com/prometheus/procfs v0.15.1 // indirect
@@ -95,4 +94,4 @@ require (
 	gopkg.in/yaml.v3 v3.0.1 // indirect
 )
 
-replace github.com/linuxsuren/api-testing => ../api-testing
+replace github.com/linuxsuren/api-testing => github.com/KariHall619/api-testing v0.0.0-20251029132820-3826187ae019
