@@ -333,7 +333,7 @@ func (s *AIPluginService) Query(ctx context.Context, req *server.DataQuery) (*se
 				errMsg += " Please check AI provider configuration and connectivity."
 			}
 
-			return nil, status.Errorf(codes.FailedPrecondition, errMsg)
+			return nil, status.Error(codes.FailedPrecondition, errMsg)
 		}
 		return s.handleAIGenerate(ctx, req)
 	case "capabilities":
@@ -361,7 +361,7 @@ func (s *AIPluginService) Query(ctx context.Context, req *server.DataQuery) (*se
 				errMsg += " Please check AI service configuration."
 			}
 
-			return nil, status.Errorf(codes.FailedPrecondition, errMsg)
+			return nil, status.Error(codes.FailedPrecondition, errMsg)
 		}
 		return s.handleGetProviders(ctx, req)
 	case "models":
@@ -387,7 +387,7 @@ func (s *AIPluginService) Query(ctx context.Context, req *server.DataQuery) (*se
 				errMsg += " Please check AI service configuration."
 			}
 
-			return nil, status.Errorf(codes.FailedPrecondition, errMsg)
+			return nil, status.Error(codes.FailedPrecondition, errMsg)
 		}
 		return s.handleGetModels(ctx, req)
 	case "test_connection":
@@ -413,7 +413,7 @@ func (s *AIPluginService) Query(ctx context.Context, req *server.DataQuery) (*se
 				errMsg += " Please check AI service configuration."
 			}
 
-			return nil, status.Errorf(codes.FailedPrecondition, errMsg)
+			return nil, status.Error(codes.FailedPrecondition, errMsg)
 		}
 		return s.handleTestConnection(ctx, req)
 	case "health_check":
@@ -440,7 +440,7 @@ func (s *AIPluginService) Query(ctx context.Context, req *server.DataQuery) (*se
 				errMsg += " Please check AI service configuration."
 			}
 
-			return nil, status.Errorf(codes.FailedPrecondition, errMsg)
+			return nil, status.Error(codes.FailedPrecondition, errMsg)
 		}
 		return s.handleUpdateConfig(ctx, req)
 	default:
@@ -468,7 +468,7 @@ func (s *AIPluginService) Query(ctx context.Context, req *server.DataQuery) (*se
 				errMsg += " Please check AI provider configuration and connectivity."
 			}
 
-			return nil, status.Errorf(codes.FailedPrecondition, errMsg)
+			return nil, status.Error(codes.FailedPrecondition, errMsg)
 		}
 		return s.handleLegacyQuery(ctx, req)
 	}
