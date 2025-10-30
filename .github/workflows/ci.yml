@@ -53,10 +53,13 @@ jobs:
           exit 1
         fi
 
+    - name: Build frontend assets
+      run: make build-frontend
+
     - name: Lint
       uses: golangci/golangci-lint-action@v4
       with:
-        version: latest
+        version: v2.4.0
         args: --timeout=10m
 
     - name: Security check with gosec

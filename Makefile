@@ -29,7 +29,7 @@ build: $(FRONTEND_ASSETS) ## Build the plugin binary
 pkg/plugin/assets/ai-chat.js: build-frontend ;
 pkg/plugin/assets/ai-chat.css: build-frontend ;
 
-test: ## Run tests with coverage
+test: $(FRONTEND_ASSETS) ## Run tests with coverage
 	go test -v -race -coverprofile=coverage.out ./...
 	go tool cover -func=coverage.out | tail -n 1
 
@@ -76,19 +76,19 @@ lint-check: ## Run golangci-lint without fixes
 vet: ## Run go vet
 	go vet ./...
 
-verify: ## Format, lint, vet and test Go code
+verify: build-frontend ## Format, lint, vet and test Go code
 	$(MAKE) fmt
 	$(MAKE) lint-check
 	$(MAKE) vet
 	$(MAKE) test
 
-check: ## Run all checks (fmt, vet, lint, test)
+check: build-frontend ## Run all checks (fmt, vet, lint, test)
 	$(MAKE) fmt
 	$(MAKE) vet
 	$(MAKE) lint-check
 	$(MAKE) test
 
-benchmark: ## Run benchmark tests
+benchmark: $(FRONTEND_ASSETS) ## Run benchmark tests
 	go test -bench=. -benchmem -run=^$$ ./...
 
 docker-build: ## Build Docker image
