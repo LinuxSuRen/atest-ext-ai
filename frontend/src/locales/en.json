@@ -25,13 +25,13 @@
     "save": "Save",
     "reset": "Reset",
     "refresh": "Refresh",
-    "testConnection": "Test Connection",
     "close": "Close",
     "copy": "Copy"
   },
   "tooltip": {
     "configure": "Open AI settings",
-    "generate": "Generate SQL"
+    "generate": "Generate SQL",
+    "dialect": "Select database dialect"
   },
     "input": {
       "placeholder": "Enter your query in natural language..."
@@ -60,6 +60,12 @@
         "name": "DeepSeek",
         "description": "Powerful reasoning AI"
       }
+    },
+    "dialect": {
+      "label": "Database",
+      "mysql": "MySQL",
+      "postgresql": "PostgreSQL",
+      "sqlite": "SQLite"
     },
     "providerLabel": "Provider",
   "message": {

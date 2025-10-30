@@ -1,5 +1,5 @@
 import { ref, computed, watch } from 'vue'
-import type { AppContext, AIConfig, Message, Model } from '@/types'
+import type { AppContext, AIConfig, Message, Model, DatabaseDialect } from '@/types'
 import { loadConfig, loadConfigForProvider, saveConfig, getMockModels, generateId, type Provider } from '@/utils/config'
 import { aiService } from '@/services/aiService'
 
@@ -106,7 +106,7 @@ export function useAIChat(_context: AppContext) {
   /**
    * Handle query submission
    */
-  async function handleQuery(prompt: string, options: { includeExplanation: boolean }) {
+  async function handleQuery(prompt: string, options: { includeExplanation: boolean; databaseDialect: DatabaseDialect }) {
     console.log('🎯 [useAIChat] handleQuery called', {
       prompt,
       options,
@@ -143,7 +143,8 @@ export function useAIChat(_context: AppContext) {
         prompt,
         timeout: config.value.timeout,
         maxTokens: config.value.maxTokens,
-        includeExplanation: options.includeExplanation
+        includeExplanation: options.includeExplanation,
+        databaseDialect: options.databaseDialect ?? config.value.databaseDialect ?? 'mysql'
       })
 
       console.log('✅ [useAIChat] Received response', {

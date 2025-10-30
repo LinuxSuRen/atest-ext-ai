@@ -125,13 +125,15 @@ export const aiService = {
       }>('generate', {
         model: request.model,
         prompt: request.prompt,
+        database_type: request.databaseDialect,
         config: JSON.stringify({
           include_explanation: request.includeExplanation,
           provider: request.provider,
           endpoint: request.endpoint,
           api_key: request.apiKey,
           max_tokens: request.maxTokens,
-          timeout: formatTimeout(request.timeout)
+          timeout: formatTimeout(request.timeout),
+          database_type: request.databaseDialect
         })
       })
 
@@ -158,11 +160,28 @@ export const aiService = {
         }
       }
 
+      const parsedMeta = safeParseJSON<Record<string, any>>(result.meta)
+      const normalizedMeta = (() => {
+        if (parsedMeta && typeof parsedMeta === 'object') {
+          return {
+            ...parsedMeta,
+            dialect: parsedMeta.dialect ?? request.databaseDialect
+          }
+        }
+        if (result.meta) {
+          return {
+            raw: result.meta,
+            dialect: request.databaseDialect
+          }
+        }
+        return { dialect: request.databaseDialect }
+      })()
+
       const response = {
         success: toBoolean(result.success),
         sql,
         explanation: explanation || undefined,
-        meta: safeParseJSON(result.meta) ?? result.meta,
+        meta: normalizedMeta,
         error: result.error
       }
 
@@ -197,7 +216,8 @@ export const aiService = {
         model: config.model,
         api_key: config.apiKey,
         max_tokens: config.maxTokens,
-        timeout: formatTimeout(config.timeout)
+        timeout: formatTimeout(config.timeout),
+        database_type: config.databaseDialect
       }
     })
   }

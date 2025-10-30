@@ -23,6 +23,8 @@ export interface AppContext {
  * - 'deepseek': DeepSeek cloud service
  * - 'local': Internal alias for 'ollama' (backward compatibility only, not shown in UI)
  */
+export type DatabaseDialect = 'mysql' | 'postgresql' | 'sqlite'
+
 export interface AIConfig {
   provider: 'ollama' | 'local' | 'openai' | 'deepseek'
   endpoint: string
@@ -31,6 +33,7 @@ export interface AIConfig {
   timeout: number
   maxTokens: number
   status: 'connected' | 'disconnected' | 'connecting'
+  databaseDialect: DatabaseDialect
 }
 
 /**
@@ -66,6 +69,7 @@ export interface QueryRequest {
   timeout: number
   maxTokens: number
   includeExplanation: boolean
+  databaseDialect: DatabaseDialect
 }
 
 /**

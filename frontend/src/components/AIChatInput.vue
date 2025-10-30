@@ -37,11 +37,26 @@
 
     <div class="input-footer">
       <div class="footer-left">
+        <el-tooltip :content="dialectTooltip" placement="top">
+          <el-select
+            v-model="dialectModel"
+            class="dialect-select"
+            size="small"
+            :disabled="props.loading"
+          >
+            <el-option
+              v-for="option in props.dialectOptions"
+              :key="option.value"
+              :label="option.label"
+              :value="option.value"
+            />
+          </el-select>
+        </el-tooltip>
         <el-tooltip :content="configureTooltip" placement="top">
           <el-button
             class="footer-btn configure-btn"
             type="default"
-            :disabled="props.disabled"
+            :disabled="props.loading"
             @click="emit('open-settings')"
           >
             <el-icon><Setting /></el-icon>
@@ -66,9 +81,9 @@
 </template>
 
 <script setup lang="ts">
-import { ref, inject, computed } from 'vue'
+import { ref, inject, computed, withDefaults } from 'vue'
 import { Promotion, Setting, WarningFilled, InfoFilled } from '@element-plus/icons-vue'
-import type { AppContext } from '../types'
+import type { AppContext, DatabaseDialect } from '../types'
 
 interface Props {
   loading: boolean
@@ -76,12 +91,21 @@ interface Props {
   provider: string
   status: 'connected' | 'disconnected' | 'connecting' | 'setup'
   disabled: boolean
+  databaseDialect: DatabaseDialect
+  dialectOptions: Array<{ value: DatabaseDialect; label: string }>
 }
-const props = defineProps<Props>()
+const props = withDefaults(defineProps<Props>(), {
+  dialectOptions: () => [
+    { value: 'mysql' as DatabaseDialect, label: 'MySQL' },
+    { value: 'postgresql' as DatabaseDialect, label: 'PostgreSQL' },
+    { value: 'sqlite' as DatabaseDialect, label: 'SQLite' }
+  ]
+})
 
 interface Emits {
-  (e: 'submit', prompt: string, options: { includeExplanation: boolean }): void
+  (e: 'submit', prompt: string, options: { includeExplanation: boolean; databaseDialect: DatabaseDialect }): void
   (e: 'open-settings'): void
+  (e: 'update:databaseDialect', dialect: DatabaseDialect): void
 }
 const emit = defineEmits<Emits>()
 
@@ -94,6 +118,7 @@ const prompt = ref('')
 
 const configureTooltip = computed(() => t('ai.tooltip.configure'))
 const generateTooltip = computed(() => (props.loading ? t('ai.message.generating') : t('ai.tooltip.generate')))
+const dialectTooltip = computed(() => t('ai.tooltip.dialect'))
 
 const providerKey = computed(() => (props.provider === 'local' ? 'ollama' : props.provider))
 const providerLabel = computed(() => {
@@ -131,11 +156,17 @@ const statusIcon = computed(() => {
 const showStatusBanner = computed(() => props.status === 'disconnected' || props.status === 'setup')
 const showConfigureLink = showStatusBanner
 
+const dialectModel = computed({
+  get: () => props.databaseDialect,
+  set: (value: DatabaseDialect) => emit('update:databaseDialect', value)
+})
+
 function handleSubmit() {
   if (!prompt.value.trim() || props.loading || props.disabled) return
 
   emit('submit', prompt.value, {
-    includeExplanation: props.includeExplanation
+    includeExplanation: props.includeExplanation,
+    databaseDialect: props.databaseDialect
   })
 
   // Clear input after submit
@@ -205,6 +236,7 @@ function handleSubmit() {
 .footer-right {
   display: flex;
   align-items: center;
+  gap: var(--atest-spacing-xs);
 }
 
 .footer-left {
@@ -213,6 +245,15 @@ function handleSubmit() {
 
 .footer-right {
   justify-content: flex-end;
+}
+
+.dialect-select {
+  min-width: 170px;
+}
+
+.dialect-select :deep(.el-select__wrapper),
+.dialect-select :deep(.el-input__wrapper) {
+  border-radius: 10px;
 }
 
 .footer-btn {
@@ -304,6 +345,20 @@ function handleSubmit() {
 
   .input-shell :deep(.el-textarea__inner) {
     min-height: 112px;
+  }
+
+  .input-footer {
+    grid-template-columns: 1fr;
+  }
+
+  .footer-left,
+  .footer-right {
+    justify-content: space-between;
+  }
+
+  .dialect-select {
+    flex: 1;
+    min-width: 0;
   }
 
   .footer-btn {

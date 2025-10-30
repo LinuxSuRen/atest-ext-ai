@@ -22,6 +22,7 @@ import (
 	"testing"
 
 	"github.com/linuxsuren/api-testing/pkg/server"
+	"github.com/linuxsuren/atest-ext-ai/pkg/config"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -390,4 +391,29 @@ func TestHandleUpdateConfigRefreshesEngine(t *testing.T) {
 
 	require.NotEqual(t, oldManager, service.aiManager)
 	require.NotEqual(t, oldEngine, service.aiEngine)
+}
+
+func TestResolveDatabaseType(t *testing.T) {
+	svc := &AIPluginService{
+		config: &config.Config{
+			Database: config.DatabaseConfig{DefaultType: "postgres"},
+		},
+	}
+
+	t.Run("uses explicit value when provided", func(t *testing.T) {
+		assert.Equal(t, "mysql", svc.resolveDatabaseType("mysql", nil))
+	})
+
+	t.Run("normalizes postgres aliases", func(t *testing.T) {
+		assert.Equal(t, "postgresql", svc.resolveDatabaseType("pg", nil))
+	})
+
+	t.Run("falls back to config default", func(t *testing.T) {
+		assert.Equal(t, "postgresql", svc.resolveDatabaseType("", nil))
+	})
+
+	t.Run("uses config map overrides", func(t *testing.T) {
+		configMap := map[string]any{"database_dialect": "sqlite3"}
+		assert.Equal(t, "sqlite", svc.resolveDatabaseType("", configMap))
+	})
 }

@@ -87,6 +87,57 @@ func contextError(ctx context.Context) error {
 	return nil
 }
 
+func normalizeDatabaseType(value string) string {
+	dbType := strings.ToLower(strings.TrimSpace(value))
+	switch dbType {
+	case "mysql":
+		return "mysql"
+	case "postgres", "postgresql", "pg":
+		return "postgresql"
+	case "sqlite", "sqlite3":
+		return "sqlite"
+	default:
+		return ""
+	}
+}
+
+func (s *AIPluginService) defaultDatabaseType() string {
+	if normalized := normalizeDatabaseType(s.config.Database.DefaultType); normalized != "" {
+		return normalized
+	}
+	return "mysql"
+}
+
+func extractDatabaseTypeFromMap(values map[string]any) string {
+	if values == nil {
+		return ""
+	}
+
+	keys := []string{"database_type", "databaseDialect", "database_dialect", "dialect"}
+	for _, key := range keys {
+		if raw, ok := values[key]; ok {
+			if str, ok := raw.(string); ok {
+				if normalized := normalizeDatabaseType(str); normalized != "" {
+					return normalized
+				}
+			}
+		}
+	}
+	return ""
+}
+
+func (s *AIPluginService) resolveDatabaseType(explicit string, configMap map[string]any) string {
+	if normalized := normalizeDatabaseType(explicit); normalized != "" {
+		return normalized
+	}
+
+	if fromConfig := extractDatabaseTypeFromMap(configMap); fromConfig != "" {
+		return fromConfig
+	}
+
+	return s.defaultDatabaseType()
+}
+
 func normalizeDurationField(payload map[string]any, key string) {
 	raw, ok := payload[key]
 	if !ok || raw == nil {
@@ -653,9 +704,10 @@ func (s *AIPluginService) handleAIGenerate(ctx context.Context, req *server.Data
 
 	// Parse parameters from SQL field
 	var params struct {
-		Model  string `json:"model"`
-		Prompt string `json:"prompt"`
-		Config string `json:"config"`
+		Model        string `json:"model"`
+		Prompt       string `json:"prompt"`
+		Config       string `json:"config"`
+		DatabaseType string `json:"database_type"`
 	}
 
 	if req.Sql != "" {
@@ -692,10 +744,8 @@ func (s *AIPluginService) handleAIGenerate(ctx context.Context, req *server.Data
 	}
 
 	// Get database type from configuration, fallback to mysql if not configured
-	databaseType := "mysql"
-	if s.config.Database.DefaultType != "" {
-		databaseType = s.config.Database.DefaultType
-	}
+	databaseType := s.resolveDatabaseType(params.DatabaseType, configMap)
+	context["database_type"] = databaseType
 
 	sqlResult, err := s.aiEngine.GenerateSQL(ctx, &ai.GenerateSQLRequest{
 		NaturalLanguage: params.Prompt,
@@ -729,6 +779,7 @@ func (s *AIPluginService) handleAIGenerate(ctx context.Context, req *server.Data
 	metaData := map[string]interface{}{
 		"confidence": sqlResult.ConfidenceScore,
 		"model":      sqlResult.ModelUsed,
+		"dialect":    databaseType,
 	}
 	metaJSON, err := json.Marshal(metaData)
 	if err != nil {
@@ -1012,10 +1063,8 @@ func (s *AIPluginService) handleLegacyQuery(ctx context.Context, req *server.Dat
 	}
 
 	// Get database type from configuration, fallback to mysql if not configured
-	databaseType := "mysql"
-	if s.config.Database.DefaultType != "" {
-		databaseType = s.config.Database.DefaultType
-	}
+	databaseType := s.defaultDatabaseType()
+	contextMap["database_type"] = databaseType
 
 	sqlResult, err := s.aiEngine.GenerateSQL(ctx, &ai.GenerateSQLRequest{
 		NaturalLanguage: req.Key,
@@ -1042,6 +1091,7 @@ func (s *AIPluginService) handleLegacyQuery(ctx context.Context, req *server.Dat
 	metaData := map[string]interface{}{
 		"confidence": sqlResult.ConfidenceScore,
 		"model":      sqlResult.ModelUsed,
+		"dialect":    databaseType,
 	}
 	metaJSON, err := json.Marshal(metaData)
 	if err != nil {

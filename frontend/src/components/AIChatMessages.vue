@@ -41,8 +41,14 @@
             <pre class="sql-code">{{ message.sql }}</pre>
           </div>
           <div v-if="message.meta" class="message-meta">
-            <el-tag size="small" effect="plain">{{ message.meta.model }}</el-tag>
-            <span class="meta-time">{{ message.meta.duration }}ms</span>
+            <el-tag v-if="message.meta.model" size="small" effect="plain">{{ message.meta.model }}</el-tag>
+            <el-tag
+              v-if="message.meta.dialect"
+              size="small"
+              effect="plain"
+              class="dialect-tag"
+            >{{ formatDialect(message.meta.dialect) }}</el-tag>
+            <span v-if="message.meta.duration" class="meta-time">{{ message.meta.duration }}ms</span>
           </div>
         </div>
         <div class="message-time">
@@ -93,6 +99,16 @@ function scrollToBottom() {
 function formatTime(timestamp: number): string {
   const date = new Date(timestamp)
   return date.toLocaleTimeString()
+}
+
+function formatDialect(dialect: string): string {
+  if (!dialect) {
+    return ''
+  }
+  const normalized = dialect.toLowerCase()
+  const key = `ai.dialect.${normalized}`
+  const label = t(key)
+  return label === key ? normalized : label
 }
 
 async function copySQL(sql: string) {
@@ -315,6 +331,10 @@ async function copySQL(sql: string) {
   align-items: center;
   margin-top: 8px;
   font-size: 12px;
+}
+
+.dialect-tag {
+  letter-spacing: 0.3px;
 }
 
 .message-ai .message-meta {

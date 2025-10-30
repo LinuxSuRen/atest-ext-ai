@@ -288,10 +288,6 @@
         <el-button @click="emit('update:visible', false)">
           {{ t('ai.button.close') }}
         </el-button>
-        <el-button @click="handleTestConnectionClick">
-          <el-icon><Connection /></el-icon>
-          {{ t('ai.button.testConnection') }}
-        </el-button>
         <el-button type="primary" @click="handleSave">
           <el-icon><Check /></el-icon>
           {{ t('ai.button.save') }}
@@ -309,7 +305,6 @@ import {
   Cloudy as CloudIcon,
   Cpu,
   MagicStick,
-  Connection,
   Check
 } from '@element-plus/icons-vue'
 import { ElMessage } from 'element-plus'
@@ -328,7 +323,6 @@ const props = defineProps<Props>()
 interface Emits {
   (e: 'update:visible', value: boolean): void
   (e: 'save'): void
-  (e: 'test-connection', value: AIConfig): void
   (e: 'refresh-models', provider?: Provider): void
   (e: 'update:include-explanation', value: boolean): void
 }
@@ -420,10 +414,6 @@ function handleSave() {
   // Copy local config back to props
   Object.assign(props.config, localConfig.value)
   emit('save')
-}
-
-function handleTestConnectionClick() {
-  emit('test-connection', { ...localConfig.value })
 }
 </script>
 

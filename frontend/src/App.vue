@@ -17,6 +17,8 @@
         :provider="config.provider"
         :status="inputStatus"
         :disabled="isInputDisabled"
+        v-model:database-dialect="databaseDialect"
+        :dialect-options="dialectOptions"
         @submit="handleQuery"
         @open-settings="showSettings = true"
       />
@@ -29,7 +31,6 @@
       :models-map="modelsByProvider"
       v-model:include-explanation="includeExplanation"
       @save="handleSave"
-      @test-connection="handleTest"
       @refresh-models="refreshModels"
     />
   </div>
@@ -38,7 +39,7 @@
 <script setup lang="ts">
 import { ref, provide, computed } from 'vue'
 import { ElMessage } from 'element-plus'
-import type { AppContext, AIConfig } from './types'
+import type { AppContext, AIConfig, DatabaseDialect } from './types'
 import { useAIChat } from './composables/useAIChat'
 import AIChatHeader from './components/AIChatHeader.vue'
 import AIChatMessages from './components/AIChatMessages.vue'
@@ -72,9 +73,19 @@ const {
   refreshModels
 } = useAIChat(pluginContext)
 
+if (!config.value.databaseDialect) {
+  config.value.databaseDialect = 'mysql'
+}
+
 // UI state
 const showSettings = ref(false)
 const includeExplanation = ref(false)
+const databaseDialect = computed<DatabaseDialect>({
+  get: () => config.value.databaseDialect ?? 'mysql',
+  set: (value) => {
+    config.value.databaseDialect = value
+  }
+})
 
 const inputStatus = computed<'connected' | 'disconnected' | 'connecting' | 'setup'>(() => {
   if (!isConfigured.value) {
@@ -87,6 +98,11 @@ const isInputDisabled = computed(() => inputStatus.value !== 'connected')
 
 // Get translation function from context
 const { t } = pluginContext.i18n
+const dialectOptions = computed(() => ([
+  { value: 'mysql' as DatabaseDialect, label: t('ai.dialect.mysql') },
+  { value: 'postgresql' as DatabaseDialect, label: t('ai.dialect.postgresql') },
+  { value: 'sqlite' as DatabaseDialect, label: t('ai.dialect.sqlite') }
+]))
 
 // Save configuration
 async function handleSave() {
@@ -137,6 +153,7 @@ async function handleTest(updatedConfig?: AIConfig) {
   flex-direction: column;
   width: 100%;
   height: 100%;
+  max-height: 100%;
   min-height: 0;
   padding: clamp(16px, 4vw, 32px);
   box-sizing: border-box;
@@ -162,6 +179,7 @@ async function handleTest(updatedConfig?: AIConfig) {
   box-shadow: var(--atest-shadow-md);
   padding: clamp(12px, 3vw, 24px);
   min-height: 0;
+  max-height: 100%;
 }
 
 @media (max-width: 1024px) {
@@ -194,6 +212,20 @@ async function handleTest(updatedConfig?: AIConfig) {
 </style>
 
 <style>
+:global(html) {
+  height: 100%;
+}
+
+:global(body) {
+  height: 100%;
+  margin: 0;
+  background: var(--atest-bg-base);
+}
+
+:global(#app) {
+  height: 100%;
+}
+
 :global(#plugin-container) {
   height: 100%;
   display: flex;

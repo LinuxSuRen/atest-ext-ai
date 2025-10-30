@@ -1,4 +1,4 @@
-import type { AIConfig, Model } from '@/types'
+import type { AIConfig, Model, DatabaseDialect } from '@/types'
 
 export type Provider = 'ollama' | 'openai' | 'deepseek'
 
@@ -52,7 +52,8 @@ export function loadConfigForProvider(provider: Provider): AIConfig {
     apiKey: stored.apiKey ?? defaults.apiKey ?? '',
     timeout: Number.isFinite(stored.timeout) ? Number(stored.timeout) : (defaults.timeout ?? 120),
     maxTokens: stored.maxTokens ?? defaults.maxTokens ?? 2048,
-    status: stored.status ?? 'disconnected'
+    status: stored.status ?? 'disconnected',
+    databaseDialect: (stored.databaseDialect ?? defaults.databaseDialect ?? 'mysql') as DatabaseDialect
   }
 
   return config
@@ -77,7 +78,8 @@ export function saveConfig(config: AIConfig): void {
     model: rest.model ?? defaults.model ?? '',
     apiKey: rest.apiKey ?? defaults.apiKey ?? '',
     timeout: (typeof rest.timeout === 'number' && rest.timeout > 0 ? rest.timeout : defaults.timeout ?? 120),
-    maxTokens: rest.maxTokens ?? defaults.maxTokens ?? 2048
+    maxTokens: rest.maxTokens ?? defaults.maxTokens ?? 2048,
+    databaseDialect: (rest.databaseDialect ?? defaults.databaseDialect ?? 'mysql')
   }
 
   localStorage.setItem(
@@ -101,7 +103,8 @@ export function getDefaultConfig(provider: string): Partial<AIConfig> {
     model: '',
     timeout: (defaults[provider] || defaults.ollama)?.timeout ?? 120,
     maxTokens: 2048,
-    status: 'disconnected'
+    status: 'disconnected',
+    databaseDialect: 'mysql'
   }
 }
 
