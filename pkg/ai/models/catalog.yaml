@@ -1,0 +1,43 @@
+providers:
+  openai:
+    display_name: "OpenAI"
+    category: "cloud"
+    endpoint: "https://api.openai.com"
+    requires_api_key: true
+    models:
+      - id: "gpt-5"
+        name: "GPT-5"
+        description: "OpenAI's flagship GPT-5 model"
+        max_tokens: 200000
+        tags:
+          - recommended
+      - id: "gpt-5-mini"
+        name: "GPT-5 Mini"
+        description: "Optimized GPT-5 model for latency-sensitive workloads"
+        max_tokens: 80000
+      - id: "gpt-5-nano"
+        name: "GPT-5 Nano"
+        description: "Cost-efficient GPT-5 variant for lightweight tasks"
+        max_tokens: 40000
+      - id: "gpt-5-pro"
+        name: "GPT-5 Pro"
+        description: "High performance GPT-5 model with extended reasoning"
+        max_tokens: 240000
+      - id: "gpt-4.1"
+        name: "GPT-4.1"
+        description: "Balanced GPT-4 series model with strong multimodal support"
+        max_tokens: 128000
+  deepseek:
+    display_name: "DeepSeek"
+    category: "cloud"
+    endpoint: "https://api.deepseek.com"
+    requires_api_key: true
+    models:
+      - id: "deepseek-chat"
+        name: "DeepSeek Chat"
+        description: "DeepSeek's flagship conversational AI model"
+        max_tokens: 32768
+      - id: "deepseek-reasoner"
+        name: "DeepSeek Reasoner"
+        description: "DeepSeek's reasoning model with advanced thinking capabilities"
+        max_tokens: 32768

@@ -26,6 +26,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/linuxsuren/atest-ext-ai/pkg/ai/models"
 	"github.com/linuxsuren/atest-ext-ai/pkg/ai/providers/universal"
 	"github.com/linuxsuren/atest-ext-ai/pkg/config"
 	"github.com/linuxsuren/atest-ext-ai/pkg/interfaces"
@@ -735,12 +736,9 @@ func createRuntimeClient(provider string, runtimeConfig map[string]any) (interfa
 		}
 
 		if config.Endpoint == "" {
-			switch normalizedProvider {
-			case "openai":
-				config.Endpoint = "https://api.openai.com"
-			case "deepseek":
-				config.Endpoint = "https://api.deepseek.com"
-			case "custom":
+			if endpoint := models.EndpointForProvider(normalizedProvider); endpoint != "" {
+				config.Endpoint = endpoint
+			} else if normalizedProvider == "custom" {
 				return nil, fmt.Errorf("endpoint is required for custom provider")
 			}
 		}

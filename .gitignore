@@ -77,6 +77,9 @@ temp/
 
 # AI model files and caches
 models/
+!pkg/ai/models/
+!pkg/ai/models/*.yaml
+!pkg/ai/models/*.go
 *.model
 *.cache
 *.pkl

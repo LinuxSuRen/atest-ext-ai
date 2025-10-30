@@ -144,11 +144,7 @@
                           </el-option>
                         </template>
                         <template v-else>
-                          <el-option value="gpt-5" label="GPT-5 ⭐ Recommended" />
-                          <el-option value="gpt-5-mini" label="GPT-5 Mini" />
-                          <el-option value="gpt-5-nano" label="GPT-5 Nano" />
-                          <el-option value="gpt-5-pro" label="GPT-5 Pro" />
-                          <el-option value="gpt-4.1" label="GPT-4.1" />
+                          <el-option disabled value="no-models" :label="t('ai.welcome.noModels')" />
                         </template>
                       </el-select>
                       <el-button
@@ -218,8 +214,7 @@
                           </el-option>
                         </template>
                         <template v-else>
-                          <el-option value="deepseek-reasoner" label="DeepSeek Reasoner ⭐" />
-                          <el-option value="deepseek-chat" label="DeepSeek Chat" />
+                          <el-option disabled value="no-models" :label="t('ai.welcome.noModels')" />
                         </template>
                       </el-select>
                       <el-button

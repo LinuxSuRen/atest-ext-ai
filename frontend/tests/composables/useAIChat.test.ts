@@ -7,6 +7,7 @@ import type { AppContext } from '@/types'
 vi.mock('@/services/aiService', () => ({
   aiService: {
     fetchModels: vi.fn(),
+    fetchModelCatalog: vi.fn(),
     testConnection: vi.fn(),
     generateSQL: vi.fn(),
     saveConfig: vi.fn()
@@ -22,6 +23,7 @@ describe('useAIChat', () => {
 
     // Set default mock behavior for fetchModels (called during initialization)
     vi.mocked(aiService.fetchModels).mockResolvedValue([])
+    vi.mocked(aiService.fetchModelCatalog).mockResolvedValue({})
 
     mockContext = {
       i18n: {
@@ -185,8 +187,19 @@ describe('useAIChat', () => {
       expect(availableModels.value[0].id).toBe('model1')
     })
 
-    it('should use mock models when API fails', async () => {
+    it('should use catalog models when API fails', async () => {
       vi.mocked(aiService.fetchModels).mockRejectedValue(new Error('Network error'))
+      vi.mocked(aiService.fetchModelCatalog).mockResolvedValueOnce({
+        ollama: {
+          display_name: 'Ollama',
+          category: 'local',
+          endpoint: 'http://localhost:11434',
+          requires_api_key: false,
+          models: [
+            { id: 'llama3.2:3b', name: 'Llama 3.2 3B', size: '2GB' }
+          ]
+        }
+      })
 
       const { availableModels, refreshModels } = useAIChat(mockContext)
 

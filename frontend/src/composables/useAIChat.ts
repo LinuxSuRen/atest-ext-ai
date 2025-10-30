@@ -125,8 +125,24 @@ export function useAIChat(_context: AppContext) {
       }
     } catch (error) {
       console.error('Failed to fetch models:', error)
-      // Use mock models as fallback for this provider
-      modelsByProvider.value[storeKey] = getMockModels(storeKey)
+      const cachedFallback = catalogCache.value[storeKey]
+      if (cachedFallback && cachedFallback.length) {
+        modelsByProvider.value[storeKey] = cachedFallback
+        return
+      }
+
+      try {
+        const catalog = await aiService.fetchModelCatalog(storeKey)
+        const entry = catalog[storeKey]
+        const fallbackModels = entry?.models ?? []
+        modelsByProvider.value[storeKey] = fallbackModels
+        if (fallbackModels.length) {
+          catalogCache.value[storeKey] = fallbackModels
+        }
+      } catch (catalogError) {
+        console.error('Failed to fetch catalog fallback:', catalogError)
+        modelsByProvider.value[storeKey] = []
+      }
     }
   }
 

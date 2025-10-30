@@ -42,7 +42,9 @@ export interface AIConfig {
 export interface Model {
   id: string
   name: string
-  size: string
+  size?: string
+  description?: string
+  maxTokens?: number
 }
 
 /**
