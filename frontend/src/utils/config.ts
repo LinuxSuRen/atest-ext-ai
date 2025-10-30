@@ -1,6 +1,6 @@
 import type { AIConfig, Model, DatabaseDialect } from '@/types'
 
-export type Provider = 'ollama' | 'openai' | 'deepseek'
+export type Provider = 'ollama' | 'openai' | 'deepseek' | 'local'
 
 /**
  * Load configuration from localStorage

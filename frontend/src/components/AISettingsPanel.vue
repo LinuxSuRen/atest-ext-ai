@@ -328,6 +328,7 @@ const localConfig = ref<AIConfig>({ ...props.config })
 
 const providerModels = computed<Record<Provider, Model[]>>(() => ({
   ollama: props.modelsMap?.ollama ?? props.availableModels ?? [],
+  local: props.modelsMap?.ollama ?? props.availableModels ?? [],  // Alias for ollama
   openai: props.modelsMap?.openai ?? [],
   deepseek: props.modelsMap?.deepseek ?? []
 }))
