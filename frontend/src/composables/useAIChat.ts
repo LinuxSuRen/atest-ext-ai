@@ -1,6 +1,6 @@
 import { ref, computed, watch } from 'vue'
 import type { AppContext, AIConfig, Message, Model, DatabaseDialect } from '@/types'
-import { loadConfig, loadConfigForProvider, saveConfig, getMockModels, generateId, type Provider } from '@/utils/config'
+import { loadConfig, loadConfigForProvider, saveConfig, generateId, type Provider } from '@/utils/config'
 import { aiService } from '@/services/aiService'
 
 /**
@@ -26,6 +26,33 @@ export function useAIChat(_context: AppContext) {
     openai: [],
     deepseek: []
   })
+
+  const catalogCache = ref<Record<string, Model[]>>({})
+
+  async function initializeModelCatalog() {
+    try {
+      const catalog = await aiService.fetchModelCatalog()
+      const normalizedCatalog: Record<string, Model[]> = {}
+
+      Object.entries(catalog).forEach(([provider, entry]) => {
+        normalizedCatalog[provider] = entry.models || []
+      })
+
+      catalogCache.value = normalizedCatalog
+
+      for (const [provider, models] of Object.entries(normalizedCatalog)) {
+        if (!modelsByProvider.value[provider]) {
+          modelsByProvider.value[provider] = models
+        } else if ((modelsByProvider.value[provider] || []).length === 0 && models.length > 0) {
+          modelsByProvider.value[provider] = models
+        }
+      }
+    } catch (error) {
+      console.error('Failed to load model catalog', error)
+    }
+  }
+
+  void initializeModelCatalog()
 
   // Computed property to get models for current provider
   const availableModels = computed(() => {

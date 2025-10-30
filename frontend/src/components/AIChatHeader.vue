@@ -41,10 +41,11 @@ const statusText = computed(() => t(`ai.status.${props.status}`))
 
 <style scoped>
 .ai-chat-header {
+  flex-shrink: 0;
   display: flex;
   justify-content: space-between;
   align-items: center;
-  padding: var(--atest-spacing-md) clamp(20px, 4vw, 28px);
+  padding: var(--atest-spacing-md) clamp(20px, 4vw, 40px);
   background: var(--atest-bg-surface);
   border-bottom: 1px solid var(--atest-border-color);
 }

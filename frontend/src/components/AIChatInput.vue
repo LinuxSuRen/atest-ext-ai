@@ -176,11 +176,10 @@ function handleSubmit() {
 
 <style scoped>
 .chat-input {
-  padding: 20px 40px 24px;
+  flex-shrink: 0;
+  padding: clamp(16px, 3vw, 20px) clamp(20px, 4vw, 40px) clamp(20px, 3vw, 24px);
   background: var(--atest-bg-surface);
   border-top: 1px solid var(--atest-border-color);
-  box-shadow: var(--atest-shadow-sm);
-  border-radius: var(--atest-radius-md);
   display: flex;
   flex-direction: column;
   gap: var(--atest-spacing-sm);
