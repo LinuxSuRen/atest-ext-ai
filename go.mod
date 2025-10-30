@@ -5,7 +5,7 @@ go 1.23.0
 toolchain go1.24.2
 
 require (
-	github.com/linuxsuren/api-testing v0.0.19
+	github.com/linuxsuren/api-testing v0.0.20
 	github.com/prometheus/client_golang v1.22.0
 	github.com/stretchr/testify v1.11.1
 	github.com/tmc/langchaingo v0.1.13
@@ -94,4 +94,3 @@ require (
 	gopkg.in/yaml.v3 v3.0.1 // indirect
 )
 
-replace github.com/linuxsuren/api-testing => github.com/KariHall619/api-testing v0.0.0-20251029132820-3826187ae019
