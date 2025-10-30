@@ -2,7 +2,7 @@
 FROM golang:1.24-alpine AS builder
 
 # Install build dependencies
-RUN apk add --no-cache git ca-certificates tzdata
+RUN apk add --no-cache git ca-certificates tzdata nodejs npm
 
 # Set working directory
 WORKDIR /app
@@ -12,6 +12,10 @@ COPY . .
 
 # Download dependencies (replace directive requires source to be present)
 RUN go mod download
+
+# Build frontend assets required for Go embed
+RUN npm ci --prefix frontend
+RUN npm run build --prefix frontend
 
 # Build the binary
 RUN CGO_ENABLED=0 GOOS=linux go build \
