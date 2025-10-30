@@ -29,7 +29,6 @@ import (
 	"time"
 
 	"github.com/linuxsuren/atest-ext-ai/pkg/ai/discovery"
-	"github.com/linuxsuren/atest-ext-ai/pkg/ai/providers/openai"
 	"github.com/linuxsuren/atest-ext-ai/pkg/ai/providers/universal"
 	"github.com/linuxsuren/atest-ext-ai/pkg/config"
 	"github.com/linuxsuren/atest-ext-ai/pkg/interfaces"
@@ -532,25 +531,29 @@ func createClient(provider string, cfg config.AIService) (interfaces.AIClient, e
 
 // createOpenAICompatibleClient creates an OpenAI-compatible client
 func createOpenAICompatibleClient(provider string, cfg config.AIService) (interfaces.AIClient, error) {
-	config := &openai.Config{
+	normalized := strings.ToLower(provider)
+
+	uniCfg := &universal.Config{
+		Provider:  normalized,
+		Endpoint:  normalizeProviderEndpoint(normalized, cfg.Endpoint),
 		APIKey:    cfg.APIKey,
-		BaseURL:   cfg.Endpoint,
 		Model:     cfg.Model,
 		MaxTokens: cfg.MaxTokens,
 		Timeout:   cfg.Timeout.Value(),
 	}
 
-	// Set default endpoints for known providers
-	if provider == "deepseek" && config.BaseURL == "" {
-		config.BaseURL = "https://api.deepseek.com/v1"
+	if uniCfg.Endpoint == "" {
+		switch normalized {
+		case "openai":
+			uniCfg.Endpoint = "https://api.openai.com"
+		case "deepseek":
+			uniCfg.Endpoint = "https://api.deepseek.com"
+		case "custom":
+			return nil, fmt.Errorf("endpoint is required for custom provider")
+		}
 	}
 
-	// Custom provider requires endpoint
-	if provider == "custom" && config.BaseURL == "" {
-		return nil, fmt.Errorf("endpoint is required for custom provider")
-	}
-
-	return openai.NewClient(config)
+	return universal.NewUniversalClient(uniCfg)
 }
 
 // createOllamaClient creates an Ollama client
@@ -604,9 +607,11 @@ func (m *Manager) getOnlineProviders() []*ProviderInfo {
 			Available: true,
 			Endpoint:  "https://api.openai.com",
 			Models: []interfaces.ModelInfo{
-				{ID: "gpt-4", Name: "GPT-4", Description: "Most capable GPT-4 model", MaxTokens: 8192},
-				{ID: "gpt-4-turbo", Name: "GPT-4 Turbo", Description: "Latest GPT-4 Turbo model", MaxTokens: 128000},
-				{ID: "gpt-3.5-turbo", Name: "GPT-3.5 Turbo", Description: "Fast and efficient GPT-3.5 model", MaxTokens: 16385},
+				{ID: "gpt-5", Name: "GPT-5", Description: "OpenAI's flagship GPT-5 model", MaxTokens: 200000},
+				{ID: "gpt-5-mini", Name: "GPT-5 Mini", Description: "Optimized GPT-5 model for lower latency workloads", MaxTokens: 80000},
+				{ID: "gpt-5-nano", Name: "GPT-5 Nano", Description: "Cost-efficient GPT-5 variant for lightweight tasks", MaxTokens: 40000},
+				{ID: "gpt-5-pro", Name: "GPT-5 Pro", Description: "High performance GPT-5 model with extended reasoning", MaxTokens: 240000},
+				{ID: "gpt-4.1", Name: "GPT-4.1", Description: "Balanced GPT-4 series model with strong multimodal support", MaxTokens: 128000},
 			},
 			LastChecked: time.Now(),
 			Config: map[string]interface{}{

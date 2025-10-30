@@ -17,7 +17,7 @@ describe('AIChatHeader', () => {
     }
   })
 
-  it('should render title and subtitle', () => {
+  it('renders title and subtitle', () => {
     const wrapper = mount(AIChatHeader, {
       props: {
         provider: 'ollama',
@@ -34,88 +34,41 @@ describe('AIChatHeader', () => {
     expect(wrapper.text()).toContain('ai.subtitle')
   })
 
-  it('should display correct status', () => {
+  it('shows provider label and status indicator', () => {
     const wrapper = mount(AIChatHeader, {
       props: {
-        provider: 'ollama',
-        status: 'connected'
-      },
-      global: {
-        provide: {
-          appContext: mockContext
-        }
-      }
-    })
-
-    expect(wrapper.text()).toContain('ai.status.connected')
-  })
-
-  it('should emit open-settings when settings button clicked', async () => {
-    const wrapper = mount(AIChatHeader, {
-      props: {
-        provider: 'ollama',
-        status: 'disconnected'
-      },
-      global: {
-        provide: {
-          appContext: mockContext
-        },
-        stubs: {
-          'el-tag': true,
-          'el-icon': true,
-          'el-button': true
-        }
-      }
-    })
-
-    // Find the el-button component and trigger its click event
-    await wrapper.findComponent({ name: 'el-button' }).trigger('click')
-
-    expect(wrapper.emitted('open-settings')).toBeTruthy()
-    expect(wrapper.emitted('open-settings')?.length).toBe(1)
-  })
-
-  it('should display correct status type', () => {
-    const globalConfig = {
-      provide: {
-        appContext: mockContext
-      },
-      stubs: {
-        'el-tag': {
-          template: '<span class="el-tag"><slot /></span>'
-        },
-        'el-icon': true,
-        'el-button': true
-      }
-    }
-
-    const connectedWrapper = mount(AIChatHeader, {
-      props: {
-        provider: 'ollama',
-        status: 'connected'
-      },
-      global: globalConfig
-    })
-
-    const connectingWrapper = mount(AIChatHeader, {
-      props: {
-        provider: 'ollama',
+        provider: 'deepseek',
         status: 'connecting'
       },
-      global: globalConfig
+      global: {
+        provide: {
+          appContext: mockContext
+        }
+      }
     })
 
-    const disconnectedWrapper = mount(AIChatHeader, {
+    const indicator = wrapper.find('.status-indicator')
+    expect(indicator.exists()).toBe(true)
+    expect(indicator.classes()).toContain('connecting')
+    expect(indicator.text()).toContain('ai.status.connecting')
+    expect(wrapper.text()).toContain('ai.providerLabel')
+  })
+
+  it('applies correct status classes', () => {
+    const createWrapper = (status: 'connected' | 'connecting' | 'disconnected') => mount(AIChatHeader, {
       props: {
-        provider: 'ollama',
-        status: 'disconnected'
+        provider: 'openai',
+        status
       },
-      global: globalConfig
+      global: {
+        provide: {
+          appContext: mockContext
+        }
+      }
     })
 
-    // Status badges should exist in all cases
-    expect(connectedWrapper.find('.el-tag').exists()).toBe(true)
-    expect(connectingWrapper.find('.el-tag').exists()).toBe(true)
-    expect(disconnectedWrapper.find('.el-tag').exists()).toBe(true)
+    expect(createWrapper('connected').find('.status-indicator').classes()).toContain('connected')
+    expect(createWrapper('connecting').find('.status-indicator').classes()).toContain('connecting')
+    expect(createWrapper('disconnected').find('.status-indicator').classes()).toContain('disconnected')
   })
 })

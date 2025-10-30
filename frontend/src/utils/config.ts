@@ -40,13 +40,14 @@ export function loadConfigForProvider(provider: Provider): AIConfig {
     provider,
     endpoint: (() => {
       const value = stored.endpoint ?? defaults.endpoint ?? ''
+      const fallback = defaults.endpoint ?? ''
       if (provider !== 'ollama' && isLocalEndpoint(value)) {
-        return defaults.endpoint ?? ''
+        return normalizeEndpoint(provider, String(fallback))
       }
       if (!value) {
-        return defaults.endpoint ?? ''
+        return normalizeEndpoint(provider, String(fallback))
       }
-      return value
+      return normalizeEndpoint(provider, String(value))
     })(),
     model: stored.model ?? defaults.model ?? '',
     apiKey: stored.apiKey ?? defaults.apiKey ?? '',
@@ -74,7 +75,7 @@ export function saveConfig(config: AIConfig): void {
   const normalizedProvider = (provider === 'local' ? 'ollama' : provider) as Provider
   const defaults = getDefaultConfig(normalizedProvider)
   const providerConfig = {
-    endpoint: (rest.endpoint && String(rest.endpoint).trim()) || defaults.endpoint || '',
+    endpoint: normalizeEndpoint(normalizedProvider, (rest.endpoint && String(rest.endpoint).trim()) || defaults.endpoint || ''),
     model: rest.model ?? defaults.model ?? '',
     apiKey: rest.apiKey ?? defaults.apiKey ?? '',
     timeout: (typeof rest.timeout === 'number' && rest.timeout > 0 ? rest.timeout : defaults.timeout ?? 120),
@@ -94,7 +95,7 @@ export function saveConfig(config: AIConfig): void {
 export function getDefaultConfig(provider: string): Partial<AIConfig> {
   const defaults: Record<string, Partial<AIConfig>> = {
     ollama: { endpoint: 'http://localhost:11434', apiKey: '', timeout: 120 },
-    openai: { endpoint: 'https://api.openai.com/v1', apiKey: '', timeout: 120 },
+    openai: { endpoint: 'https://api.openai.com', apiKey: '', timeout: 120 },
     deepseek: { endpoint: 'https://api.deepseek.com', apiKey: '', timeout: 180 }
   }
 
@@ -121,10 +122,8 @@ export function getMockModels(provider: string): Model[] {
       { id: 'gpt-5', name: 'GPT-5 ⭐', size: 'Cloud' },
       { id: 'gpt-5-mini', name: 'GPT-5 Mini', size: 'Cloud' },
       { id: 'gpt-5-nano', name: 'GPT-5 Nano', size: 'Cloud' },
-      { id: 'gpt-4.1-2025-04-14', name: 'GPT-4.1', size: 'Cloud' },
-      { id: 'gpt-4.1-mini-2025-04-14', name: 'GPT-4.1 Mini', size: 'Cloud' },
-      { id: 'gpt-4o-2024-08-06', name: 'GPT-4o', size: 'Cloud' },
-      { id: 'gpt-4o-mini-2024-07-18', name: 'GPT-4o Mini', size: 'Cloud' }
+      { id: 'gpt-5-pro', name: 'GPT-5 Pro', size: 'Cloud' },
+      { id: 'gpt-4.1', name: 'GPT-4.1', size: 'Cloud' }
     ],
     deepseek: [
       { id: 'deepseek-chat', name: 'DeepSeek Chat', size: 'Cloud' },
@@ -139,4 +138,28 @@ export function getMockModels(provider: string): Model[] {
  */
 export function generateId(): string {
   return `${Date.now()}-${Math.random().toString(36).slice(2, 9)}`
+}
+
+function normalizeEndpoint(provider: Provider, endpoint: string): string {
+  const normalizedProvider: Provider = (provider === 'local' ? 'ollama' : provider) as Provider
+  if (!endpoint) {
+    return endpoint
+  }
+
+  let value = endpoint.trim()
+  while (value.endsWith('/')) {
+    value = value.slice(0, -1)
+  }
+
+  if (normalizedProvider === 'openai' || normalizedProvider === 'deepseek') {
+    const lower = value.toLowerCase()
+    if (lower.endsWith('/v1')) {
+      value = value.slice(0, value.length - 3)
+      while (value.endsWith('/')) {
+        value = value.slice(0, -1)
+      }
+    }
+  }
+
+  return value
 }

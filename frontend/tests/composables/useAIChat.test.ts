@@ -64,8 +64,8 @@ describe('useAIChat', () => {
         provider: 'openai'
       }))
       localStorage.setItem('atest-ai-config-openai', JSON.stringify({
-        endpoint: 'https://api.openai.com/v1',
-        model: 'gpt-4o',
+        endpoint: 'https://api.openai.com',
+        model: 'gpt-5',
         timeout: 200,
         maxTokens: 2048,
         apiKey: 'sk-test123',

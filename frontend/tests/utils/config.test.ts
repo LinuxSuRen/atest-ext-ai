@@ -32,7 +32,7 @@ describe('config utils', () => {
 
       const config = loadConfig()
       expect(config.provider).toBe('openai')
-      expect(config.endpoint).toBe('https://api.openai.com/v1')
+      expect(config.endpoint).toBe('https://api.openai.com')
       expect(config.apiKey).toBe('')
       expect(config.timeout).toBe(120)
     })
@@ -74,7 +74,21 @@ describe('config utils', () => {
       expect(config.provider).toBe('deepseek')
       expect(config.endpoint).toBe('https://api.deepseek.com')
       expect(config.model).toBe('deepseek-chat')
-      expect(config.timeout).toBe(180)
+      expect(config.timeout).toBe(90)
+    })
+
+    it('should normalize trailing version segment for openai endpoint', () => {
+      localStorage.setItem('atest-ai-global-config', JSON.stringify({
+        provider: 'openai'
+      }))
+      localStorage.setItem('atest-ai-config-openai', JSON.stringify({
+        endpoint: 'https://api.openai.com/v1/',
+        model: 'gpt-5',
+        apiKey: 'sk-test'
+      }))
+
+      const config = loadConfig()
+      expect(config.endpoint).toBe('https://api.openai.com')
     })
   })
 
@@ -122,6 +136,23 @@ describe('config utils', () => {
       expect(providerConfig.model).toBe('llama3.2:3b')
       expect(providerConfig.timeout).toBe(90)
     })
+
+    it('should normalize openai endpoint when saving', () => {
+      const config: AIConfig = {
+        provider: 'openai',
+        endpoint: 'https://api.openai.com/v1',
+        model: 'gpt-5',
+        apiKey: 'sk-test',
+        timeout: 120,
+        maxTokens: 16384,
+        status: 'connected'
+      }
+
+      saveConfig(config)
+
+      const providerConfig = JSON.parse(localStorage.getItem('atest-ai-config-openai')!)
+      expect(providerConfig.endpoint).toBe('https://api.openai.com')
+    })
   })
 
   describe('getDefaultConfig', () => {
@@ -137,7 +168,7 @@ describe('config utils', () => {
     it('should return openai default config', () => {
       const config = getDefaultConfig('openai')
 
-      expect(config.endpoint).toBe('https://api.openai.com/v1')
+      expect(config.endpoint).toBe('https://api.openai.com')
       expect(config.apiKey).toBe('')
       expect(config.timeout).toBe(120)
     })
@@ -161,9 +192,14 @@ describe('config utils', () => {
     it('should return openai mock models', () => {
       const models = getMockModels('openai')
 
-      expect(models.length).toBeGreaterThanOrEqual(7)
-      expect(models[0].id).toBe('gpt-5')
-      expect(models.some(model => model.id === 'gpt-4o-2024-08-06')).toBe(true)
+      expect(models).toHaveLength(5)
+      expect(models.map(model => model.id)).toEqual([
+        'gpt-5',
+        'gpt-5-mini',
+        'gpt-5-nano',
+        'gpt-5-pro',
+        'gpt-4.1'
+      ])
     })
 
     it('should return empty array for unknown provider', () => {

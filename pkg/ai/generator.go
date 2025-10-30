@@ -26,7 +26,6 @@ import (
 	"sync"
 	"time"
 
-	"github.com/linuxsuren/atest-ext-ai/pkg/ai/providers/openai"
 	"github.com/linuxsuren/atest-ext-ai/pkg/ai/providers/universal"
 	"github.com/linuxsuren/atest-ext-ai/pkg/config"
 	"github.com/linuxsuren/atest-ext-ai/pkg/interfaces"
@@ -723,33 +722,36 @@ func createRuntimeClient(provider string, runtimeConfig map[string]any) (interfa
 	}
 
 	// Create client based on provider type
-	switch provider {
+	normalizedProvider := normalizeProviderName(provider)
+
+	switch normalizedProvider {
 	case "openai", "deepseek", "custom":
-		// Create OpenAI-compatible client
-		config := &openai.Config{
+		config := &universal.Config{
+			Provider:  normalizedProvider,
+			Endpoint:  normalizeProviderEndpoint(normalizedProvider, baseURL),
 			APIKey:    apiKey,
-			BaseURL:   baseURL,
 			Model:     model,
 			MaxTokens: maxTokens,
 		}
 
-		// Set default endpoints for known providers
-		if provider == "deepseek" && config.BaseURL == "" {
-			config.BaseURL = "https://api.deepseek.com/v1"
+		if config.Endpoint == "" {
+			switch normalizedProvider {
+			case "openai":
+				config.Endpoint = "https://api.openai.com"
+			case "deepseek":
+				config.Endpoint = "https://api.deepseek.com"
+			case "custom":
+				return nil, fmt.Errorf("endpoint is required for custom provider")
+			}
 		}
 
-		// Custom provider requires endpoint
-		if provider == "custom" && config.BaseURL == "" {
-			return nil, fmt.Errorf("endpoint is required for custom provider")
-		}
-
-		return openai.NewClient(config)
+		return universal.NewUniversalClient(config)
 
 	case "ollama":
 		// Create Ollama client (using universal provider)
 		config := &universal.Config{
 			Provider:  "ollama",
-			Endpoint:  baseURL,
+			Endpoint:  normalizeProviderEndpoint("ollama", baseURL),
 			Model:     model,
 			MaxTokens: maxTokens,
 		}

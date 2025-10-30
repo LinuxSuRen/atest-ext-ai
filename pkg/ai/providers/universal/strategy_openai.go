@@ -188,21 +188,33 @@ func (s *OpenAIStrategy) GetDefaultModels(maxTokens int) []interfaces.ModelInfo 
 	case "openai":
 		return []interfaces.ModelInfo{
 			{
-				ID:          "gpt-3.5-turbo",
-				Name:        "GPT-3.5 Turbo",
-				Description: "OpenAI's GPT-3.5 Turbo model",
-				MaxTokens:   16385,
+				ID:          "gpt-5",
+				Name:        "GPT-5",
+				Description: "OpenAI's flagship GPT-5 model",
+				MaxTokens:   200000,
 			},
 			{
-				ID:          "gpt-4",
-				Name:        "GPT-4",
-				Description: "OpenAI's GPT-4 model",
-				MaxTokens:   8192,
+				ID:          "gpt-5-mini",
+				Name:        "GPT-5 Mini",
+				Description: "Optimized GPT-5 model for latency-sensitive workloads",
+				MaxTokens:   80000,
 			},
 			{
-				ID:          "gpt-4-turbo",
-				Name:        "GPT-4 Turbo",
-				Description: "Latest GPT-4 Turbo model",
+				ID:          "gpt-5-nano",
+				Name:        "GPT-5 Nano",
+				Description: "Cost efficient GPT-5 variant for lightweight tasks",
+				MaxTokens:   40000,
+			},
+			{
+				ID:          "gpt-5-pro",
+				Name:        "GPT-5 Pro",
+				Description: "High performance GPT-5 model with extended reasoning",
+				MaxTokens:   240000,
+			},
+			{
+				ID:          "gpt-4.1",
+				Name:        "GPT-4.1",
+				Description: "Balanced GPT-4 series model with strong multimodal support",
 				MaxTokens:   128000,
 			},
 		}
