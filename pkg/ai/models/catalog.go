@@ -1,3 +1,4 @@
+// Package models centralizes AI provider and model metadata for the plugin.
 package models
 
 import (
@@ -158,7 +159,7 @@ func loadCatalog() (*Catalog, error) {
 
 		providers[name] = &Provider{
 			Name:           name,
-			DisplayName:    firstNonEmpty(rawProvider.DisplayName, strings.Title(name)),
+			DisplayName:    firstNonEmpty(rawProvider.DisplayName, simpleTitle(name)),
 			Category:       firstNonEmpty(rawProvider.Category, "cloud"),
 			Endpoint:       strings.TrimSpace(rawProvider.Endpoint),
 			RequiresAPIKey: rawProvider.RequiresAPIKey,
@@ -174,11 +175,11 @@ func loadCatalog() (*Catalog, error) {
 
 func readCatalogSource() ([]byte, error) {
 	if envPath := strings.TrimSpace(os.Getenv(EnvCatalogPath)); envPath != "" {
-		if data, err := os.ReadFile(envPath); err == nil {
-			return data, nil
-		} else {
+		data, err := os.ReadFile(envPath) // #nosec G304 -- path intentionally user-configurable
+		if err != nil {
 			return nil, fmt.Errorf("failed to read catalog from %s: %w", envPath, err)
 		}
+		return data, nil
 	}
 
 	if data, err := os.ReadFile(defaultCatalogPath); err == nil {
@@ -210,6 +211,17 @@ func firstNonEmpty(values ...string) string {
 		}
 	}
 	return ""
+}
+
+func simpleTitle(name string) string {
+	trimmed := strings.TrimSpace(name)
+	if trimmed == "" {
+		return ""
+	}
+	if len(trimmed) == 1 {
+		return strings.ToUpper(trimmed)
+	}
+	return strings.ToUpper(trimmed[:1]) + trimmed[1:]
 }
 
 // EndpointForProvider returns the preferred endpoint for a provider, or an empty string if unknown.
