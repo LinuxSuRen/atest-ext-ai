@@ -31,3 +31,12 @@ It can(now):
 - `make install-local` 重新打包并安装插件到 `~/.config/atest/bin`
 
 使用 `make help` 可以查看全部可用的目标。
+
+## 配置后端地址
+默认情况下，插件会尝试连接 `http://127.0.0.1:8080`。如果后端运行在不同地址，可通过环境变量 `VITE_API_URL` 覆盖。例如：
+
+```bash
+export VITE_API_URL=http://localhost:8081
+cd ./frontend
+npm run dev
+```
