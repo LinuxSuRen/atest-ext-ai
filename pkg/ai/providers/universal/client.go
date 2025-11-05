@@ -24,6 +24,7 @@ import (
 	"net/http"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"github.com/linuxsuren/atest-ext-ai/pkg/interfaces"
@@ -33,19 +34,43 @@ import (
 // Global HTTP client pool for connection reuse across providers
 // Using sync.Map for concurrent-safe access without explicit locking on read
 var (
-	httpClientPool = &sync.Map{} // key: provider name (string), value: *http.Client
+	httpClientPool = &sync.Map{} // key: provider name (string), value: *pooledHTTPClient
 	httpClientMu   sync.Mutex    // Mutex for client creation to prevent duplicate creation
 )
+
+type pooledHTTPClient struct {
+	provider  string
+	client    *http.Client
+	transport *http.Transport
+	refs      atomic.Int32
+}
+
+func (p *pooledHTTPClient) retain() {
+	p.refs.Add(1)
+}
+
+func (p *pooledHTTPClient) release() {
+	if p.refs.Add(-1) != 0 {
+		return
+	}
+
+	if p.transport != nil {
+		p.transport.CloseIdleConnections()
+	}
+	httpClientPool.Delete(p.provider)
+}
 
 // getOrCreateHTTPClient retrieves an existing HTTP client from the pool or creates a new one
 // This implements connection pooling to improve performance and resource utilization
 // Based on Go net/http best practices for Transport configuration
-func getOrCreateHTTPClient(provider string, timeout time.Duration) *http.Client {
+func getOrCreateHTTPClient(provider string, timeout time.Duration) *pooledHTTPClient {
 	// Try to get existing client from pool (fast path, no locking)
 	if client, ok := httpClientPool.Load(provider); ok {
+		entry := client.(*pooledHTTPClient)
+		entry.retain()
 		logging.Logger.Debug("Reusing HTTP client from pool",
 			"provider", provider)
-		return client.(*http.Client)
+		return entry
 	}
 
 	// Client not found, need to create (slow path with locking)
@@ -54,9 +79,11 @@ func getOrCreateHTTPClient(provider string, timeout time.Duration) *http.Client 
 
 	// Double-check: another goroutine might have created the client while we waited for the lock
 	if client, ok := httpClientPool.Load(provider); ok {
+		entry := client.(*pooledHTTPClient)
+		entry.retain()
 		logging.Logger.Debug("HTTP client created by another goroutine",
 			"provider", provider)
-		return client.(*http.Client)
+		return entry
 	}
 
 	// Create new HTTP client with optimized transport settings
@@ -65,25 +92,33 @@ func getOrCreateHTTPClient(provider string, timeout time.Duration) *http.Client 
 	// - MaxIdleConnsPerHost: Maximum idle connections per host (important for AI APIs)
 	// - IdleConnTimeout: How long idle connections remain in the pool
 	// - DisableCompression: Disabled for better compatibility with AI APIs
-	client := &http.Client{
-		Timeout: timeout,
-		Transport: &http.Transport{
-			MaxIdleConns:        100,              // Total pool size across all hosts
-			MaxIdleConnsPerHost: 10,               // Per-host idle connection limit (AI APIs typically use 1 host)
-			IdleConnTimeout:     90 * time.Second, // Keep idle connections for 90s
-			DisableCompression:  false,            // Enable compression for better bandwidth utilization
-			// Additional recommended settings for production use:
-			MaxConnsPerHost:       0,                // No limit on active connections (0 = unlimited)
-			ResponseHeaderTimeout: 30 * time.Second, // Timeout for reading response headers
-			ExpectContinueTimeout: 1 * time.Second,  // Timeout for 100-Continue handshake
-			ForceAttemptHTTP2:     true,             // Enable HTTP/2 when available
-			DisableKeepAlives:     false,            // Enable keep-alives for connection reuse
-			TLSHandshakeTimeout:   10 * time.Second, // Timeout for TLS handshake
-		},
+	transport := &http.Transport{
+		MaxIdleConns:        100,              // Total pool size across all hosts
+		MaxIdleConnsPerHost: 10,               // Per-host idle connection limit (AI APIs typically use 1 host)
+		IdleConnTimeout:     90 * time.Second, // Keep idle connections for 90s
+		DisableCompression:  false,            // Enable compression for better bandwidth utilization
+		// Additional recommended settings for production use:
+		MaxConnsPerHost:       0,                // No limit on active connections (0 = unlimited)
+		ResponseHeaderTimeout: 30 * time.Second, // Timeout for reading response headers
+		ExpectContinueTimeout: 1 * time.Second,  // Timeout for 100-Continue handshake
+		ForceAttemptHTTP2:     true,             // Enable HTTP/2 when available
+		DisableKeepAlives:     false,            // Enable keep-alives for connection reuse
+		TLSHandshakeTimeout:   10 * time.Second, // Timeout for TLS handshake
 	}
 
+	client := &http.Client{
+		Timeout:   timeout,
+		Transport: transport,
+	}
+
+	entry := &pooledHTTPClient{
+		client:    client,
+		transport: transport,
+	}
+	entry.retain()
+
 	// Store in pool for reuse
-	httpClientPool.Store(provider, client)
+	httpClientPool.Store(provider, entry)
 
 	logging.Logger.Info("Created new HTTP client with connection pooling",
 		"provider", provider,
@@ -92,13 +127,14 @@ func getOrCreateHTTPClient(provider string, timeout time.Duration) *http.Client 
 		"max_idle_conns_per_host", 10,
 		"idle_conn_timeout", "90s")
 
-	return client
+	return entry
 }
 
 // Client implements a universal OpenAI-compatible API client.
 type Client struct {
 	config     *Config
 	httpClient *http.Client
+	poolEntry  *pooledHTTPClient
 	strategy   ProviderStrategy // Strategy pattern to handle provider-specific logic
 }
 
@@ -175,12 +211,13 @@ func NewUniversalClient(config *Config) (*Client, error) {
 
 	// Create HTTP client using connection pool for better performance
 	// This reuses connections across requests to the same provider
-	httpClient := getOrCreateHTTPClient(config.Provider, config.Timeout)
+	pooledClient := getOrCreateHTTPClient(config.Provider, config.Timeout)
 
 	client := &Client{
 		config:     config,
 		strategy:   strategy,
-		httpClient: httpClient,
+		httpClient: pooledClient.client,
+		poolEntry:  pooledClient,
 	}
 
 	logging.Logger.Debug("Universal client created",
@@ -339,7 +376,10 @@ func (c *Client) HealthCheck(ctx context.Context) (*interfaces.HealthStatus, err
 
 // Close releases any resources held by the client
 func (c *Client) Close() error {
-	// No persistent connections to close
+	if c.poolEntry != nil {
+		c.poolEntry.release()
+		c.poolEntry = nil
+	}
 	return nil
 }
 

@@ -17,6 +17,7 @@ limitations under the License.
 package ai
 
 import (
+	"bytes"
 	"context"
 	"crypto/sha256"
 	"encoding/hex"
@@ -38,8 +39,13 @@ type SQLGenerator struct {
 	sqlDialects    map[string]SQLDialect
 	config         config.AIConfig
 	capabilities   *SQLCapabilities
-	runtimeClients map[string]interfaces.AIClient
+	runtimeClients map[string]*runtimeClientEntry
 	runtimeMu      sync.RWMutex
+}
+
+type runtimeClientEntry struct {
+	client            interfaces.AIClient
+	apiKeyFingerprint []byte
 }
 
 // Table represents a database table structure
@@ -142,7 +148,7 @@ func NewSQLGenerator(aiClient interfaces.AIClient, config config.AIConfig) (*SQL
 		aiClient:       aiClient,
 		config:         config,
 		sqlDialects:    make(map[string]SQLDialect),
-		runtimeClients: make(map[string]interfaces.AIClient),
+		runtimeClients: make(map[string]*runtimeClientEntry),
 	}
 
 	// Initialize SQL dialects
@@ -630,23 +636,38 @@ func runtimeClientKey(options *GenerateOptions) string {
 	hasher.Write([]byte(options.Endpoint))
 	hasher.Write([]byte("|"))
 	hasher.Write([]byte(options.Model))
-	hasher.Write([]byte("|"))
-	hasher.Write([]byte(options.APIKey))
 	return hex.EncodeToString(hasher.Sum(nil))
+}
+
+func runtimeAPIKeyFingerprint(apiKey string) []byte {
+	if apiKey == "" {
+		return nil
+	}
+	sum := sha256.Sum256([]byte(apiKey))
+	fingerprint := make([]byte, len(sum))
+	copy(fingerprint, sum[:])
+	return fingerprint
 }
 
 func (g *SQLGenerator) getOrCreateRuntimeClient(options *GenerateOptions) (interfaces.AIClient, bool, error) {
 	key := runtimeClientKey(options)
+	fingerprint := runtimeAPIKeyFingerprint(options.APIKey)
+
 	g.runtimeMu.RLock()
-	if client, ok := g.runtimeClients[key]; ok {
-		g.runtimeMu.RUnlock()
-		return client, true, nil
+	if entry, ok := g.runtimeClients[key]; ok {
+		if bytes.Equal(entry.apiKeyFingerprint, fingerprint) {
+			client := entry.client
+			g.runtimeMu.RUnlock()
+			return client, true, nil
+		}
 	}
 	g.runtimeMu.RUnlock()
 
 	runtimeConfig := map[string]any{
 		"provider": options.Provider,
-		"api_key":  options.APIKey,
+	}
+	if options.APIKey != "" {
+		runtimeConfig["api_key"] = options.APIKey
 	}
 	if options.Endpoint != "" {
 		runtimeConfig["base_url"] = options.Endpoint
@@ -664,13 +685,37 @@ func (g *SQLGenerator) getOrCreateRuntimeClient(options *GenerateOptions) (inter
 	}
 
 	g.runtimeMu.Lock()
-	if existing, ok := g.runtimeClients[key]; ok {
-		g.runtimeMu.Unlock()
-		_ = client.Close()
-		return existing, true, nil
+	var (
+		existingEntry *runtimeClientEntry
+		exists        bool
+	)
+	if existingEntry, exists = g.runtimeClients[key]; exists {
+		if bytes.Equal(existingEntry.apiKeyFingerprint, fingerprint) {
+			g.runtimeMu.Unlock()
+			if err := client.Close(); err != nil {
+				logging.Logger.Warn("Failed to close redundant runtime client",
+					"provider", options.Provider,
+					"endpoint", options.Endpoint,
+					"error", err)
+			}
+			return existingEntry.client, true, nil
+		}
 	}
-	g.runtimeClients[key] = client
+
+	g.runtimeClients[key] = &runtimeClientEntry{
+		client:            client,
+		apiKeyFingerprint: fingerprint,
+	}
 	g.runtimeMu.Unlock()
+
+	if exists && existingEntry != nil && existingEntry.client != nil {
+		if err := existingEntry.client.Close(); err != nil {
+			logging.Logger.Warn("Failed to close stale runtime client",
+				"provider", options.Provider,
+				"endpoint", options.Endpoint,
+				"error", err)
+		}
+	}
 
 	return client, false, nil
 }
@@ -679,8 +724,16 @@ func (g *SQLGenerator) getOrCreateRuntimeClient(options *GenerateOptions) (inter
 func (g *SQLGenerator) Close() {
 	g.runtimeMu.Lock()
 	defer g.runtimeMu.Unlock()
-	for key, client := range g.runtimeClients {
-		_ = client.Close()
+	for key, entry := range g.runtimeClients {
+		if entry == nil || entry.client == nil {
+			delete(g.runtimeClients, key)
+			continue
+		}
+		if err := entry.client.Close(); err != nil {
+			logging.Logger.Warn("Failed to close runtime client during generator shutdown",
+				"key", key,
+				"error", err)
+		}
 		delete(g.runtimeClients, key)
 	}
 }

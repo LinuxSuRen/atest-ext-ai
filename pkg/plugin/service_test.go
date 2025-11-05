@@ -369,7 +369,6 @@ func TestHandleUpdateConfigRefreshesEngine(t *testing.T) {
 			"provider":   "ollama",
 			"endpoint":   "http://localhost:11439",
 			"model":      "test-model",
-			"api_key":    "",
 			"max_tokens": 1337,
 		},
 	}

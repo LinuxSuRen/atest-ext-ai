@@ -3,13 +3,12 @@ package ai
 import (
 	"testing"
 
-	"github.com/linuxsuren/atest-ext-ai/pkg/interfaces"
 	"github.com/stretchr/testify/require"
 )
 
 func TestRuntimeClientReuseAndClose(t *testing.T) {
 	generator := &SQLGenerator{
-		runtimeClients: make(map[string]interfaces.AIClient),
+		runtimeClients: make(map[string]*runtimeClientEntry),
 	}
 
 	options := &GenerateOptions{

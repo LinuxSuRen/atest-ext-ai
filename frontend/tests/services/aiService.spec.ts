@@ -41,6 +41,7 @@ describe('aiService', () => {
       })
       const payload = JSON.parse(body.sql)
       expect(payload.config).toContain('timeout')
+      expect(payload.config).not.toContain('api_key')
 
       return createFetchResponse({
         data: [
@@ -66,6 +67,38 @@ describe('aiService', () => {
     expect(response.sql).toBe('SELECT 1;')
     expect(response.explanation).toBe('Test query')
     expect(response.meta).toEqual({ confidence: 0.9, model: 'demo' })
+  })
+
+  it('sends API key through authorization header only', async () => {
+    const apiKey = 'sk-secure'
+    fetchMock.mockImplementationOnce(async (_url: FetchArgs[0], options: FetchArgs[1]) => {
+      const headers = options?.headers as Record<string, string>
+      expect(headers['X-Auth']).toBe(`Bearer ${apiKey}`)
+
+      const body = JSON.parse(String(options?.body))
+      const payload = JSON.parse(body.sql)
+      expect(payload.config).not.toContain('api_key')
+
+      return createFetchResponse({
+        data: [
+          { key: 'success', value: true },
+          { key: 'content', value: 'sql:SELECT 1;' },
+          { key: 'meta', value: '{}' }
+        ]
+      })
+    })
+
+    await aiService.generateSQL({
+      provider: 'openai',
+      endpoint: 'https://api.openai.com',
+      apiKey,
+      model: 'gpt-5',
+      prompt: 'SELECT 1;',
+      timeout: 30,
+      maxTokens: 256,
+      includeExplanation: false,
+      databaseDialect: 'postgresql'
+    })
   })
 
   it('parses health check response when backend returns boolean healthy flag', async () => {
