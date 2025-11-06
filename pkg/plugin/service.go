@@ -27,6 +27,7 @@ import (
 	"github.com/linuxsuren/api-testing/pkg/server"
 	"github.com/linuxsuren/api-testing/pkg/testing/remote"
 	"github.com/linuxsuren/atest-ext-ai/pkg/ai"
+	"github.com/linuxsuren/atest-ext-ai/pkg/ai/models"
 	"github.com/linuxsuren/atest-ext-ai/pkg/ai/providers/universal"
 	"github.com/linuxsuren/atest-ext-ai/pkg/config"
 	apperrors "github.com/linuxsuren/atest-ext-ai/pkg/errors"
@@ -364,6 +365,8 @@ func (s *AIPluginService) Query(ctx context.Context, req *server.DataQuery) (*se
 			return nil, status.Error(codes.FailedPrecondition, errMsg)
 		}
 		return s.handleGetProviders(ctx, req)
+	case "models_catalog":
+		return s.handleGetModelCatalog(ctx, req)
 	case "models":
 		// Check AI manager availability for model operations
 		if s.aiManager == nil {
@@ -1243,6 +1246,42 @@ func (s *AIPluginService) handleGetModels(ctx context.Context, req *server.DataQ
 			{Key: "success", Value: "true"},
 		},
 	}, nil
+}
+
+// handleGetModelCatalog returns the static model catalog (either entire catalog or provider-specific slice)
+func (s *AIPluginService) handleGetModelCatalog(_ context.Context, req *server.DataQuery) (*server.DataQueryResult, error) {
+	var params struct {
+		Provider string `json:"provider"`
+	}
+
+	if req.Sql != "" {
+		if err := json.Unmarshal([]byte(req.Sql), &params); err != nil {
+			return nil, apperrors.ToGRPCErrorf(apperrors.ErrInvalidRequest, "invalid parameters: %v", err)
+		}
+	}
+
+	catalogSnapshot := models.CatalogSnapshot(params.Provider)
+	if len(catalogSnapshot) == 0 {
+		return nil, apperrors.ToGRPCErrorf(apperrors.ErrModelNotFound, "no catalog entries found for provider %s", params.Provider)
+	}
+
+	snapshotJSON, err := json.Marshal(catalogSnapshot)
+	if err != nil {
+		return nil, status.Errorf(codes.Internal, "failed to marshal catalog: %v", err)
+	}
+
+	result := &server.DataQueryResult{
+		Data: []*server.Pair{
+			{Key: "catalog", Value: string(snapshotJSON)},
+			{Key: "success", Value: "true"},
+		},
+	}
+
+	if params.Provider != "" {
+		result.Data = append(result.Data, &server.Pair{Key: "provider", Value: params.Provider})
+	}
+
+	return result, nil
 }
 
 // handleTestConnection tests a connection with provided configuration

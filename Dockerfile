@@ -1,27 +1,49 @@
 # Build stage
-FROM golang:1.24-alpine AS builder
+# syntax=docker/dockerfile:1.7
+ARG BUILDPLATFORM
+ARG TARGETPLATFORM
 
-# Install build dependencies
-RUN apk add --no-cache git ca-certificates tzdata nodejs npm
+FROM --platform=$BUILDPLATFORM node:20-alpine AS frontend-builder
+WORKDIR /workspace
 
-# Set working directory
-WORKDIR /app
-
-# Copy all source code first (needed for go.mod replace directive)
+# Copy repository contents (needed because frontend build emits to ../pkg/plugin/assets)
 COPY . .
 
-# Download dependencies (replace directive requires source to be present)
-RUN go mod download
+# Cache npm modules to speed up rebuilds
+RUN --mount=type=cache,target=/root/.npm npm --prefix frontend ci
+RUN npm --prefix frontend run build
 
-# Build frontend assets required for Go embed
-RUN npm ci --prefix frontend
-RUN npm run build --prefix frontend
+FROM --platform=$BUILDPLATFORM golang:1.24-alpine AS builder
+ARG TARGETOS
+ARG TARGETARCH
 
-# Build the binary
-RUN CGO_ENABLED=0 GOOS=linux go build \
-    -ldflags="-s -w" \
-    -o bin/atest-ext-ai \
-    ./cmd/atest-ext-ai
+# Install build dependencies
+RUN apk add --no-cache git ca-certificates tzdata
+
+# Enable module caching
+ENV GOMODCACHE=/go/pkg/mod
+ENV GOCACHE=/root/.cache/go-build
+
+# Set working directory
+WORKDIR /workspace
+
+# Copy go module files and download dependencies
+COPY go.mod go.sum ./
+RUN --mount=type=cache,target=/root/.cache/go-build \
+    --mount=type=cache,target=/go/pkg/mod \
+    go mod download
+
+# Copy source code
+COPY . .
+
+# Copy pre-built frontend assets
+COPY --from=frontend-builder /workspace/pkg/plugin/assets ./pkg/plugin/assets
+
+# Build the binary for the target platform
+RUN --mount=type=cache,target=/root/.cache/go-build \
+    --mount=type=cache,target=/go/pkg/mod \
+    CGO_ENABLED=0 GOOS=$TARGETOS GOARCH=$TARGETARCH \
+    go build -ldflags="-s -w" -o bin/atest-ext-ai ./cmd/atest-ext-ai
 
 # Final stage
 FROM alpine:latest

@@ -45,6 +45,22 @@ export const aiService = {
   },
 
   /**
+   * Fetch model catalog metadata (either for a specific provider or all providers)
+   */
+  async fetchModelCatalog(provider?: string): Promise<Record<string, ModelCatalogEntry>> {
+    const payload = provider ? { provider } : {}
+    const result = await callAPI<{ catalog: Record<string, ModelCatalogEntry> }>('models_catalog', payload)
+    const catalog = result.catalog || {}
+
+    // Normalize provider keys to lowercase for consistent lookups
+    const normalized: Record<string, ModelCatalogEntry> = {}
+    for (const [key, entry] of Object.entries(catalog)) {
+      normalized[key.toLowerCase()] = entry
+    }
+    return normalized
+  },
+
+  /**
    * Test connection to AI provider
    */
   async testConnection(config: AIConfig): Promise<{
@@ -221,6 +237,15 @@ export const aiService = {
       }
     })
   }
+}
+
+export interface ModelCatalogEntry {
+  display_name: string
+  category: string
+  endpoint: string
+  requires_api_key: boolean
+  models: Model[]
+  tags?: string[]
 }
 
 function formatTimeout(timeout: number | undefined): string {

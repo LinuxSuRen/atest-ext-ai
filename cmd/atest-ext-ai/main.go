@@ -287,7 +287,8 @@ func cleanupSocketFile(path string) error {
 func createListener(cfg listenerConfig) (net.Listener, error) {
 	if cfg.network == "unix" {
 		dir := filepath.Dir(cfg.address)
-		if err := os.MkdirAll(dir, 0o755); err != nil { //nolint:gosec // socket directory must remain accessible to API clients
+		// #nosec G301 -- socket directory must remain accessible to API clients
+		if err := os.MkdirAll(dir, 0o755); err != nil {
 			return nil, fmt.Errorf("failed to create socket directory %s: %w", dir, err)
 		}
 

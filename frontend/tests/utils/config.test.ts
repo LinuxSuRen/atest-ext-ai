@@ -3,7 +3,6 @@ import {
   loadConfig,
   saveConfig,
   getDefaultConfig,
-  getMockModels,
   generateId
 } from '@/utils/config'
 import type { AIConfig } from '@/types'
@@ -177,34 +176,6 @@ describe('config utils', () => {
       const config = getDefaultConfig('unknown')
       expect(config.endpoint).toBe('http://localhost:11434')
       expect(config.timeout).toBe(120)
-    })
-  })
-
-  describe('getMockModels', () => {
-    it('should return ollama mock models', () => {
-      const models = getMockModels('ollama')
-
-      expect(models).toHaveLength(2)
-      expect(models[0].id).toBe('llama3.2:3b')
-      expect(models[0].name).toBe('Llama 3.2 3B')
-    })
-
-    it('should return openai mock models', () => {
-      const models = getMockModels('openai')
-
-      expect(models).toHaveLength(5)
-      expect(models.map(model => model.id)).toEqual([
-        'gpt-5',
-        'gpt-5-mini',
-        'gpt-5-nano',
-        'gpt-5-pro',
-        'gpt-4.1'
-      ])
-    })
-
-    it('should return empty array for unknown provider', () => {
-      const models = getMockModels('unknown')
-      expect(models).toEqual([])
     })
   })
 

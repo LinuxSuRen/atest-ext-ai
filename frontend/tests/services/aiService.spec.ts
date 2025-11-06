@@ -84,4 +84,32 @@ describe('aiService', () => {
     expect(health.healthy).toBe(true)
     expect(health.provider).toBe('ollama')
   })
+
+  it('fetchModelCatalog should normalize provider keys', async () => {
+    const catalogPayload = {
+      OpenAI: {
+        display_name: 'OpenAI',
+        category: 'cloud',
+        endpoint: 'https://api.openai.com',
+        requires_api_key: true,
+        models: [
+          { id: 'gpt-5', name: 'GPT-5', description: 'Flagship', max_tokens: 200000 }
+        ]
+      }
+    }
+
+    fetchMock.mockResolvedValueOnce(
+      createFetchResponse({
+        data: [
+          { key: 'catalog', value: JSON.stringify(catalogPayload) },
+          { key: 'success', value: true }
+        ]
+      })
+    )
+
+    const catalog = await aiService.fetchModelCatalog()
+    expect(catalog.openai).toBeDefined()
+    expect(catalog.openai.models).toHaveLength(1)
+    expect(catalog.openai.models[0].id).toBe('gpt-5')
+  })
 })

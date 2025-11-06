@@ -1,4 +1,4 @@
-import type { AIConfig, Model, DatabaseDialect } from '@/types'
+import type { AIConfig, DatabaseDialect } from '@/types'
 
 export type Provider = 'ollama' | 'openai' | 'deepseek' | 'local'
 
@@ -107,30 +107,6 @@ export function getDefaultConfig(provider: string): Partial<AIConfig> {
     status: 'disconnected',
     databaseDialect: 'mysql'
   }
-}
-
-/**
- * Get mock models when API fails
- */
-export function getMockModels(provider: string): Model[] {
-  const mocks: Record<string, Model[]> = {
-    ollama: [
-      { id: 'llama3.2:3b', name: 'Llama 3.2 3B', size: '2GB' },
-      { id: 'gemma2:9b', name: 'Gemma 2 9B', size: '5GB' }
-    ],
-    openai: [
-      { id: 'gpt-5', name: 'GPT-5 ⭐', size: 'Cloud' },
-      { id: 'gpt-5-mini', name: 'GPT-5 Mini', size: 'Cloud' },
-      { id: 'gpt-5-nano', name: 'GPT-5 Nano', size: 'Cloud' },
-      { id: 'gpt-5-pro', name: 'GPT-5 Pro', size: 'Cloud' },
-      { id: 'gpt-4.1', name: 'GPT-4.1', size: 'Cloud' }
-    ],
-    deepseek: [
-      { id: 'deepseek-chat', name: 'DeepSeek Chat', size: 'Cloud' },
-      { id: 'deepseek-reasoner', name: 'DeepSeek Reasoner', size: 'Cloud' }
-    ]
-  }
-  return mocks[provider] || []
 }
 
 /**

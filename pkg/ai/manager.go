@@ -29,6 +29,7 @@ import (
 	"time"
 
 	"github.com/linuxsuren/atest-ext-ai/pkg/ai/discovery"
+	"github.com/linuxsuren/atest-ext-ai/pkg/ai/models"
 	"github.com/linuxsuren/atest-ext-ai/pkg/ai/providers/universal"
 	"github.com/linuxsuren/atest-ext-ai/pkg/config"
 	"github.com/linuxsuren/atest-ext-ai/pkg/interfaces"
@@ -543,12 +544,9 @@ func createOpenAICompatibleClient(provider string, cfg config.AIService) (interf
 	}
 
 	if uniCfg.Endpoint == "" {
-		switch normalized {
-		case "openai":
-			uniCfg.Endpoint = "https://api.openai.com"
-		case "deepseek":
-			uniCfg.Endpoint = "https://api.deepseek.com"
-		case "custom":
+		if endpoint := models.EndpointForProvider(normalized); endpoint != "" {
+			uniCfg.Endpoint = endpoint
+		} else if normalized == "custom" {
 			return nil, fmt.Errorf("endpoint is required for custom provider")
 		}
 	}
@@ -585,41 +583,42 @@ func normalizeProviderName(provider string) string {
 
 // getOnlineProviders returns predefined online providers
 func (m *Manager) getOnlineProviders() []*ProviderInfo {
-	return []*ProviderInfo{
-		{
-			Name:      "deepseek",
-			Type:      "online",
-			Available: true,
-			Endpoint:  "https://api.deepseek.com",
-			Models: []interfaces.ModelInfo{
-				{ID: "deepseek-chat", Name: "DeepSeek Chat", Description: "DeepSeek's flagship conversational AI model", MaxTokens: 32768},
-				{ID: "deepseek-reasoner", Name: "DeepSeek Reasoner", Description: "DeepSeek's reasoning model with thinking capabilities", MaxTokens: 32768},
-			},
-			LastChecked: time.Now(),
-			Config: map[string]interface{}{
-				"requires_api_key": true,
-				"provider_type":    "online",
-			},
-		},
-		{
-			Name:      "openai",
-			Type:      "online",
-			Available: true,
-			Endpoint:  "https://api.openai.com",
-			Models: []interfaces.ModelInfo{
-				{ID: "gpt-5", Name: "GPT-5", Description: "OpenAI's flagship GPT-5 model", MaxTokens: 200000},
-				{ID: "gpt-5-mini", Name: "GPT-5 Mini", Description: "Optimized GPT-5 model for lower latency workloads", MaxTokens: 80000},
-				{ID: "gpt-5-nano", Name: "GPT-5 Nano", Description: "Cost-efficient GPT-5 variant for lightweight tasks", MaxTokens: 40000},
-				{ID: "gpt-5-pro", Name: "GPT-5 Pro", Description: "High performance GPT-5 model with extended reasoning", MaxTokens: 240000},
-				{ID: "gpt-4.1", Name: "GPT-4.1", Description: "Balanced GPT-4 series model with strong multimodal support", MaxTokens: 128000},
-			},
-			LastChecked: time.Now(),
-			Config: map[string]interface{}{
-				"requires_api_key": true,
-				"provider_type":    "online",
-			},
-		},
+	catalog, err := models.GetCatalog()
+	if err != nil {
+		logging.Logger.Warn("Failed to load model catalog", "error", err)
+		return nil
 	}
+
+	var providers []*ProviderInfo
+	for _, name := range catalog.ProviderNames() {
+		entry, ok := catalog.Provider(name)
+		if !ok {
+			continue
+		}
+
+		providerType := entry.Category
+		if providerType == "" {
+			providerType = "cloud"
+		}
+		if providerType != "cloud" && providerType != "online" {
+			continue
+		}
+
+		providers = append(providers, &ProviderInfo{
+			Name:        entry.Name,
+			Type:        providerType,
+			Available:   true,
+			Endpoint:    entry.Endpoint,
+			Models:      entry.Models,
+			LastChecked: time.Now(),
+			Config: map[string]interface{}{
+				"requires_api_key": entry.RequiresAPIKey,
+				"provider_type":    providerType,
+			},
+		})
+	}
+
+	return providers
 }
 
 // ===== Retry Logic =====

@@ -152,13 +152,14 @@ async function handleTest(updatedConfig?: AIConfig) {
   display: flex;
   flex-direction: column;
   width: 100%;
-  height: 100%;
-  max-height: 100%;
+  height: 100vh;
+  max-height: 100vh;
   min-height: 0;
   padding: clamp(16px, 4vw, 32px);
   box-sizing: border-box;
   gap: clamp(12px, 2vw, 20px);
   background: var(--atest-bg-base);
+  overflow: hidden;
 }
 
 .welcome-panel {
@@ -166,18 +167,18 @@ async function handleTest(updatedConfig?: AIConfig) {
   display: flex;
   align-items: center;
   justify-content: center;
+  overflow: auto;
 }
 
 .chat-content {
   flex: 1;
-  display: grid;
-  grid-template-rows: minmax(0, 1fr) auto;
-  gap: var(--atest-spacing-md);
+  display: flex;
+  flex-direction: column;
+  gap: 0;
   overflow: hidden;
   border-radius: var(--atest-radius-lg);
   background: var(--atest-bg-surface);
   box-shadow: var(--atest-shadow-md);
-  padding: clamp(12px, 3vw, 24px);
   min-height: 0;
   max-height: 100%;
 }
@@ -185,6 +186,8 @@ async function handleTest(updatedConfig?: AIConfig) {
 @media (max-width: 1024px) {
   .ai-chat-container {
     padding: 24px;
+    height: 100vh;
+    max-height: 100vh;
   }
 }
 
@@ -192,21 +195,20 @@ async function handleTest(updatedConfig?: AIConfig) {
   .ai-chat-container {
     padding: 20px;
     gap: 12px;
+    height: 100vh;
+    max-height: 100vh;
   }
 
   .chat-content {
     border-radius: var(--atest-radius-md);
-    padding: 16px;
   }
 }
 
 @media (max-width: 480px) {
   .ai-chat-container {
     padding: 16px;
-  }
-
-  .chat-content {
-    padding: 12px;
+    height: 100vh;
+    max-height: 100vh;
   }
 }
 </style>

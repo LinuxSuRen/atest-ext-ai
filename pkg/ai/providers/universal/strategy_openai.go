@@ -22,6 +22,7 @@ import (
 	"io"
 	"strings"
 
+	"github.com/linuxsuren/atest-ext-ai/pkg/ai/models"
 	"github.com/linuxsuren/atest-ext-ai/pkg/interfaces"
 )
 
@@ -169,65 +170,21 @@ func (s *OpenAIStrategy) GetDefaultPaths() ProviderPaths {
 
 // GetDefaultModels returns default models for specific providers
 func (s *OpenAIStrategy) GetDefaultModels(maxTokens int) []interfaces.ModelInfo {
-	switch s.provider {
-	case "deepseek":
-		return []interfaces.ModelInfo{
-			{
-				ID:          "deepseek-chat",
-				Name:        "DeepSeek Chat",
-				Description: "DeepSeek's flagship conversational AI model",
-				MaxTokens:   32768,
-			},
-			{
-				ID:          "deepseek-reasoner",
-				Name:        "DeepSeek Reasoner",
-				Description: "DeepSeek's reasoning model with thinking capabilities",
-				MaxTokens:   32768,
-			},
+	catalog, err := models.GetCatalog()
+	if err == nil {
+		if entries := catalog.ModelsForProvider(s.provider); len(entries) > 0 {
+			return entries
 		}
-	case "openai":
-		return []interfaces.ModelInfo{
-			{
-				ID:          "gpt-5",
-				Name:        "GPT-5",
-				Description: "OpenAI's flagship GPT-5 model",
-				MaxTokens:   200000,
-			},
-			{
-				ID:          "gpt-5-mini",
-				Name:        "GPT-5 Mini",
-				Description: "Optimized GPT-5 model for latency-sensitive workloads",
-				MaxTokens:   80000,
-			},
-			{
-				ID:          "gpt-5-nano",
-				Name:        "GPT-5 Nano",
-				Description: "Cost efficient GPT-5 variant for lightweight tasks",
-				MaxTokens:   40000,
-			},
-			{
-				ID:          "gpt-5-pro",
-				Name:        "GPT-5 Pro",
-				Description: "High performance GPT-5 model with extended reasoning",
-				MaxTokens:   240000,
-			},
-			{
-				ID:          "gpt-4.1",
-				Name:        "GPT-4.1",
-				Description: "Balanced GPT-4 series model with strong multimodal support",
-				MaxTokens:   128000,
-			},
-		}
-	default:
-		// Generic fallback
-		return []interfaces.ModelInfo{
-			{
-				ID:          "default",
-				Name:        "Default Model",
-				Description: "Default model for this provider",
-				MaxTokens:   maxTokens,
-			},
-		}
+	}
+
+	// Generic fallback
+	return []interfaces.ModelInfo{
+		{
+			ID:          "default",
+			Name:        "Default Model",
+			Description: "Default model for this provider",
+			MaxTokens:   maxTokens,
+		},
 	}
 }
 
