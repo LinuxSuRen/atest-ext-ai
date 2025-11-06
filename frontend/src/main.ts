@@ -18,10 +18,11 @@ let pendingLocale: string | null = null
 const ATestPlugin = {
   /**
    * Mount plugin with context from main app
-   * @param container - DOM container element
+   * @param el - DOM container element or selector string
    * @param context - Optional context from main app (i18n, API, Cache)
    */
-  mount(container: HTMLElement, context?: AppContext) {
+  mount(el?: string | Element, context?: AppContext) {
+    const container = typeof el === 'string' ? document.querySelector(el) : el;
     // Cleanup previous instance if exists
     if (app) {
       app.unmount()
@@ -73,6 +74,10 @@ declare global {
   interface Window {
     ATestPlugin: typeof ATestPlugin
   }
+}
+
+if (sessionStorage.getItem('mode') === 'dev') {
+  ATestPlugin.mount('#plugin-container');
 }
 
 window.ATestPlugin = ATestPlugin
