@@ -38,14 +38,24 @@ type CapabilitiesRequest struct {
 
 // CapabilitiesResponse defines the complete capability information for the AI plugin
 type CapabilitiesResponse struct {
-	Version     string                 `json:"version"`
-	Models      []ModelCapability      `json:"models"`
-	Databases   []DatabaseCapability   `json:"databases"`
-	Features    []FeatureCapability    `json:"features"`
-	Health      HealthStatusReport     `json:"health"`
-	Limits      ResourceLimits         `json:"limits"`
-	LastUpdated time.Time              `json:"last_updated"`
-	Metadata    map[string]interface{} `json:"metadata,omitempty"`
+	Version     string               `json:"version"`
+	Models      []ModelCapability    `json:"models"`
+	Databases   []DatabaseCapability `json:"databases"`
+	Features    []FeatureCapability  `json:"features"`
+	Health      HealthStatusReport   `json:"health"`
+	Limits      ResourceLimits       `json:"limits"`
+	LastUpdated time.Time            `json:"last_updated"`
+	Metadata    CapabilityMetadata   `json:"metadata"`
+}
+
+// CapabilityMetadata provides contextual information about the response.
+type CapabilityMetadata struct {
+	CacheStatus   string    `json:"cache_status"`
+	Source        string    `json:"source"`
+	ModelCount    int       `json:"model_count"`
+	FeatureCount  int       `json:"feature_count"`
+	HealthChecked bool      `json:"health_checked"`
+	GeneratedAt   time.Time `json:"generated_at"`
 }
 
 // ModelCapability represents the capabilities of an AI model
@@ -206,10 +216,17 @@ func (d *CapabilityDetector) GetCapabilities(ctx context.Context, req *Capabilit
 	}
 
 	// Build fresh capability response
+	now := time.Now()
+	metadata := CapabilityMetadata{
+		CacheStatus:   "miss",
+		Source:        "live",
+		HealthChecked: req.CheckHealth,
+		GeneratedAt:   now,
+	}
 	response := &CapabilitiesResponse{
 		Version:     "1.0.0",
-		LastUpdated: time.Now(),
-		Metadata:    make(map[string]interface{}),
+		LastUpdated: now,
+		Metadata:    metadata,
 	}
 
 	// Collect models if requested
@@ -219,6 +236,7 @@ func (d *CapabilityDetector) GetCapabilities(ctx context.Context, req *Capabilit
 			return nil, fmt.Errorf("failed to detect model capabilities: %w", err)
 		}
 		response.Models = models
+		metadata.ModelCount = len(models)
 	}
 
 	// Collect database capabilities if requested
@@ -228,7 +246,9 @@ func (d *CapabilityDetector) GetCapabilities(ctx context.Context, req *Capabilit
 
 	// Collect feature capabilities if requested
 	if req.IncludeFeatures {
-		response.Features = d.detectFeatureCapabilities()
+		features := d.detectFeatureCapabilities()
+		response.Features = features
+		metadata.FeatureCount = len(features)
 	}
 
 	// Perform health checks if requested
@@ -242,6 +262,9 @@ func (d *CapabilityDetector) GetCapabilities(ctx context.Context, req *Capabilit
 
 	// Always include resource limits
 	response.Limits = d.getResourceLimits()
+
+	// Attach finalized metadata snapshot
+	response.Metadata = metadata
 
 	// Update cache
 	d.cache.update(response)
@@ -646,10 +669,13 @@ func (d *CapabilityDetector) getCachedCapabilities(req *CapabilitiesRequest) (*C
 	}
 
 	// Create a filtered response based on request
+	metadata := d.cache.data.Metadata
+	metadata.HealthChecked = req.CheckHealth
+
 	response := &CapabilitiesResponse{
 		Version:     d.cache.data.Version,
 		LastUpdated: d.cache.data.LastUpdated,
-		Metadata:    d.cache.data.Metadata,
+		Metadata:    metadata,
 	}
 
 	if req.IncludeModels {
