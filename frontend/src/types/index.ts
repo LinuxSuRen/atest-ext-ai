@@ -9,8 +9,8 @@ export interface AppContext {
     t: (key: string) => string
     locale: Ref<string>
   }
-  API: any  // Main app's API object from net.ts
-  Cache: any  // Main app's Cache object from cache.ts
+  API: APIClient  // Main app's API object from net.ts
+  Cache: CacheManager  // Main app's Cache object from cache.ts
 }
 
 /**
@@ -24,6 +24,36 @@ export interface AppContext {
  * - 'local': Internal alias for 'ollama' (backward compatibility only, not shown in UI)
  */
 export type DatabaseDialect = 'mysql' | 'postgresql' | 'sqlite'
+
+export type HTTPMethod = 'GET' | 'POST' | 'PUT' | 'PATCH' | 'DELETE'
+
+export interface APIRequestOptions {
+  path: string
+  method?: HTTPMethod
+  headers?: Record<string, string>
+  body?: unknown
+  params?: Record<string, string | number | boolean>
+  timeoutMs?: number
+}
+
+export interface APIClient {
+  request<T = unknown>(options: APIRequestOptions): Promise<T>
+}
+
+export interface CacheManager {
+  get<T = unknown>(key: string): T | undefined
+  set<T = unknown>(key: string, value: T, ttlMs?: number): void
+  remove?(key: string): void
+  clear?(): void
+}
+
+export interface MessageMetadata extends Record<string, unknown> {
+  model?: string
+  dialect?: DatabaseDialect | string
+  duration?: number
+  provider?: string
+  raw?: string
+}
 
 export interface AIConfig {
   provider: 'ollama' | 'local' | 'openai' | 'deepseek'
@@ -55,7 +85,7 @@ export interface Message {
   type: 'user' | 'ai' | 'error'
   content: string
   sql?: string
-  meta?: any
+  meta?: MessageMetadata
   timestamp: number
 }
 
@@ -81,6 +111,6 @@ export interface QueryResponse {
   success: boolean
   sql?: string
   explanation?: string
-  meta?: any
+  meta?: MessageMetadata
   error?: string
 }

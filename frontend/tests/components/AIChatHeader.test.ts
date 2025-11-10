@@ -1,4 +1,5 @@
 import { describe, it, expect, beforeEach } from 'vitest'
+import { ref } from 'vue'
 import { mount } from '@vue/test-utils'
 import AIChatHeader from '@/components/AIChatHeader.vue'
 import type { AppContext } from '@/types'
@@ -10,10 +11,19 @@ describe('AIChatHeader', () => {
     mockContext = {
       i18n: {
         t: (key: string) => key,
-        locale: { value: 'en' } as any
+        locale: ref('en')
       },
-      API: {},
-      Cache: {}
+      API: {
+        request: async (_options) => {
+          throw new Error('API client not mocked')
+        }
+      },
+      Cache: {
+        get: <T>(_key: string) => undefined as T | undefined,
+        set: (_key: string, _value: unknown, _ttlMs?: number) => undefined,
+        remove: (_key: string) => undefined,
+        clear: () => undefined
+      }
     }
   })
 

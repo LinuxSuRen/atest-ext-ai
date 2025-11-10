@@ -1,4 +1,5 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest'
+import { ref } from 'vue'
 import { useAIChat } from '@/composables/useAIChat'
 import { aiService } from '@/services/aiService'
 import type { AppContext } from '@/types'
@@ -28,10 +29,19 @@ describe('useAIChat', () => {
     mockContext = {
       i18n: {
         t: (key: string) => key,
-        locale: { value: 'en' } as any
+        locale: ref('en')
       },
-      API: {},
-      Cache: {}
+      API: {
+        request: vi.fn(async (_options: unknown) => {
+          throw new Error('API client not mocked')
+        })
+      },
+      Cache: {
+        get: <T>(_key: string) => undefined as T | undefined,
+        set: (_key: string, _value: unknown, _ttlMs?: number) => undefined,
+        remove: (_key: string) => undefined,
+        clear: () => undefined
+      }
     }
   })
 
@@ -91,7 +101,7 @@ describe('useAIChat', () => {
 
       const { config, messages, handleQuery } = useAIChat(mockContext)
 
-      await handleQuery('show all users', { includeExplanation: false })
+      await handleQuery('show all users', { includeExplanation: false, databaseDialect: 'mysql' })
 
       expect(messages.value).toHaveLength(2)
       expect(messages.value[0].type).toBe('user')
@@ -108,7 +118,7 @@ describe('useAIChat', () => {
 
       const { messages, handleQuery } = useAIChat(mockContext)
 
-      await handleQuery('show all users', { includeExplanation: false })
+      await handleQuery('show all users', { includeExplanation: false, databaseDialect: 'mysql' })
 
       expect(messages.value).toHaveLength(2)
       expect(messages.value[0].type).toBe('user')
@@ -130,7 +140,7 @@ describe('useAIChat', () => {
 
       const { isLoading, handleQuery } = useAIChat(mockContext)
 
-      const queryPromise = handleQuery('test', { includeExplanation: false })
+      const queryPromise = handleQuery('test', { includeExplanation: false, databaseDialect: 'mysql' })
 
       expect(isLoading.value).toBe(true)
 
