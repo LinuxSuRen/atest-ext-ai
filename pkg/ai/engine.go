@@ -64,6 +64,7 @@ type GenerateSQLRequest struct {
 	NaturalLanguage string            `json:"natural_language"`
 	DatabaseType    string            `json:"database_type"`
 	Context         map[string]string `json:"context,omitempty"`
+	RuntimeAPIKey   string            `json:"-"`
 }
 
 // GenerateSQLResponse represents an AI SQL generation response
@@ -113,7 +114,11 @@ func NewEngine(cfg config.AIConfig) (Engine, error) {
 
 	engine, err := newEngineFromManager(manager, cfg)
 	if err != nil {
-		_ = manager.Close()
+		if closeErr := manager.Close(); closeErr != nil {
+			logging.Logger.Warn("Failed to close AI manager after initialization error",
+				"provider", cfg.DefaultService,
+				"error", closeErr)
+		}
 		return nil, err
 	}
 	return engine, nil
@@ -163,7 +168,11 @@ func NewEngineWithManager(manager *Manager, cfg config.AIConfig) (Engine, error)
 
 	engine, err := newEngineFromManager(manager, cfg)
 	if err != nil {
-		_ = manager.Close()
+		if closeErr := manager.Close(); closeErr != nil {
+			logging.Logger.Warn("Failed to close AI manager after initialization error",
+				"provider", cfg.DefaultService,
+				"error", closeErr)
+		}
 		return nil, err
 	}
 	return engine, nil
@@ -206,6 +215,10 @@ func (e *aiEngine) GenerateSQL(ctx context.Context, req *GenerateSQLRequest) (*G
 		MaxTokens:          defaultMaxTokens,
 	}
 
+	if req.RuntimeAPIKey != "" {
+		options.APIKey = req.RuntimeAPIKey
+	}
+
 	// Add context if provided and extract preferred_model and runtime config
 	var runtimeConfig map[string]interface{}
 	if len(req.Context) > 0 {
@@ -236,7 +249,11 @@ func (e *aiEngine) GenerateSQL(ctx context.Context, req *GenerateSQLRequest) (*G
 					options.Provider = provider
 				}
 				if apiKey, ok := runtimeConfig["api_key"].(string); ok && apiKey != "" {
-					options.APIKey = apiKey
+					if options.APIKey == "" {
+						options.APIKey = apiKey
+					} else if options.APIKey != apiKey {
+						logging.Logger.Warn("Runtime config API key differs from secured metadata; using secured value")
+					}
 				}
 				if endpoint, ok := runtimeConfig["endpoint"].(string); ok && endpoint != "" {
 					options.Endpoint = endpoint
@@ -313,6 +330,9 @@ func (e *aiEngine) Close() {
 		e.generator.Close()
 	}
 	if e.manager != nil {
-		_ = e.manager.Close()
+		if err := e.manager.Close(); err != nil {
+			logging.Logger.Warn("Failed to close AI manager during engine shutdown",
+				"error", err)
+		}
 	}
 }

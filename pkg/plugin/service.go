@@ -21,6 +21,7 @@ import (
 	_ "embed"
 	"encoding/json"
 	"fmt"
+	"sort"
 	"strings"
 	"time"
 
@@ -34,6 +35,7 @@ import (
 	"github.com/linuxsuren/atest-ext-ai/pkg/logging"
 	"github.com/linuxsuren/atest-ext-ai/pkg/metrics"
 	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/metadata"
 	"google.golang.org/grpc/status"
 )
 
@@ -86,6 +88,124 @@ func contextError(ctx context.Context) error {
 	}
 
 	return nil
+}
+
+type contextKey string
+
+const apiKeyContextKey contextKey = "ai-plugin-runtime-api-key"
+
+func withAPIKey(ctx context.Context, apiKey string) context.Context {
+	if ctx == nil || apiKey == "" {
+		return ctx
+	}
+	return context.WithValue(ctx, apiKeyContextKey, apiKey)
+}
+
+func apiKeyFromContext(ctx context.Context) string {
+	if ctx == nil {
+		return ""
+	}
+	if value, ok := ctx.Value(apiKeyContextKey).(string); ok {
+		return value
+	}
+	return ""
+}
+
+func extractAPIKeyFromMetadata(ctx context.Context) string {
+	if ctx == nil {
+		return ""
+	}
+	md, ok := metadata.FromIncomingContext(ctx)
+	if !ok {
+		return ""
+	}
+
+	for key, values := range md {
+		switch strings.ToLower(key) {
+		case "auth", "x-auth", "x-ai-api-key", "authorization":
+			for _, raw := range values {
+				if normalized := normalizeAPIKeyValue(raw); normalized != "" {
+					return normalized
+				}
+			}
+		}
+	}
+	return ""
+}
+
+func normalizeAPIKeyValue(value string) string {
+	trimmed := strings.TrimSpace(value)
+	if trimmed == "" {
+		return ""
+	}
+	if strings.HasPrefix(strings.ToLower(trimmed), "bearer ") {
+		return strings.TrimSpace(trimmed[7:])
+	}
+	return trimmed
+}
+
+func formatInitErrors(filter func(InitializationError) bool) string {
+	if len(initErrors) == 0 {
+		return ""
+	}
+
+	var builder strings.Builder
+	for _, initErr := range initErrors {
+		if filter != nil && !filter(initErr) {
+			continue
+		}
+		if builder.Len() == 0 {
+			builder.WriteString(" Initialization errors:")
+		}
+		builder.WriteString(fmt.Sprintf("\n- %s: %s", initErr.Component, initErr.Reason))
+		if len(initErr.Details) > 0 {
+			keys := make([]string, 0, len(initErr.Details))
+			for key := range initErr.Details {
+				keys = append(keys, key)
+			}
+			sort.Strings(keys)
+			for _, key := range keys {
+				builder.WriteString(fmt.Sprintf("\n  %s: %s", key, initErr.Details[key]))
+			}
+		}
+	}
+
+	return builder.String()
+}
+
+func (s *AIPluginService) requireEngineAvailable(operation, baseMessage, fallback string) error {
+	if s.aiEngine != nil {
+		return nil
+	}
+
+	logging.Logger.Error(operation)
+	errMsg := baseMessage
+	if details := formatInitErrors(nil); details != "" {
+		errMsg += details
+	} else if fallback != "" {
+		errMsg += " " + fallback
+	}
+	return status.Error(codes.FailedPrecondition, errMsg)
+}
+
+const managerFallbackMessage = "Please check AI service configuration."
+
+func (s *AIPluginService) requireManagerAvailable(operation, baseMessage string) error {
+	if s.aiManager != nil {
+		return nil
+	}
+
+	logging.Logger.Error(operation)
+	details := formatInitErrors(func(initErr InitializationError) bool {
+		return initErr.Component == "AI Manager"
+	})
+	errMsg := baseMessage
+	if details != "" {
+		errMsg += details
+	} else {
+		errMsg += " " + managerFallbackMessage
+	}
+	return status.Error(codes.FailedPrecondition, errMsg)
 }
 
 func normalizeDatabaseType(value string) string {
@@ -301,6 +421,8 @@ func (s *AIPluginService) Query(ctx context.Context, req *server.DataQuery) (*se
 		"key", req.Key,
 		"sql_length", len(req.Sql))
 
+	ctx = withAPIKey(ctx, extractAPIKeyFromMetadata(ctx))
+
 	// Accept both empty type (for backward compatibility) and explicit "ai" type
 	// The main project doesn't always send the type field
 	if req.Type != "" && req.Type != "ai" {
@@ -311,167 +433,53 @@ func (s *AIPluginService) Query(ctx context.Context, req *server.DataQuery) (*se
 	// Handle new AI interface standard
 	switch req.Key {
 	case "generate":
-		// Check AI engine availability for generation requests
-		if s.aiEngine == nil {
-			logging.Logger.Error("AI generation requested but AI engine is not available")
-
-			// Build enhanced error message with initialization details
-			errMsg := "AI generation service is currently unavailable."
-
-			// Add specific initialization error information if available
-			if len(initErrors) > 0 {
-				errMsg += " Initialization errors:"
-				for _, initErr := range initErrors {
-					errMsg += fmt.Sprintf("\n- %s: %s", initErr.Component, initErr.Reason)
-					// Add relevant details
-					if len(initErr.Details) > 0 {
-						for key, value := range initErr.Details {
-							errMsg += fmt.Sprintf("\n  %s: %s", key, value)
-						}
-					}
-				}
-			} else {
-				errMsg += " Please check AI provider configuration and connectivity."
-			}
-
-			return nil, status.Error(codes.FailedPrecondition, errMsg)
+		if err := s.requireEngineAvailable(
+			"AI generation requested but AI engine is not available",
+			"AI generation service is currently unavailable.",
+			"Please check AI provider configuration and connectivity."); err != nil {
+			return nil, err
 		}
 		return s.handleAIGenerate(ctx, req)
 	case "capabilities":
 		return s.handleAICapabilities(ctx, req)
 	case "providers":
-		// Check AI manager availability for provider operations
-		if s.aiManager == nil {
-			logging.Logger.Error("Provider discovery requested but AI manager is not available")
-
-			// Build enhanced error message with initialization details
-			errMsg := "AI provider discovery is currently unavailable."
-			if len(initErrors) > 0 {
-				errMsg += " Initialization errors:"
-				for _, initErr := range initErrors {
-					if initErr.Component == "AI Manager" {
-						errMsg += fmt.Sprintf("\n- %s: %s", initErr.Component, initErr.Reason)
-						if len(initErr.Details) > 0 {
-							for key, value := range initErr.Details {
-								errMsg += fmt.Sprintf("\n  %s: %s", key, value)
-							}
-						}
-					}
-				}
-			} else {
-				errMsg += " Please check AI service configuration."
-			}
-
-			return nil, status.Error(codes.FailedPrecondition, errMsg)
+		if err := s.requireManagerAvailable(
+			"Provider discovery requested but AI manager is not available",
+			"AI provider discovery is currently unavailable."); err != nil {
+			return nil, err
 		}
 		return s.handleGetProviders(ctx, req)
 	case "models_catalog":
 		return s.handleGetModelCatalog(ctx, req)
 	case "models":
-		// Check AI manager availability for model operations
-		if s.aiManager == nil {
-			logging.Logger.Error("Model listing requested but AI manager is not available")
-
-			// Build enhanced error message with initialization details
-			errMsg := "AI model listing is currently unavailable."
-			if len(initErrors) > 0 {
-				errMsg += " Initialization errors:"
-				for _, initErr := range initErrors {
-					if initErr.Component == "AI Manager" {
-						errMsg += fmt.Sprintf("\n- %s: %s", initErr.Component, initErr.Reason)
-						if len(initErr.Details) > 0 {
-							for key, value := range initErr.Details {
-								errMsg += fmt.Sprintf("\n  %s: %s", key, value)
-							}
-						}
-					}
-				}
-			} else {
-				errMsg += " Please check AI service configuration."
-			}
-
-			return nil, status.Error(codes.FailedPrecondition, errMsg)
+		if err := s.requireManagerAvailable(
+			"Model listing requested but AI manager is not available",
+			"AI model listing is currently unavailable."); err != nil {
+			return nil, err
 		}
 		return s.handleGetModels(ctx, req)
 	case "test_connection":
-		// Connection testing can work even without initialized services
-		if s.aiManager == nil {
-			logging.Logger.Error("Connection test requested but AI manager is not available")
-
-			// Build enhanced error message with initialization details
-			errMsg := "AI connection testing is currently unavailable."
-			if len(initErrors) > 0 {
-				errMsg += " Initialization errors:"
-				for _, initErr := range initErrors {
-					if initErr.Component == "AI Manager" {
-						errMsg += fmt.Sprintf("\n- %s: %s", initErr.Component, initErr.Reason)
-						if len(initErr.Details) > 0 {
-							for key, value := range initErr.Details {
-								errMsg += fmt.Sprintf("\n  %s: %s", key, value)
-							}
-						}
-					}
-				}
-			} else {
-				errMsg += " Please check AI service configuration."
-			}
-
-			return nil, status.Error(codes.FailedPrecondition, errMsg)
+		if err := s.requireManagerAvailable(
+			"Connection test requested but AI manager is not available",
+			"AI connection testing is currently unavailable."); err != nil {
+			return nil, err
 		}
 		return s.handleTestConnection(ctx, req)
 	case "health_check":
 		return s.handleHealthCheck(ctx, req)
 	case "update_config":
-		if s.aiManager == nil {
-			logging.Logger.Error("Config update requested but AI manager is not available")
-
-			// Build enhanced error message with initialization details
-			errMsg := "AI configuration update is currently unavailable."
-			if len(initErrors) > 0 {
-				errMsg += " Initialization errors:"
-				for _, initErr := range initErrors {
-					if initErr.Component == "AI Manager" {
-						errMsg += fmt.Sprintf("\n- %s: %s", initErr.Component, initErr.Reason)
-						if len(initErr.Details) > 0 {
-							for key, value := range initErr.Details {
-								errMsg += fmt.Sprintf("\n  %s: %s", key, value)
-							}
-						}
-					}
-				}
-			} else {
-				errMsg += " Please check AI service configuration."
-			}
-
-			return nil, status.Error(codes.FailedPrecondition, errMsg)
+		if err := s.requireManagerAvailable(
+			"Config update requested but AI manager is not available",
+			"AI configuration update is currently unavailable."); err != nil {
+			return nil, err
 		}
 		return s.handleUpdateConfig(ctx, req)
 	default:
-		// Backward compatibility: support legacy natural language queries
-		// Check AI engine availability for legacy queries
-		if s.aiEngine == nil {
-			logging.Logger.Error("AI query requested but AI engine is not available")
-
-			// Build enhanced error message with initialization details
-			errMsg := "AI service is currently unavailable."
-
-			// Add specific initialization error information if available
-			if len(initErrors) > 0 {
-				errMsg += " Initialization errors:"
-				for _, initErr := range initErrors {
-					errMsg += fmt.Sprintf("\n- %s: %s", initErr.Component, initErr.Reason)
-					// Add relevant details
-					if len(initErr.Details) > 0 {
-						for key, value := range initErr.Details {
-							errMsg += fmt.Sprintf("\n  %s: %s", key, value)
-						}
-					}
-				}
-			} else {
-				errMsg += " Please check AI provider configuration and connectivity."
-			}
-
-			return nil, status.Error(codes.FailedPrecondition, errMsg)
+		if err := s.requireEngineAvailable(
+			"AI query requested but AI engine is not available",
+			"AI service is currently unavailable.",
+			"Please check AI provider configuration and connectivity."); err != nil {
+			return nil, err
 		}
 		return s.handleLegacyQuery(ctx, req)
 	}
@@ -736,6 +744,8 @@ func (s *AIPluginService) handleAIGenerate(ctx context.Context, req *server.Data
 		"prompt_length", len(params.Prompt),
 		"has_config", params.Config != "")
 
+	apiKey := apiKeyFromContext(ctx)
+
 	// Generate using AI engine
 	context := map[string]string{}
 	if params.Model != "" {
@@ -754,6 +764,7 @@ func (s *AIPluginService) handleAIGenerate(ctx context.Context, req *server.Data
 		NaturalLanguage: params.Prompt,
 		DatabaseType:    databaseType,
 		Context:         context,
+		RuntimeAPIKey:   apiKey,
 	})
 	if err != nil {
 		metrics.RecordRequest("generate", provider, "error")
@@ -1316,6 +1327,12 @@ func (s *AIPluginService) handleTestConnection(ctx context.Context, req *server.
 		config.Provider = "ollama"
 	}
 
+	if config.APIKey == "" {
+		if apiKey := apiKeyFromContext(ctx); apiKey != "" {
+			config.APIKey = apiKey
+		}
+	}
+
 	// Log configuration for debugging (mask API key)
 	apiKeyDisplay := "***masked***"
 	if config.APIKey != "" && len(config.APIKey) > 4 {
@@ -1347,7 +1364,7 @@ func (s *AIPluginService) handleTestConnection(ctx context.Context, req *server.
 }
 
 // handleUpdateConfig updates the configuration for a provider
-func (s *AIPluginService) handleUpdateConfig(_ context.Context, req *server.DataQuery) (*server.DataQueryResult, error) {
+func (s *AIPluginService) handleUpdateConfig(ctx context.Context, req *server.DataQuery) (*server.DataQueryResult, error) {
 	logging.Logger.Debug("Handling update config request", "sql_length", len(req.Sql))
 
 	// Parse update request from SQL field
@@ -1382,6 +1399,12 @@ func (s *AIPluginService) handleUpdateConfig(_ context.Context, req *server.Data
 
 	if updateReq.Provider == "" || updateReq.Config == nil {
 		return nil, apperrors.ToGRPCError(apperrors.ErrInvalidRequest)
+	}
+
+	if updateReq.Config.APIKey == "" {
+		if apiKey := apiKeyFromContext(ctx); apiKey != "" {
+			updateReq.Config.APIKey = apiKey
+		}
 	}
 
 	// Map "local" to "ollama" for backward compatibility
@@ -1434,7 +1457,11 @@ func (s *AIPluginService) handleUpdateConfig(_ context.Context, req *server.Data
 		logging.Logger.Error("Failed to rebuild AI engine",
 			"provider", updateReq.Provider,
 			"error", err)
-		_ = manager.Close()
+		if closeErr := manager.Close(); closeErr != nil {
+			logging.Logger.Warn("Failed to close AI manager after rebuild error",
+				"provider", updateReq.Provider,
+				"error", closeErr)
+		}
 		return nil, apperrors.ToGRPCErrorf(apperrors.ErrInvalidConfig, "failed to rebuild AI engine: %v", err)
 	}
 

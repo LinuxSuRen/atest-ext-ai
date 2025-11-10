@@ -292,7 +292,11 @@ func (m *Manager) AddClient(ctx context.Context, name string, svc config.AIServi
 
 	// Close old client if exists
 	if oldClient, exists := m.clients[name]; exists {
-		_ = oldClient.Close()
+		if err := oldClient.Close(); err != nil {
+			logging.Logger.Warn("Failed to close existing AI client",
+				"client", name,
+				"error", err)
+		}
 	}
 
 	m.clients[name] = client
@@ -313,7 +317,11 @@ func (m *Manager) RemoveClient(name string) error {
 		return fmt.Errorf("%w: %s", ErrClientNotFound, name)
 	}
 
-	_ = client.Close()
+	if err := client.Close(); err != nil {
+		logging.Logger.Warn("Failed to close AI client",
+			"client", name,
+			"error", err)
+	}
 	delete(m.clients, name)
 	return nil
 }
@@ -354,7 +362,11 @@ func (m *Manager) DiscoverProviders(ctx context.Context) ([]*ProviderInfo, error
 			}
 
 			providers = append(providers, provider)
-			_ = client.Close()
+			if err := client.Close(); err != nil {
+				logging.Logger.Warn("Failed to close discovery client",
+					"provider", provider.Name,
+					"error", err)
+			}
 		}
 	}
 
@@ -408,7 +420,13 @@ func (m *Manager) TestConnection(ctx context.Context, cfg *universal.Config) (*C
 			Error:        err.Error(),
 		}, nil
 	}
-	defer func() { _ = client.Close() }()
+	defer func() {
+		if err := client.Close(); err != nil {
+			logging.Logger.Warn("Failed to close test connection client",
+				"provider", cfg.Provider,
+				"error", err)
+		}
+	}()
 
 	health, err := client.HealthCheck(ctx)
 	if err != nil {
