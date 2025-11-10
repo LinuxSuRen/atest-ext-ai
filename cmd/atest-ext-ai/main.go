@@ -32,16 +32,10 @@ import (
 	"time"
 
 	"github.com/linuxsuren/api-testing/pkg/testing/remote"
+	"github.com/linuxsuren/atest-ext-ai/pkg/constants"
 	"github.com/linuxsuren/atest-ext-ai/pkg/plugin"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/peer"
-)
-
-const (
-	// SocketFileName is the socket file name for AI plugin
-	SocketFileName = "atest-ext-ai.sock"
-	// defaultWindowsTCPAddress is the fallback TCP address for Windows hosts
-	defaultWindowsTCPAddress = "127.0.0.1:38081"
 )
 
 type listenerConfig struct {
@@ -155,8 +149,8 @@ func main() {
 		select {
 		case <-done:
 			log.Println("✓ gRPC server shutdown completed gracefully")
-		case <-time.After(30 * time.Second):
-			log.Println("⚠ Forcing gRPC server shutdown due to timeout (30s exceeded)")
+		case <-time.After(constants.Timeouts.Shutdown):
+			log.Printf("⚠ Forcing gRPC server shutdown due to timeout (%s exceeded)", constants.Timeouts.Shutdown)
 			grpcServer.Stop()
 		}
 
@@ -195,7 +189,7 @@ func resolveListenerConfig() listenerConfig {
 	if runtime.GOOS == "windows" {
 		address := os.Getenv("AI_PLUGIN_TCP_ADDR")
 		if address == "" {
-			address = defaultWindowsTCPAddress
+			address = constants.DefaultWindowsListenAddress
 		}
 		log.Printf("Detected Windows platform, using TCP listener at %s", address)
 		return listenerConfig{
@@ -215,7 +209,7 @@ func resolveListenerConfig() listenerConfig {
 		}
 	}
 
-	socketPath := "/tmp/" + SocketFileName
+	socketPath := constants.DefaultUnixSocketPath
 	log.Printf("Using default Unix socket path: %s", socketPath)
 	return listenerConfig{
 		network: "unix",
@@ -342,7 +336,7 @@ func createListener(cfg listenerConfig) (net.Listener, error) {
 // configureMemorySettings optimizes Go runtime for limited memory environments
 func configureMemorySettings() {
 	// Set aggressive garbage collection for memory-constrained environments
-	debug.SetGCPercent(50) // More frequent GC cycles
+	debug.SetGCPercent(constants.Runtime.GCPercent) // More frequent GC cycles
 
 	// Set memory limit from environment variable if available
 	if memLimit := os.Getenv("GOMEMLIMIT"); memLimit != "" {
@@ -350,9 +344,12 @@ func configureMemorySettings() {
 	}
 
 	// Limit number of OS threads to reduce memory overhead
-	runtime.GOMAXPROCS(2) // Limit to 2 cores max for CI environments
+	runtime.GOMAXPROCS(constants.Runtime.MaxProcs) // Limit OS threads for CI environments
 
-	log.Printf("Memory optimization configured: GOGC=50, GOMAXPROCS=%d", runtime.GOMAXPROCS(0))
+	log.Printf("Memory optimization configured: GOGC=%d, GOMAXPROCS=%d",
+		constants.Runtime.GCPercent,
+		runtime.GOMAXPROCS(0),
+	)
 }
 
 // createGRPCServer creates a simple gRPC server for compatibility with older clients

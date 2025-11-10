@@ -27,12 +27,8 @@ import (
 	"strings"
 	"time"
 
+	"github.com/linuxsuren/atest-ext-ai/pkg/constants"
 	"gopkg.in/yaml.v2"
-)
-
-const (
-	defaultUnixSocketPath       = "/tmp/atest-ext-ai.sock"
-	defaultWindowsListenAddress = "127.0.0.1:38081"
 )
 
 // LoadConfig loads configuration from file and environment variables
@@ -246,53 +242,53 @@ func applyEnvOverrides(cfg *Config) {
 func applyDefaults(cfg *Config) {
 	// Server defaults
 	if cfg.Server.Host == "" {
-		cfg.Server.Host = "0.0.0.0"
+		cfg.Server.Host = constants.DefaultServerHost
 	}
 	if cfg.Server.Port == 0 {
-		cfg.Server.Port = 8080
+		cfg.Server.Port = constants.DefaultServerPort
 	}
 	if runtime.GOOS == "windows" {
 		if cfg.Server.ListenAddress == "" {
-			cfg.Server.ListenAddress = defaultWindowsListenAddress
+			cfg.Server.ListenAddress = constants.DefaultWindowsListenAddress
 		}
 	} else {
 		if cfg.Server.SocketPath == "" {
-			cfg.Server.SocketPath = defaultUnixSocketPath
+			cfg.Server.SocketPath = constants.DefaultUnixSocketPath
 		}
 	}
 	if cfg.Server.Timeout.Duration == 0 {
-		cfg.Server.Timeout = Duration{Duration: 30 * time.Second}
+		cfg.Server.Timeout = Duration{Duration: constants.Timeouts.Server}
 	}
 	if cfg.Server.ReadTimeout.Duration == 0 {
-		cfg.Server.ReadTimeout = Duration{Duration: 15 * time.Second}
+		cfg.Server.ReadTimeout = Duration{Duration: constants.Timeouts.Read}
 	}
 	if cfg.Server.WriteTimeout.Duration == 0 {
-		cfg.Server.WriteTimeout = Duration{Duration: 15 * time.Second}
+		cfg.Server.WriteTimeout = Duration{Duration: constants.Timeouts.Write}
 	}
 	if cfg.Server.MaxConns == 0 {
-		cfg.Server.MaxConns = 100
+		cfg.Server.MaxConns = constants.ServerDefaults.MaxConnections
 	}
 
 	// Plugin defaults
 	if cfg.Plugin.Name == "" {
-		cfg.Plugin.Name = "atest-ext-ai"
+		cfg.Plugin.Name = constants.DefaultPluginName
 	}
 	if cfg.Plugin.Version == "" {
-		cfg.Plugin.Version = "1.0.0"
+		cfg.Plugin.Version = constants.DefaultPluginVersion
 	}
 	if cfg.Plugin.LogLevel == "" {
-		cfg.Plugin.LogLevel = "info"
+		cfg.Plugin.LogLevel = constants.DefaultPluginLogLevel
 	}
 	if cfg.Plugin.Environment == "" {
-		cfg.Plugin.Environment = "production"
+		cfg.Plugin.Environment = constants.DefaultPluginEnvironment
 	}
 
 	// AI defaults
 	if cfg.AI.DefaultService == "" {
-		cfg.AI.DefaultService = "ollama"
+		cfg.AI.DefaultService = constants.DefaultAIService
 	}
 	if cfg.AI.Timeout.Duration == 0 {
-		cfg.AI.Timeout = Duration{Duration: 60 * time.Second}
+		cfg.AI.Timeout = Duration{Duration: constants.Timeouts.AI}
 	}
 
 	// Initialize services map if nil
@@ -305,92 +301,92 @@ func applyDefaults(cfg *Config) {
 		cfg.AI.Services["ollama"] = AIService{
 			Enabled:   true,
 			Provider:  "ollama",
-			Endpoint:  "http://localhost:11434",
-			Model:     "qwen2.5-coder:latest",
-			MaxTokens: 4096,
-			Priority:  1,
-			Timeout:   Duration{Duration: 60 * time.Second},
+			Endpoint:  constants.DefaultOllamaEndpoint,
+			Model:     constants.DefaultOllamaModel,
+			MaxTokens: constants.DefaultOllamaMaxTokens,
+			Priority:  constants.DefaultOllamaPriority,
+			Timeout:   Duration{Duration: constants.Timeouts.Ollama},
 		}
 	} else {
 		// Fill in missing fields for existing Ollama service
 		svc := cfg.AI.Services["ollama"]
 		if svc.Endpoint == "" {
-			svc.Endpoint = "http://localhost:11434"
+			svc.Endpoint = constants.DefaultOllamaEndpoint
 		}
 		if svc.Model == "" {
-			svc.Model = "qwen2.5-coder:latest"
+			svc.Model = constants.DefaultOllamaModel
 		}
 		if svc.MaxTokens == 0 {
-			svc.MaxTokens = 4096
+			svc.MaxTokens = constants.DefaultOllamaMaxTokens
 		}
 		if svc.Timeout.Duration == 0 {
-			svc.Timeout = Duration{Duration: 60 * time.Second}
+			svc.Timeout = Duration{Duration: constants.Timeouts.Ollama}
 		}
 		if svc.Priority == 0 {
-			svc.Priority = 1
+			svc.Priority = constants.DefaultOllamaPriority
 		}
 		cfg.AI.Services["ollama"] = svc
 	}
 
 	// Retry defaults
 	if cfg.AI.Retry.MaxAttempts == 0 {
-		cfg.AI.Retry.Enabled = true
-		cfg.AI.Retry.MaxAttempts = 3
-		cfg.AI.Retry.InitialDelay = Duration{Duration: 1 * time.Second}
-		cfg.AI.Retry.MaxDelay = Duration{Duration: 30 * time.Second}
-		cfg.AI.Retry.Multiplier = 2.0
-		cfg.AI.Retry.Jitter = true
+		cfg.AI.Retry.Enabled = constants.Retry.Enabled
+		cfg.AI.Retry.MaxAttempts = constants.Retry.MaxAttempts
+		cfg.AI.Retry.InitialDelay = Duration{Duration: constants.Retry.InitialDelay}
+		cfg.AI.Retry.MaxDelay = Duration{Duration: constants.Retry.MaxDelay}
+		cfg.AI.Retry.Multiplier = constants.Retry.Multiplier
+		cfg.AI.Retry.Jitter = constants.Retry.Jitter
 	}
 
 	// Rate limit defaults
 	if cfg.AI.RateLimit.RequestsPerMinute == 0 {
-		cfg.AI.RateLimit.Enabled = true
-		cfg.AI.RateLimit.RequestsPerMinute = 60
-		cfg.AI.RateLimit.BurstSize = 10
-		cfg.AI.RateLimit.WindowSize = Duration{Duration: 1 * time.Minute}
+		cfg.AI.RateLimit.Enabled = constants.RateLimit.Enabled
+		cfg.AI.RateLimit.RequestsPerMinute = constants.RateLimit.RequestsPerMinute
+		cfg.AI.RateLimit.BurstSize = constants.RateLimit.BurstSize
+		cfg.AI.RateLimit.WindowSize = Duration{Duration: constants.RateLimit.WindowSize}
 	}
 
 	// Database defaults
 	if cfg.Database.Driver == "" {
-		cfg.Database.Driver = "sqlite"
+		cfg.Database.Driver = constants.DefaultDatabaseDriver
 	}
 	if cfg.Database.DSN == "" {
-		cfg.Database.DSN = "file:atest-ext-ai.db?cache=shared&mode=rwc"
+		cfg.Database.DSN = constants.DefaultDatabaseDSN
 	}
 	if cfg.Database.DefaultType == "" {
-		cfg.Database.DefaultType = "mysql"
+		cfg.Database.DefaultType = constants.DefaultDatabaseType
 	}
 	if cfg.Database.MaxConns == 0 {
-		cfg.Database.MaxConns = 10
+		cfg.Database.MaxConns = constants.DatabasePool.MaxConns
 	}
 	if cfg.Database.MaxIdle == 0 {
-		cfg.Database.MaxIdle = 5
+		cfg.Database.MaxIdle = constants.DatabasePool.MaxIdle
 	}
 	if cfg.Database.MaxLifetime.Duration == 0 {
-		cfg.Database.MaxLifetime = Duration{Duration: 1 * time.Hour}
+		cfg.Database.MaxLifetime = Duration{Duration: constants.DatabasePool.MaxLifetime}
 	}
 
 	// Logging defaults
 	if cfg.Logging.Level == "" {
-		cfg.Logging.Level = "info"
+		cfg.Logging.Level = constants.DefaultLoggingLevel
 	}
 	if cfg.Logging.Format == "" {
-		cfg.Logging.Format = "json"
+		cfg.Logging.Format = constants.DefaultLoggingFormat
 	}
 	if cfg.Logging.Output == "" {
-		cfg.Logging.Output = "stdout"
+		cfg.Logging.Output = constants.DefaultLoggingOutput
 	}
 	if cfg.Logging.File.Path == "" {
-		cfg.Logging.File.Path = "/var/log/atest-ext-ai.log"
+		cfg.Logging.File.Path = constants.LogFile.Path
 	}
 	if cfg.Logging.File.MaxSize == "" {
-		cfg.Logging.File.MaxSize = "100MB"
+		cfg.Logging.File.MaxSize = constants.LogFile.MaxSize
 	}
 	if cfg.Logging.File.MaxBackups == 0 {
-		cfg.Logging.File.MaxBackups = 3
+		cfg.Logging.File.MaxBackups = constants.LogFile.MaxBackups
 	}
 	if cfg.Logging.File.MaxAge == 0 {
-		cfg.Logging.File.MaxAge = 28
+		cfg.Logging.File.MaxAge = constants.LogFile.MaxAge
 	}
 }
 
@@ -484,70 +480,70 @@ func validateConfig(cfg *Config) error {
 func defaultConfig() *Config {
 	return &Config{
 		Server: ServerConfig{
-			Host:          "0.0.0.0",
-			Port:          8080,
-			SocketPath:    defaultUnixSocketPath,
-			ListenAddress: defaultWindowsListenAddress,
-			Timeout:       Duration{Duration: 30 * time.Second},
-			ReadTimeout:   Duration{Duration: 15 * time.Second},
-			WriteTimeout:  Duration{Duration: 15 * time.Second},
-			MaxConns:      100,
+			Host:          constants.DefaultServerHost,
+			Port:          constants.DefaultServerPort,
+			SocketPath:    constants.DefaultUnixSocketPath,
+			ListenAddress: constants.DefaultWindowsListenAddress,
+			Timeout:       Duration{Duration: constants.Timeouts.Server},
+			ReadTimeout:   Duration{Duration: constants.Timeouts.Read},
+			WriteTimeout:  Duration{Duration: constants.Timeouts.Write},
+			MaxConns:      constants.ServerDefaults.MaxConnections,
 		},
 		Plugin: PluginConfig{
-			Name:        "atest-ext-ai",
-			Version:     "1.0.0",
+			Name:        constants.DefaultPluginName,
+			Version:     constants.DefaultPluginVersion,
 			Debug:       false,
-			LogLevel:    "info",
-			Environment: "production",
+			LogLevel:    constants.DefaultPluginLogLevel,
+			Environment: constants.DefaultPluginEnvironment,
 		},
 		AI: AIConfig{
-			DefaultService: "ollama",
-			Timeout:        Duration{Duration: 60 * time.Second},
+			DefaultService: constants.DefaultAIService,
+			Timeout:        Duration{Duration: constants.Timeouts.AI},
 			Services: map[string]AIService{
 				"ollama": {
 					Enabled:   true,
 					Provider:  "ollama",
-					Endpoint:  "http://localhost:11434",
-					Model:     "qwen2.5-coder:latest",
-					MaxTokens: 4096,
-					Priority:  1,
-					Timeout:   Duration{Duration: 60 * time.Second},
+					Endpoint:  constants.DefaultOllamaEndpoint,
+					Model:     constants.DefaultOllamaModel,
+					MaxTokens: constants.DefaultOllamaMaxTokens,
+					Priority:  constants.DefaultOllamaPriority,
+					Timeout:   Duration{Duration: constants.Timeouts.Ollama},
 				},
 			},
 			Retry: RetryConfig{
-				Enabled:      true,
-				MaxAttempts:  3,
-				InitialDelay: Duration{Duration: 1 * time.Second},
-				MaxDelay:     Duration{Duration: 30 * time.Second},
-				Multiplier:   2.0,
-				Jitter:       true,
+				Enabled:      constants.Retry.Enabled,
+				MaxAttempts:  constants.Retry.MaxAttempts,
+				InitialDelay: Duration{Duration: constants.Retry.InitialDelay},
+				MaxDelay:     Duration{Duration: constants.Retry.MaxDelay},
+				Multiplier:   constants.Retry.Multiplier,
+				Jitter:       constants.Retry.Jitter,
 			},
 			RateLimit: RateLimitConfig{
-				Enabled:           true,
-				RequestsPerMinute: 60,
-				BurstSize:         10,
-				WindowSize:        Duration{Duration: 1 * time.Minute},
+				Enabled:           constants.RateLimit.Enabled,
+				RequestsPerMinute: constants.RateLimit.RequestsPerMinute,
+				BurstSize:         constants.RateLimit.BurstSize,
+				WindowSize:        Duration{Duration: constants.RateLimit.WindowSize},
 			},
 		},
 		Database: DatabaseConfig{
 			Enabled:     false,
-			Driver:      "sqlite",
-			DSN:         "file:atest-ext-ai.db?cache=shared&mode=rwc",
-			DefaultType: "mysql",
-			MaxConns:    10,
-			MaxIdle:     5,
-			MaxLifetime: Duration{Duration: 1 * time.Hour},
+			Driver:      constants.DefaultDatabaseDriver,
+			DSN:         constants.DefaultDatabaseDSN,
+			DefaultType: constants.DefaultDatabaseType,
+			MaxConns:    constants.DatabasePool.MaxConns,
+			MaxIdle:     constants.DatabasePool.MaxIdle,
+			MaxLifetime: Duration{Duration: constants.DatabasePool.MaxLifetime},
 		},
 		Logging: LoggingConfig{
-			Level:  "info",
-			Format: "json",
-			Output: "stdout",
+			Level:  constants.DefaultLoggingLevel,
+			Format: constants.DefaultLoggingFormat,
+			Output: constants.DefaultLoggingOutput,
 			File: LogFileConfig{
-				Path:       "/var/log/atest-ext-ai.log",
-				MaxSize:    "100MB",
-				MaxBackups: 3,
-				MaxAge:     28,
-				Compress:   true,
+				Path:       constants.LogFile.Path,
+				MaxSize:    constants.LogFile.MaxSize,
+				MaxBackups: constants.LogFile.MaxBackups,
+				MaxAge:     constants.LogFile.MaxAge,
+				Compress:   constants.LogFile.Compress,
 			},
 		},
 	}

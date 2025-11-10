@@ -32,6 +32,7 @@ import (
 	"github.com/linuxsuren/atest-ext-ai/pkg/ai/models"
 	"github.com/linuxsuren/atest-ext-ai/pkg/ai/providers/universal"
 	"github.com/linuxsuren/atest-ext-ai/pkg/config"
+	"github.com/linuxsuren/atest-ext-ai/pkg/constants"
 	"github.com/linuxsuren/atest-ext-ai/pkg/interfaces"
 	"github.com/linuxsuren/atest-ext-ai/pkg/logging"
 )
@@ -90,7 +91,7 @@ type Manager struct {
 // NewAIManager creates a new unified AI manager.
 func NewAIManager(cfg config.AIConfig) (*Manager, error) {
 	// The GUI drives provider configuration, so we only consume data from cfg.
-	endpoint := discovery.DefaultOllamaEndpoint
+	endpoint := constants.DefaultOllamaEndpoint
 	if ollamaSvc, ok := cfg.Services["ollama"]; ok {
 		if ep := strings.TrimSpace(ollamaSvc.Endpoint); ep != "" {
 			endpoint = ep
@@ -584,7 +585,7 @@ func createOllamaClient(cfg config.AIService) (interfaces.AIClient, error) {
 
 	// Default endpoint
 	if config.Endpoint == "" {
-		config.Endpoint = "http://localhost:11434"
+		config.Endpoint = constants.DefaultOllamaEndpoint
 	}
 
 	return universal.NewUniversalClient(config)
