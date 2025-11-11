@@ -20,7 +20,6 @@ package main
 import (
 	"context"
 	"fmt"
-	"log"
 	"net"
 	"os"
 	"os/signal"
@@ -33,9 +32,10 @@ import (
 
 	"github.com/linuxsuren/api-testing/pkg/testing/remote"
 	"github.com/linuxsuren/atest-ext-ai/pkg/constants"
+	grpcx "github.com/linuxsuren/atest-ext-ai/pkg/grpc"
+	"github.com/linuxsuren/atest-ext-ai/pkg/logging"
 	"github.com/linuxsuren/atest-ext-ai/pkg/plugin"
 	"google.golang.org/grpc"
-	"google.golang.org/grpc/peer"
 )
 
 type listenerConfig struct {
@@ -68,57 +68,59 @@ func main() {
 	// Configure memory optimization
 	configureMemorySettings()
 
-	// Setup structured logging
-	log.SetFlags(log.LstdFlags | log.Lshortfile)
-	log.Printf("=== Starting atest-ext-ai plugin %s ===", plugin.PluginVersion)
-	log.Printf("Build info: Go version %s, OS %s, Arch %s", runtime.Version(), runtime.GOOS, runtime.GOARCH)
-	log.Printf("Process PID: %d", os.Getpid())
+	logging.Logger.Info("Starting atest-ext-ai plugin",
+		"version", plugin.PluginVersion,
+		"go_version", runtime.Version(),
+		"os", runtime.GOOS,
+		"arch", runtime.GOARCH,
+		"pid", os.Getpid())
 
 	listenCfg := resolveListenerConfig()
-	log.Printf("Socket configuration: %s (%s)", listenCfg.Display(), listenCfg.network)
+	logging.Logger.Info("Socket configuration resolved",
+		"address", listenCfg.Display(),
+		"network", listenCfg.network)
 
-	// Clean up any existing socket file
 	if listenCfg.isUnix {
-		log.Printf("Step 1/4: Cleaning up any existing socket file...")
+		logging.Logger.Info("Step 1/4: Cleaning up Unix socket", "path", listenCfg.address)
 		if err := cleanupSocketFile(listenCfg.address); err != nil {
-			log.Fatalf("FATAL: Failed to cleanup existing socket file at %s: %v\nTroubleshooting: Check file permissions and ensure no other process is using the socket", listenCfg.address, err)
+			logging.Logger.Error("Failed to cleanup existing socket file", "path", listenCfg.address, "error", err)
+			os.Exit(1)
 		}
 	} else {
-		log.Printf("Step 1/4: Preparing TCP listener on %s...", listenCfg.address)
+		logging.Logger.Info("Step 1/4: Preparing TCP listener", "address", listenCfg.address)
 	}
 
-	// Create listener
-	log.Printf("Step 2/4: Creating %s listener...", strings.ToUpper(listenCfg.network))
+	logging.Logger.Info("Step 2/4: Creating listener", "network", strings.ToUpper(listenCfg.network))
 	listener, err := createListener(listenCfg)
 	if err != nil {
-		log.Fatalf("FATAL: Failed to create listener at %s: %v\nTroubleshooting: Check address availability, permissions, and security policies", listenCfg.Display(), err)
+		logging.Logger.Error("Failed to create listener", "address", listenCfg.Display(), "error", err)
+		os.Exit(1)
 	}
 	defer func() {
-		log.Println("Performing cleanup...")
+		logging.Logger.Info("Performing listener cleanup")
 		if err := listener.Close(); err != nil {
-			log.Printf("Warning: Error closing listener: %v", err)
+			logging.Logger.Warn("Error closing listener", "error", err)
 		}
 		if listenCfg.isUnix {
 			if err := cleanupSocketFile(listenCfg.address); err != nil {
-				log.Printf("Warning: Error during socket cleanup: %v", err)
+				logging.Logger.Warn("Error during socket cleanup", "error", err)
 			}
 		}
-		log.Println("Socket cleanup completed")
+		logging.Logger.Info("Socket cleanup completed")
 	}()
 
-	// Initialize AI plugin service
-	log.Printf("Step 3/4: Initializing AI plugin service...")
+	logging.Logger.Info("Step 3/4: Initializing AI plugin service")
 	aiPlugin, err := plugin.NewAIPluginService()
 	if err != nil {
-		log.Panicf("FATAL: Failed to initialize AI plugin service: %v\nTroubleshooting: Check configuration file, AI service connectivity, and logs above for details", err)
+		logging.Logger.Error("Failed to initialize AI plugin service", "error", err)
+		panic(err)
 	}
-	log.Println("✓ AI plugin service initialized successfully")
+	logging.Logger.Info("AI plugin service initialized successfully")
 
-	// Create gRPC server with enhanced configuration
-	log.Printf("Step 4/4: Registering gRPC server...")
+	logging.Logger.Info("Step 4/4: Registering gRPC server")
 	grpcServer := createGRPCServer()
 	remote.RegisterLoaderServer(grpcServer, aiPlugin)
-	log.Println("✓ gRPC server configured with LoaderServer")
+	logging.Logger.Info("gRPC server configured with LoaderServer")
 
 	// Handle graceful shutdown
 	ctx, cancel := context.WithCancel(context.Background())
@@ -130,46 +132,40 @@ func main() {
 
 	go func() {
 		sig := <-signalChan
-		log.Printf("\n=== Received signal: %v, initiating graceful shutdown ===", sig)
+		logging.Logger.Warn("Received shutdown signal", "signal", sig.String())
 
-		// Shutdown AI plugin first
-		log.Println("Shutting down AI plugin service...")
+		logging.Logger.Info("Shutting down AI plugin service")
 		aiPlugin.Shutdown()
-		log.Println("✓ AI plugin service shutdown completed")
+		logging.Logger.Info("AI plugin service shutdown completed")
 
-		// Stop gRPC server gracefully with timeout
-		log.Println("Stopping gRPC server...")
+		logging.Logger.Info("Stopping gRPC server")
 		done := make(chan struct{})
 		go func() {
 			grpcServer.GracefulStop()
 			close(done)
 		}()
 
-		// Force shutdown if graceful shutdown takes too long
 		select {
 		case <-done:
-			log.Println("✓ gRPC server shutdown completed gracefully")
+			logging.Logger.Info("gRPC server shutdown completed gracefully")
 		case <-time.After(constants.Timeouts.Shutdown):
-			log.Printf("⚠ Forcing gRPC server shutdown due to timeout (%s exceeded)", constants.Timeouts.Shutdown)
+			logging.Logger.Warn("Forcing gRPC server shutdown due to timeout", "timeout", constants.Timeouts.Shutdown)
 			grpcServer.Stop()
 		}
 
 		cancel()
 	}()
 
-	log.Printf("\n=== Plugin startup completed successfully ===")
-	log.Printf("Socket endpoint: %s", listenCfg.URI())
-	log.Printf("Status: Ready to accept gRPC connections from api-testing")
-	log.Printf("To test: Use api-testing to connect to %s", listenCfg.URI())
-	log.Printf("\n")
+	logging.Logger.Info("Plugin startup completed successfully",
+		"endpoint", listenCfg.URI(),
+		"status", "ready")
 
-	// Start serving
 	if err := grpcServer.Serve(listener); err != nil {
-		log.Printf("gRPC server stopped: %v", err)
+		logging.Logger.Warn("gRPC server stopped", "error", err)
 	}
 
 	<-ctx.Done()
-	log.Println("\n=== AI Plugin shutdown complete ===")
+	logging.Logger.Info("AI Plugin shutdown complete")
 
 }
 
@@ -179,10 +175,10 @@ func resolveListenerConfig() listenerConfig {
 	// Highest priority: explicit listen address (supports tcp:// or unix://)
 	if raw := os.Getenv("AI_PLUGIN_LISTEN_ADDR"); raw != "" {
 		if cfg, err := parseListenAddress(raw); err == nil {
-			log.Printf("Using listener configuration from AI_PLUGIN_LISTEN_ADDR: %s", cfg.URI())
+			logging.Logger.Info("Using listener configuration from AI_PLUGIN_LISTEN_ADDR", "address", cfg.URI())
 			return cfg
 		}
-		log.Printf("Warning: invalid AI_PLUGIN_LISTEN_ADDR value '%s', falling back to OS defaults", raw)
+		logging.Logger.Warn("Invalid AI_PLUGIN_LISTEN_ADDR value; falling back to defaults", "value", raw)
 	}
 
 	// Windows default: TCP loopback
@@ -191,7 +187,7 @@ func resolveListenerConfig() listenerConfig {
 		if address == "" {
 			address = constants.DefaultWindowsListenAddress
 		}
-		log.Printf("Detected Windows platform, using TCP listener at %s", address)
+		logging.Logger.Info("Detected Windows platform, using TCP listener", "address", address)
 		return listenerConfig{
 			network: "tcp",
 			address: address,
@@ -201,7 +197,7 @@ func resolveListenerConfig() listenerConfig {
 
 	// POSIX default: Unix domain socket
 	if path := os.Getenv("AI_PLUGIN_SOCKET_PATH"); path != "" {
-		log.Printf("Using socket path from AI_PLUGIN_SOCKET_PATH: %s", path)
+		logging.Logger.Info("Using socket path from AI_PLUGIN_SOCKET_PATH", "path", path)
 		return listenerConfig{
 			network: "unix",
 			address: path,
@@ -210,7 +206,7 @@ func resolveListenerConfig() listenerConfig {
 	}
 
 	socketPath := constants.DefaultUnixSocketPath
-	log.Printf("Using default Unix socket path: %s", socketPath)
+	logging.Logger.Info("Using default Unix socket path", "path", socketPath)
 	return listenerConfig{
 		network: "unix",
 		address: socketPath,
@@ -271,7 +267,7 @@ func cleanupSocketFile(path string) error {
 		if err := os.Remove(path); err != nil {
 			return fmt.Errorf("failed to remove existing socket file %s: %w", path, err)
 		}
-		log.Printf("Removed existing socket file: %s", path)
+		logging.Logger.Info("Removed existing socket file", "path", path)
 	}
 	return nil
 }
@@ -296,9 +292,9 @@ func createListener(cfg listenerConfig) (net.Listener, error) {
 			var permInt uint32
 			if _, err := fmt.Sscanf(permStr, "%o", &permInt); err == nil {
 				perms = os.FileMode(permInt)
-				log.Printf("Using custom socket permissions from SOCKET_PERMISSIONS: %04o", perms)
+				logging.Logger.Info("Using custom socket permissions from SOCKET_PERMISSIONS", "permissions", fmt.Sprintf("%04o", perms))
 			} else {
-				log.Printf("Warning: invalid SOCKET_PERMISSIONS '%s', using default 0666: %v", permStr, err)
+				logging.Logger.Warn("Invalid SOCKET_PERMISSIONS value; using default 0666", "value", permStr, "error", err)
 			}
 		}
 
@@ -308,18 +304,12 @@ func createListener(cfg listenerConfig) (net.Listener, error) {
 		}
 
 		if fileInfo, err := os.Stat(cfg.address); err == nil {
-			log.Printf("Socket created successfully:")
-			log.Printf("  Path: %s", cfg.address)
-			log.Printf("  Permissions: %04o (%s)", fileInfo.Mode().Perm(), fileInfo.Mode().String())
-			log.Printf("  Size: %d bytes", fileInfo.Size())
-			log.Printf("Troubleshooting tips:")
-			log.Printf("  - If connection fails with 'permission denied', check:")
-			log.Printf("    1. Client process user has read/write access (permissions: %04o)", fileInfo.Mode().Perm())
-			log.Printf("    2. Client process user is in the same group (or use SOCKET_PERMISSIONS=0666)")
-			log.Printf("    3. SELinux/AppArmor policies allow socket access")
-			log.Printf("  - Set SOCKET_PERMISSIONS environment variable to customize (e.g., SOCKET_PERMISSIONS=0666)")
+			logging.Logger.Info("Socket created successfully",
+				"path", cfg.address,
+				"permissions", fmt.Sprintf("%04o", fileInfo.Mode().Perm()),
+				"size_bytes", fileInfo.Size())
 		} else {
-			log.Printf("Warning: could not stat socket file for diagnostics: %v", err)
+			logging.Logger.Warn("Could not stat socket file for diagnostics", "error", err)
 		}
 
 		return listener, nil
@@ -329,7 +319,7 @@ func createListener(cfg listenerConfig) (net.Listener, error) {
 	if err != nil {
 		return nil, fmt.Errorf("failed to create %s listener: %w", strings.ToUpper(cfg.network), err)
 	}
-	log.Printf("TCP listener created successfully on %s", cfg.address)
+	logging.Logger.Info("TCP listener created", "address", cfg.address)
 	return listener, nil
 }
 
@@ -340,40 +330,23 @@ func configureMemorySettings() {
 
 	// Set memory limit from environment variable if available
 	if memLimit := os.Getenv("GOMEMLIMIT"); memLimit != "" {
-		log.Printf("Go memory limit set to: %s", memLimit)
+		logging.Logger.Info("Go memory limit set", "value", memLimit)
 	}
 
 	// Limit number of OS threads to reduce memory overhead
 	runtime.GOMAXPROCS(constants.Runtime.MaxProcs) // Limit OS threads for CI environments
 
-	log.Printf("Memory optimization configured: GOGC=%d, GOMAXPROCS=%d",
-		constants.Runtime.GCPercent,
-		runtime.GOMAXPROCS(0),
-	)
+	logging.Logger.Info("Memory optimization configured",
+		"gogc", constants.Runtime.GCPercent,
+		"gomaxprocs", runtime.GOMAXPROCS(0))
 }
 
-// createGRPCServer creates a simple gRPC server for compatibility with older clients
+// createGRPCServer wires the standard interceptors used across the plugin.
 func createGRPCServer() *grpc.Server {
-	// Debug interceptor to log all incoming gRPC calls and connection info
-	unaryInterceptor := func(ctx context.Context, req interface{}, info *grpc.UnaryServerInfo, handler grpc.UnaryHandler) (interface{}, error) {
-		log.Printf("🔍 gRPC Call received: %s", info.FullMethod)
-
-		// Log connection info from context
-		if peer, ok := peer.FromContext(ctx); ok {
-			log.Printf("🔍 Connection from: %s", peer.Addr)
-		}
-
-		resp, err := handler(ctx, req)
-		if err != nil {
-			log.Printf("🔍 gRPC Call %s failed: %v", info.FullMethod, err)
-		} else {
-			log.Printf("🔍 gRPC Call %s succeeded", info.FullMethod)
-		}
-		return resp, err
-	}
-
-	// Use simple gRPC server configuration for maximum compatibility
 	return grpc.NewServer(
-		grpc.UnaryInterceptor(unaryInterceptor),
+		grpc.ChainUnaryInterceptor(
+			grpcx.RequestIDInterceptor(),
+			grpcx.LoggingInterceptor(),
+		),
 	)
 }
