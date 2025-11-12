@@ -1,3 +1,4 @@
+// Package constants centralizes configuration defaults shared across the project.
 package constants
 
 import "time"
