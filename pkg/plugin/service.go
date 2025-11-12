@@ -295,6 +295,7 @@ type AIPluginService struct {
 	config             *config.Config
 	capabilityDetector *ai.CapabilityDetector
 	aiManager          *ai.Manager
+	inputValidator     InputValidator
 }
 
 // NewAIPluginService creates a new AI plugin service instance
@@ -319,7 +320,8 @@ func NewAIPluginService() (*AIPluginService, error) {
 	logging.Logger.Info("Configuration loaded successfully")
 
 	service := &AIPluginService{
-		config: cfg,
+		config:         cfg,
+		inputValidator: DefaultInputValidator(),
 	}
 
 	// Try to initialize AI engine - but allow plugin to start if it fails
@@ -703,6 +705,47 @@ var (
 	MinCompatibleAPITestingVersion = GRPCInterfaceVersion
 )
 
+// GenerationMetadata describes metadata returned with AI generation responses.
+type GenerationMetadata struct {
+	Confidence float32 `json:"confidence"`
+	Model      string  `json:"model,omitempty"`
+	Dialect    string  `json:"dialect"`
+}
+
+// CapabilitySummary is returned when the capability detector is unavailable.
+type CapabilitySummary struct {
+	PluginReady   bool   `json:"plugin_ready"`
+	AIAvailable   bool   `json:"ai_available"`
+	DegradedMode  bool   `json:"degraded_mode"`
+	PluginVersion string `json:"plugin_version"`
+	APIVersion    string `json:"api_version"`
+}
+
+// GenerationConfigOverrides captures optional generation configuration overrides.
+type GenerationConfigOverrides struct {
+	DatabaseTypePrimary string `json:"database_type"`
+	DatabaseDialect     string `json:"databaseDialect"`
+	DatabaseDialectAlt  string `json:"database_dialect"`
+	Dialect             string `json:"dialect"`
+	Provider            string `json:"provider"`
+	Endpoint            string `json:"endpoint"`
+}
+
+func (g GenerationConfigOverrides) preferredDatabaseType() string {
+	candidates := []string{
+		g.DatabaseTypePrimary,
+		g.DatabaseDialect,
+		g.DatabaseDialectAlt,
+		g.Dialect,
+	}
+	for _, candidate := range candidates {
+		if normalized := normalizeDatabaseType(candidate); normalized != "" {
+			return normalized
+		}
+	}
+	return ""
+}
+
 // handleAIGenerate handles ai.generate calls
 func (s *AIPluginService) handleAIGenerate(ctx context.Context, req *server.DataQuery) (*server.DataQueryResult, error) {
 	start := time.Now()
@@ -739,6 +782,18 @@ func (s *AIPluginService) handleAIGenerate(ctx context.Context, req *server.Data
 		}
 	}
 
+	if err := s.inputValidator.ValidatePrompt(params.Prompt); err != nil {
+		return nil, apperrors.ToGRPCErrorf(apperrors.ErrInvalidRequest, err.Error())
+	}
+	if err := s.inputValidator.ValidateDatabaseName(params.DatabaseType); err != nil {
+		return nil, apperrors.ToGRPCErrorf(apperrors.ErrInvalidRequest, err.Error())
+	}
+	if endpoint := generationOverrides.Endpoint; endpoint != "" {
+		if err := s.inputValidator.ValidateEndpoint(endpoint); err != nil {
+			return nil, apperrors.ToGRPCErrorf(apperrors.ErrInvalidRequest, err.Error())
+		}
+	}
+
 	logging.Logger.Debug("AI generate parameters",
 		"model", params.Model,
 		"prompt_length", len(params.Prompt),
@@ -757,8 +812,15 @@ func (s *AIPluginService) handleAIGenerate(ctx context.Context, req *server.Data
 	}
 
 	// Get database type from configuration, fallback to mysql if not configured
-	databaseType := s.resolveDatabaseType(params.DatabaseType, configMap)
+	databaseType := s.resolveDatabaseType(params.DatabaseType, generationOverrides)
+	if err := s.inputValidator.ValidateDatabaseName(databaseType); err != nil {
+		return nil, apperrors.ToGRPCErrorf(apperrors.ErrInvalidRequest, err.Error())
+	}
 	context["database_type"] = databaseType
+
+	if err := s.inputValidator.ValidateContext(context); err != nil {
+		return nil, apperrors.ToGRPCErrorf(apperrors.ErrInvalidRequest, err.Error())
+	}
 
 	sqlResult, err := s.aiEngine.GenerateSQL(ctx, &ai.GenerateSQLRequest{
 		NaturalLanguage: params.Prompt,
@@ -1062,6 +1124,9 @@ func (s *AIPluginService) handleLegacyQuery(ctx context.Context, req *server.Dat
 		logging.Logger.Warn("Missing key field (natural language query) in request")
 		return nil, status.Errorf(codes.InvalidArgument, "key field is required for AI queries (natural language input)")
 	}
+	if err := s.inputValidator.ValidatePrompt(req.Key); err != nil {
+		return nil, status.Errorf(codes.InvalidArgument, "%v", err)
+	}
 
 	// Generate SQL using AI engine
 	queryPreview := req.Key
@@ -1078,7 +1143,14 @@ func (s *AIPluginService) handleLegacyQuery(ctx context.Context, req *server.Dat
 
 	// Get database type from configuration, fallback to mysql if not configured
 	databaseType := s.defaultDatabaseType()
+	if err := s.inputValidator.ValidateDatabaseName(databaseType); err != nil {
+		return nil, status.Errorf(codes.InvalidArgument, "%v", err)
+	}
 	contextMap["database_type"] = databaseType
+
+	if err := s.inputValidator.ValidateContext(contextMap); err != nil {
+		return nil, status.Errorf(codes.InvalidArgument, "%v", err)
+	}
 
 	sqlResult, err := s.aiEngine.GenerateSQL(ctx, &ai.GenerateSQLRequest{
 		NaturalLanguage: req.Key,
