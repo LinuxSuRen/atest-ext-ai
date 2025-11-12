@@ -731,21 +731,6 @@ type GenerationConfigOverrides struct {
 	Endpoint            string `json:"endpoint"`
 }
 
-func (g GenerationConfigOverrides) preferredDatabaseType() string {
-	candidates := []string{
-		g.DatabaseTypePrimary,
-		g.DatabaseDialect,
-		g.DatabaseDialectAlt,
-		g.Dialect,
-	}
-	for _, candidate := range candidates {
-		if normalized := normalizeDatabaseType(candidate); normalized != "" {
-			return normalized
-		}
-	}
-	return ""
-}
-
 // handleAIGenerate handles ai.generate calls
 func (s *AIPluginService) handleAIGenerate(ctx context.Context, req *server.DataQuery) (*server.DataQueryResult, error) {
 	start := time.Now()
@@ -775,10 +760,17 @@ func (s *AIPluginService) handleAIGenerate(ctx context.Context, req *server.Data
 	}
 
 	// Parse optional config
-	var configMap map[string]interface{}
+	var (
+		generationOverrides GenerationConfigOverrides
+		configMap           map[string]any
+	)
 	if params.Config != "" {
-		if err := json.Unmarshal([]byte(params.Config), &configMap); err != nil {
-			logging.Logger.Warn("Failed to parse config JSON", "error", err)
+		raw := []byte(params.Config)
+		if err := json.Unmarshal(raw, &generationOverrides); err != nil {
+			logging.Logger.Warn("Failed to parse config JSON into overrides", "error", err)
+		}
+		if err := json.Unmarshal(raw, &configMap); err != nil {
+			logging.Logger.Warn("Failed to parse config JSON into map", "error", err)
 		}
 	}
 
@@ -812,7 +804,7 @@ func (s *AIPluginService) handleAIGenerate(ctx context.Context, req *server.Data
 	}
 
 	// Get database type from configuration, fallback to mysql if not configured
-	databaseType := s.resolveDatabaseType(params.DatabaseType, generationOverrides)
+	databaseType := s.resolveDatabaseType(params.DatabaseType, configMap)
 	if err := s.inputValidator.ValidateDatabaseName(databaseType); err != nil {
 		return nil, apperrors.ToGRPCErrorf(apperrors.ErrInvalidRequest, err.Error())
 	}
