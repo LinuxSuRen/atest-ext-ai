@@ -32,6 +32,7 @@ import (
 	"github.com/linuxsuren/atest-ext-ai/pkg/ai/models"
 	"github.com/linuxsuren/atest-ext-ai/pkg/ai/providers/universal"
 	"github.com/linuxsuren/atest-ext-ai/pkg/config"
+	"github.com/linuxsuren/atest-ext-ai/pkg/constants"
 	"github.com/linuxsuren/atest-ext-ai/pkg/interfaces"
 	"github.com/linuxsuren/atest-ext-ai/pkg/logging"
 )
@@ -90,7 +91,7 @@ type Manager struct {
 // NewAIManager creates a new unified AI manager.
 func NewAIManager(cfg config.AIConfig) (*Manager, error) {
 	// The GUI drives provider configuration, so we only consume data from cfg.
-	endpoint := discovery.DefaultOllamaEndpoint
+	endpoint := constants.DefaultOllamaEndpoint
 	if ollamaSvc, ok := cfg.Services["ollama"]; ok {
 		if ep := strings.TrimSpace(ollamaSvc.Endpoint); ep != "" {
 			endpoint = ep
@@ -292,7 +293,11 @@ func (m *Manager) AddClient(ctx context.Context, name string, svc config.AIServi
 
 	// Close old client if exists
 	if oldClient, exists := m.clients[name]; exists {
-		_ = oldClient.Close()
+		if err := oldClient.Close(); err != nil {
+			logging.Logger.Warn("Failed to close existing AI client",
+				"client", name,
+				"error", err)
+		}
 	}
 
 	m.clients[name] = client
@@ -313,7 +318,11 @@ func (m *Manager) RemoveClient(name string) error {
 		return fmt.Errorf("%w: %s", ErrClientNotFound, name)
 	}
 
-	_ = client.Close()
+	if err := client.Close(); err != nil {
+		logging.Logger.Warn("Failed to close AI client",
+			"client", name,
+			"error", err)
+	}
 	delete(m.clients, name)
 	return nil
 }
@@ -354,7 +363,11 @@ func (m *Manager) DiscoverProviders(ctx context.Context) ([]*ProviderInfo, error
 			}
 
 			providers = append(providers, provider)
-			_ = client.Close()
+			if err := client.Close(); err != nil {
+				logging.Logger.Warn("Failed to close discovery client",
+					"provider", provider.Name,
+					"error", err)
+			}
 		}
 	}
 
@@ -408,7 +421,13 @@ func (m *Manager) TestConnection(ctx context.Context, cfg *universal.Config) (*C
 			Error:        err.Error(),
 		}, nil
 	}
-	defer func() { _ = client.Close() }()
+	defer func() {
+		if err := client.Close(); err != nil {
+			logging.Logger.Warn("Failed to close test connection client",
+				"provider", cfg.Provider,
+				"error", err)
+		}
+	}()
 
 	health, err := client.HealthCheck(ctx)
 	if err != nil {
@@ -566,7 +585,7 @@ func createOllamaClient(cfg config.AIService) (interfaces.AIClient, error) {
 
 	// Default endpoint
 	if config.Endpoint == "" {
-		config.Endpoint = "http://localhost:11434"
+		config.Endpoint = constants.DefaultOllamaEndpoint
 	}
 
 	return universal.NewUniversalClient(config)

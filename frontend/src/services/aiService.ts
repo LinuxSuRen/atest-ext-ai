@@ -73,7 +73,6 @@ export const aiService = {
       provider: config.provider,
       endpoint: config.endpoint,
       model: config.model,
-      api_key: config.apiKey,
       max_tokens: config.maxTokens,
       timeout: formatTimeout(config.timeout)
     }
@@ -83,7 +82,7 @@ export const aiService = {
       message: string
       provider: string
       error?: string
-    }>('test_connection', payload)
+    }>('test_connection', payload, { apiKey: config.apiKey })
 
     return {
       success: toBoolean(result.success),
@@ -146,12 +145,11 @@ export const aiService = {
           include_explanation: request.includeExplanation,
           provider: request.provider,
           endpoint: request.endpoint,
-          api_key: request.apiKey,
           max_tokens: request.maxTokens,
           timeout: formatTimeout(request.timeout),
           database_type: request.databaseDialect
         })
-      })
+      }, { apiKey: request.apiKey })
 
       console.log('📥 [aiService] Received backend result', {
         hasContent: !!result.content,
@@ -230,12 +228,11 @@ export const aiService = {
         provider: config.provider,
         endpoint: config.endpoint,
         model: config.model,
-        api_key: config.apiKey,
         max_tokens: config.maxTokens,
         timeout: formatTimeout(config.timeout),
         database_type: config.databaseDialect
       }
-    })
+    }, { apiKey: config.apiKey })
   }
 }
 
@@ -264,7 +261,7 @@ function formatTimeout(timeout: number | undefined): string {
  * is designed for database queries and transforms the request format.
  * The AI plugin expects: {type: 'ai', key: 'operation', sql: 'params_json'}
  */
-async function callAPI<T>(key: string, data: any): Promise<T> {
+async function callAPI<T>(key: string, data: any, options: { apiKey?: string } = {}): Promise<T> {
   const requestBody = {
     type: 'ai',
     key,
@@ -279,12 +276,18 @@ async function callAPI<T>(key: string, data: any): Promise<T> {
   })
 
   try {
+    const headers: Record<string, string> = {
+      'Content-Type': 'application/json',
+      'X-Store-Name': API_STORE
+    }
+
+    if (options.apiKey) {
+      headers['X-Auth'] = `Bearer ${options.apiKey}`
+    }
+
     const response = await fetch(API_BASE, {
       method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'X-Store-Name': API_STORE
-      },
+      headers,
       body: JSON.stringify(requestBody)
     })
 
