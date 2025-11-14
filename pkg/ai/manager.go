@@ -51,6 +51,12 @@ var (
 	ErrInvalidConfig = errors.New("invalid configuration")
 )
 
+// ProviderConfigInfo captures metadata about a provider's requirements.
+type ProviderConfigInfo struct {
+	RequiresAPIKey bool   `json:"requires_api_key"`
+	ProviderType   string `json:"provider_type"`
+}
+
 // ProviderInfo represents information about an AI provider
 type ProviderInfo struct {
 	Name        string                   `json:"name"`
@@ -59,7 +65,7 @@ type ProviderInfo struct {
 	Endpoint    string                   `json:"endpoint"`
 	Models      []interfaces.ModelInfo   `json:"models"`
 	LastChecked time.Time                `json:"last_checked"`
-	Config      map[string]interface{}   `json:"config,omitempty"`
+	Config      ProviderConfigInfo       `json:"config"`
 	Health      *interfaces.HealthStatus `json:"health,omitempty"`
 }
 
@@ -360,6 +366,10 @@ func (m *Manager) DiscoverProviders(ctx context.Context) ([]*ProviderInfo, error
 				Endpoint:    endpoint,
 				Models:      models,
 				LastChecked: time.Now(),
+				Config: ProviderConfigInfo{
+					ProviderType:   "local",
+					RequiresAPIKey: false,
+				},
 			}
 
 			providers = append(providers, provider)
@@ -630,9 +640,9 @@ func (m *Manager) getOnlineProviders() []*ProviderInfo {
 			Endpoint:    entry.Endpoint,
 			Models:      entry.Models,
 			LastChecked: time.Now(),
-			Config: map[string]interface{}{
-				"requires_api_key": entry.RequiresAPIKey,
-				"provider_type":    providerType,
+			Config: ProviderConfigInfo{
+				RequiresAPIKey: entry.RequiresAPIKey,
+				ProviderType:   providerType,
 			},
 		})
 	}
