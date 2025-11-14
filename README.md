@@ -1,4 +1,4 @@
-AI plugin for API-Testing[https://github.com/LinuxSuRen/api-testing].
+AI plugin for [API-Testing](https://github.com/LinuxSuRen/api-testing).
 
 ## 功能
 It can(now):
