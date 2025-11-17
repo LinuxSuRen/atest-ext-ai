@@ -32,6 +32,7 @@ import (
 	"github.com/linuxsuren/atest-ext-ai/pkg/ai/models"
 	"github.com/linuxsuren/atest-ext-ai/pkg/ai/providers/universal"
 	"github.com/linuxsuren/atest-ext-ai/pkg/config"
+	"github.com/linuxsuren/atest-ext-ai/pkg/constants"
 	"github.com/linuxsuren/atest-ext-ai/pkg/interfaces"
 	"github.com/linuxsuren/atest-ext-ai/pkg/logging"
 )
@@ -50,6 +51,12 @@ var (
 	ErrInvalidConfig = errors.New("invalid configuration")
 )
 
+// ProviderConfigInfo captures metadata about a provider's requirements.
+type ProviderConfigInfo struct {
+	RequiresAPIKey bool   `json:"requires_api_key"`
+	ProviderType   string `json:"provider_type"`
+}
+
 // ProviderInfo represents information about an AI provider
 type ProviderInfo struct {
 	Name        string                   `json:"name"`
@@ -58,7 +65,7 @@ type ProviderInfo struct {
 	Endpoint    string                   `json:"endpoint"`
 	Models      []interfaces.ModelInfo   `json:"models"`
 	LastChecked time.Time                `json:"last_checked"`
-	Config      map[string]interface{}   `json:"config,omitempty"`
+	Config      ProviderConfigInfo       `json:"config"`
 	Health      *interfaces.HealthStatus `json:"health,omitempty"`
 }
 
@@ -90,7 +97,7 @@ type Manager struct {
 // NewAIManager creates a new unified AI manager.
 func NewAIManager(cfg config.AIConfig) (*Manager, error) {
 	// The GUI drives provider configuration, so we only consume data from cfg.
-	endpoint := discovery.DefaultOllamaEndpoint
+	endpoint := constants.DefaultOllamaEndpoint
 	if ollamaSvc, ok := cfg.Services["ollama"]; ok {
 		if ep := strings.TrimSpace(ollamaSvc.Endpoint); ep != "" {
 			endpoint = ep
@@ -359,6 +366,10 @@ func (m *Manager) DiscoverProviders(ctx context.Context) ([]*ProviderInfo, error
 				Endpoint:    endpoint,
 				Models:      models,
 				LastChecked: time.Now(),
+				Config: ProviderConfigInfo{
+					ProviderType:   "local",
+					RequiresAPIKey: false,
+				},
 			}
 
 			providers = append(providers, provider)
@@ -584,7 +595,7 @@ func createOllamaClient(cfg config.AIService) (interfaces.AIClient, error) {
 
 	// Default endpoint
 	if config.Endpoint == "" {
-		config.Endpoint = "http://localhost:11434"
+		config.Endpoint = constants.DefaultOllamaEndpoint
 	}
 
 	return universal.NewUniversalClient(config)
@@ -629,9 +640,9 @@ func (m *Manager) getOnlineProviders() []*ProviderInfo {
 			Endpoint:    entry.Endpoint,
 			Models:      entry.Models,
 			LastChecked: time.Now(),
-			Config: map[string]interface{}{
-				"requires_api_key": entry.RequiresAPIKey,
-				"provider_type":    providerType,
+			Config: ProviderConfigInfo{
+				RequiresAPIKey: entry.RequiresAPIKey,
+				ProviderType:   providerType,
 			},
 		})
 	}

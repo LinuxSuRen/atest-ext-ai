@@ -19,11 +19,9 @@ package discovery
 import (
 	"context"
 	"net/http"
-	"time"
-)
 
-// DefaultOllamaEndpoint is used when GUI configuration does not provide an endpoint.
-const DefaultOllamaEndpoint = "http://localhost:11434"
+	"github.com/linuxsuren/atest-ext-ai/pkg/constants"
+)
 
 // OllamaDiscovery handles Ollama service discovery
 // It only checks if Ollama is available, not model management.
@@ -36,13 +34,13 @@ type OllamaDiscovery struct {
 // NewOllamaDiscovery creates a new Ollama discovery instance
 func NewOllamaDiscovery(baseURL string) *OllamaDiscovery {
 	if baseURL == "" {
-		baseURL = DefaultOllamaEndpoint
+		baseURL = constants.DefaultOllamaEndpoint
 	}
 
 	return &OllamaDiscovery{
 		baseURL: baseURL,
 		httpClient: &http.Client{
-			Timeout: 5 * time.Second,
+			Timeout: constants.Timeouts.Discovery,
 		},
 	}
 }

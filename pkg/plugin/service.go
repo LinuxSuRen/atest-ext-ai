@@ -229,30 +229,12 @@ func (s *AIPluginService) defaultDatabaseType() string {
 	return "mysql"
 }
 
-func extractDatabaseTypeFromMap(values map[string]any) string {
-	if values == nil {
-		return ""
-	}
-
-	keys := []string{"database_type", "databaseDialect", "database_dialect", "dialect"}
-	for _, key := range keys {
-		if raw, ok := values[key]; ok {
-			if str, ok := raw.(string); ok {
-				if normalized := normalizeDatabaseType(str); normalized != "" {
-					return normalized
-				}
-			}
-		}
-	}
-	return ""
-}
-
-func (s *AIPluginService) resolveDatabaseType(explicit string, configMap map[string]any) string {
+func (s *AIPluginService) resolveDatabaseType(explicit string, overrides GenerationConfigOverrides) string {
 	if normalized := normalizeDatabaseType(explicit); normalized != "" {
 		return normalized
 	}
 
-	if fromConfig := extractDatabaseTypeFromMap(configMap); fromConfig != "" {
+	if fromConfig := overrides.preferredDatabaseType(); fromConfig != "" {
 		return fromConfig
 	}
 
@@ -703,6 +685,45 @@ var (
 	MinCompatibleAPITestingVersion = GRPCInterfaceVersion
 )
 
+// GenerationMetadata describes metadata returned with AI generation responses.
+type GenerationMetadata struct {
+	Confidence float32 `json:"confidence"`
+	Model      string  `json:"model,omitempty"`
+	Dialect    string  `json:"dialect"`
+}
+
+// CapabilitySummary is returned when the capability detector is unavailable.
+type CapabilitySummary struct {
+	PluginReady   bool   `json:"plugin_ready"`
+	AIAvailable   bool   `json:"ai_available"`
+	DegradedMode  bool   `json:"degraded_mode"`
+	PluginVersion string `json:"plugin_version"`
+	APIVersion    string `json:"api_version"`
+}
+
+// GenerationConfigOverrides captures optional generation configuration overrides.
+type GenerationConfigOverrides struct {
+	DatabaseTypePrimary string `json:"database_type"`
+	DatabaseDialect     string `json:"databaseDialect"`
+	DatabaseDialectAlt  string `json:"database_dialect"`
+	Dialect             string `json:"dialect"`
+}
+
+func (g GenerationConfigOverrides) preferredDatabaseType() string {
+	candidates := []string{
+		g.DatabaseTypePrimary,
+		g.DatabaseDialect,
+		g.DatabaseDialectAlt,
+		g.Dialect,
+	}
+	for _, candidate := range candidates {
+		if normalized := normalizeDatabaseType(candidate); normalized != "" {
+			return normalized
+		}
+	}
+	return ""
+}
+
 // handleAIGenerate handles ai.generate calls
 func (s *AIPluginService) handleAIGenerate(ctx context.Context, req *server.DataQuery) (*server.DataQueryResult, error) {
 	start := time.Now()
@@ -732,9 +753,9 @@ func (s *AIPluginService) handleAIGenerate(ctx context.Context, req *server.Data
 	}
 
 	// Parse optional config
-	var configMap map[string]interface{}
+	var generationOverrides GenerationConfigOverrides
 	if params.Config != "" {
-		if err := json.Unmarshal([]byte(params.Config), &configMap); err != nil {
+		if err := json.Unmarshal([]byte(params.Config), &generationOverrides); err != nil {
 			logging.Logger.Warn("Failed to parse config JSON", "error", err)
 		}
 	}
@@ -757,7 +778,7 @@ func (s *AIPluginService) handleAIGenerate(ctx context.Context, req *server.Data
 	}
 
 	// Get database type from configuration, fallback to mysql if not configured
-	databaseType := s.resolveDatabaseType(params.DatabaseType, configMap)
+	databaseType := s.resolveDatabaseType(params.DatabaseType, generationOverrides)
 	context["database_type"] = databaseType
 
 	sqlResult, err := s.aiEngine.GenerateSQL(ctx, &ai.GenerateSQLRequest{
@@ -790,12 +811,12 @@ func (s *AIPluginService) handleAIGenerate(ctx context.Context, req *server.Data
 	simpleFormat := fmt.Sprintf("sql:%s\nexplanation:%s", sqlResult.SQL, sqlResult.Explanation)
 
 	// Build minimal meta information for UI display
-	metaData := map[string]interface{}{
-		"confidence": sqlResult.ConfidenceScore,
-		"model":      sqlResult.ModelUsed,
-		"dialect":    databaseType,
+	meta := GenerationMetadata{
+		Confidence: sqlResult.ConfidenceScore,
+		Model:      sqlResult.ModelUsed,
+		Dialect:    databaseType,
 	}
-	metaJSON, err := json.Marshal(metaData)
+	metaJSON, err := json.Marshal(meta)
 	if err != nil {
 		metaJSON = []byte(fmt.Sprintf(`{"confidence": %f, "model": "%s"}`,
 			sqlResult.ConfidenceScore, sqlResult.ModelUsed))
@@ -851,14 +872,14 @@ func (s *AIPluginService) handleAICapabilities(ctx context.Context, req *server.
 	if s.capabilityDetector == nil {
 		logging.Logger.Warn("Capability detector not available - returning minimal capabilities")
 		// Return minimal capabilities when detector is not available
-		minimalCaps := map[string]interface{}{
-			"plugin_ready":   true,
-			"ai_available":   false,
-			"degraded_mode":  true,
-			"plugin_version": PluginVersion,
-			"api_version":    APIVersion,
+		fallback := CapabilitySummary{
+			PluginReady:   true,
+			AIAvailable:   false,
+			DegradedMode:  true,
+			PluginVersion: PluginVersion,
+			APIVersion:    APIVersion,
 		}
-		capsJSON, _ := json.Marshal(minimalCaps)
+		capsJSON, _ := json.Marshal(fallback)
 		return &server.DataQueryResult{
 			Data: []*server.Pair{
 				{Key: "api_version", Value: APIVersion},
@@ -1102,12 +1123,12 @@ func (s *AIPluginService) handleLegacyQuery(ctx context.Context, req *server.Dat
 	simpleFormat := fmt.Sprintf("sql:%s\nexplanation:%s", sqlResult.SQL, sqlResult.Explanation)
 
 	// Build minimal meta information for UI display
-	metaData := map[string]interface{}{
-		"confidence": sqlResult.ConfidenceScore,
-		"model":      sqlResult.ModelUsed,
-		"dialect":    databaseType,
+	meta := GenerationMetadata{
+		Confidence: sqlResult.ConfidenceScore,
+		Model:      sqlResult.ModelUsed,
+		Dialect:    databaseType,
 	}
-	metaJSON, err := json.Marshal(metaData)
+	metaJSON, err := json.Marshal(meta)
 	if err != nil {
 		metaJSON = []byte(fmt.Sprintf(`{"confidence": %f, "model": "%s"}`,
 			sqlResult.ConfidenceScore, sqlResult.ModelUsed))

@@ -400,19 +400,19 @@ func TestResolveDatabaseType(t *testing.T) {
 	}
 
 	t.Run("uses explicit value when provided", func(t *testing.T) {
-		assert.Equal(t, "mysql", svc.resolveDatabaseType("mysql", nil))
+		assert.Equal(t, "mysql", svc.resolveDatabaseType("mysql", GenerationConfigOverrides{}))
 	})
 
 	t.Run("normalizes postgres aliases", func(t *testing.T) {
-		assert.Equal(t, "postgresql", svc.resolveDatabaseType("pg", nil))
+		assert.Equal(t, "postgresql", svc.resolveDatabaseType("pg", GenerationConfigOverrides{}))
 	})
 
 	t.Run("falls back to config default", func(t *testing.T) {
-		assert.Equal(t, "postgresql", svc.resolveDatabaseType("", nil))
+		assert.Equal(t, "postgresql", svc.resolveDatabaseType("", GenerationConfigOverrides{}))
 	})
 
 	t.Run("uses config map overrides", func(t *testing.T) {
-		configMap := map[string]any{"database_dialect": "sqlite3"}
-		assert.Equal(t, "sqlite", svc.resolveDatabaseType("", configMap))
+		overrides := GenerationConfigOverrides{DatabaseDialectAlt: "sqlite3"}
+		assert.Equal(t, "sqlite", svc.resolveDatabaseType("", overrides))
 	})
 }
