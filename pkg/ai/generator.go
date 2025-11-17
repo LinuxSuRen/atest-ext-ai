@@ -30,6 +30,7 @@ import (
 	"github.com/linuxsuren/atest-ext-ai/pkg/ai/models"
 	"github.com/linuxsuren/atest-ext-ai/pkg/ai/providers/universal"
 	"github.com/linuxsuren/atest-ext-ai/pkg/config"
+	"github.com/linuxsuren/atest-ext-ai/pkg/constants"
 	"github.com/linuxsuren/atest-ext-ai/pkg/interfaces"
 	"github.com/linuxsuren/atest-ext-ai/pkg/logging"
 )
@@ -809,7 +810,7 @@ func createRuntimeClient(provider string, runtimeConfig map[string]any) (interfa
 
 		// Default endpoint for Ollama
 		if config.Endpoint == "" {
-			config.Endpoint = "http://localhost:11434"
+			config.Endpoint = constants.DefaultOllamaEndpoint
 		}
 
 		return universal.NewUniversalClient(config)
