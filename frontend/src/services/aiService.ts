@@ -1,4 +1,4 @@
-import type { AIConfig, Model, QueryRequest, QueryResponse } from '@/types'
+import type { AIConfig, MessageMetadata, Model, QueryRequest, QueryResponse } from '@/types'
 
 const API_BASE = '/api/v1/data/query'
 const API_STORE = 'ai'
@@ -174,8 +174,8 @@ export const aiService = {
         }
       }
 
-      const parsedMeta = safeParseJSON<Record<string, any>>(result.meta)
-      const normalizedMeta = (() => {
+      const parsedMeta = safeParseJSON<MessageMetadata>(result.meta)
+      const normalizedMeta: MessageMetadata = (() => {
         if (parsedMeta && typeof parsedMeta === 'object') {
           return {
             ...parsedMeta,
@@ -261,7 +261,7 @@ function formatTimeout(timeout: number | undefined): string {
  * is designed for database queries and transforms the request format.
  * The AI plugin expects: {type: 'ai', key: 'operation', sql: 'params_json'}
  */
-async function callAPI<T>(key: string, data: any, options: { apiKey?: string } = {}): Promise<T> {
+async function callAPI<T>(key: string, data: Record<string, unknown>, options: { apiKey?: string } = {}): Promise<T> {
   const requestBody = {
     type: 'ai',
     key,
@@ -308,7 +308,9 @@ async function callAPI<T>(key: string, data: any, options: { apiKey?: string } =
       throw new Error(`API error: ${response.status} ${response.statusText} - ${errorText}`)
     }
 
-    const result = await response.json()
+    const result = await response.json() as {
+      data?: Array<{ key: string; value: string }>
+    } & Record<string, unknown>
     console.log('📦 [callAPI] Parsed JSON result', {
       hasData: !!result.data,
       dataLength: result.data?.length || 0,
@@ -316,11 +318,12 @@ async function callAPI<T>(key: string, data: any, options: { apiKey?: string } =
     })
 
     // Parse key-value pair format from backend
-    const parsed: any = {}
+    const parsed: Record<string, unknown> = {}
     if (result.data) {
       for (const pair of result.data) {
         try {
-          parsed[pair.key] = JSON.parse(pair.value)
+          const parsedValue: unknown = JSON.parse(pair.value)
+          parsed[pair.key] = parsedValue
         } catch {
           parsed[pair.key] = pair.value
         }

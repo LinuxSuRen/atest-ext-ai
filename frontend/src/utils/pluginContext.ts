@@ -1,5 +1,5 @@
 import { ref, computed, type Ref } from 'vue'
-import type { AppContext } from '@/types'
+import type { AppContext, APIClient, APIRequestOptions, CacheManager } from '@/types'
 import { createTranslator, normalizeLocale } from './i18n'
 
 function detectBrowserLocale(): string {
@@ -13,6 +13,25 @@ export interface PluginContextBridge {
   context: AppContext
   setLocale: (locale: string) => void
   locale: Ref<string>
+}
+
+const fallbackAPIClient: APIClient = {
+  async request(_options: APIRequestOptions) {
+    throw new Error('[PluginContext] API client is not provided by host application')
+  }
+}
+
+const fallbackCacheManager: CacheManager = {
+  get<T>() {
+    return undefined as T | undefined
+  },
+  set<T>(_key: string, _value: T, _ttlMs?: number) {
+    // noop fallback until host injects Cache implementation
+  },
+  remove(_key: string) {
+  },
+  clear() {
+  }
 }
 
 export function createPluginContextBridge(provided?: AppContext): PluginContextBridge {
@@ -35,8 +54,8 @@ export function createPluginContextBridge(provided?: AppContext): PluginContextB
       locale: localeRef,
       t: (key: string) => translator.value(key)
     },
-    API: provided?.API ?? {},
-    Cache: provided?.Cache ?? {}
+    API: provided?.API ?? fallbackAPIClient,
+    Cache: provided?.Cache ?? fallbackCacheManager
   }
 
   const setLocale = (locale: string) => {
