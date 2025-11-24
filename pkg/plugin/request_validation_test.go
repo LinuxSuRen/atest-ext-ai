@@ -13,14 +13,14 @@ func TestValidatePromptLimit(t *testing.T) {
 	}
 }
 
-func TestValidateDatabaseNameLimit(t *testing.T) {
-	validator := InputValidator{MaxDatabaseName: 4}
+func TestValidateDatabaseTypeLimit(t *testing.T) {
+	validator := InputValidator{MaxDatabaseType: 4}
 
-	if err := validator.ValidateDatabaseName("pg"); err != nil {
-		t.Fatalf("expected short name to pass: %v", err)
+	if err := validator.ValidateDatabaseType("pg"); err != nil {
+		t.Fatalf("expected short type to pass: %v", err)
 	}
-	if err := validator.ValidateDatabaseName("postgresql"); err == nil {
-		t.Fatalf("expected database name length error")
+	if err := validator.ValidateDatabaseType("postgresql"); err == nil {
+		t.Fatalf("expected database type length error")
 	}
 }
 

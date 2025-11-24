@@ -10,14 +10,14 @@ import (
 const (
 	defaultMaxPromptChars  = 4000
 	defaultMaxContextBytes = 16 * 1024
-	defaultMaxDatabaseName = 64
+	defaultMaxDatabaseType = 64
 )
 
 // InputValidator enforces limits on incoming AI generation requests.
 type InputValidator struct {
 	MaxPromptChars  int
 	MaxContextBytes int
-	MaxDatabaseName int
+	MaxDatabaseType int
 }
 
 // DefaultInputValidator returns an InputValidator with sane defaults.
@@ -25,7 +25,7 @@ func DefaultInputValidator() InputValidator {
 	return InputValidator{
 		MaxPromptChars:  defaultMaxPromptChars,
 		MaxContextBytes: defaultMaxContextBytes,
-		MaxDatabaseName: defaultMaxDatabaseName,
+		MaxDatabaseType: defaultMaxDatabaseType,
 	}
 }
 
@@ -41,14 +41,14 @@ func (v InputValidator) ValidatePrompt(prompt string) error {
 	return nil
 }
 
-// ValidateDatabaseName ensures database identifiers remain within limits.
-func (v InputValidator) ValidateDatabaseName(name string) error {
-	if name == "" || v.MaxDatabaseName <= 0 {
+// ValidateDatabaseType ensures database type identifiers remain within limits.
+func (v InputValidator) ValidateDatabaseType(databaseType string) error {
+	if databaseType == "" || v.MaxDatabaseType <= 0 {
 		return nil
 	}
-	length := utf8.RuneCountInString(name)
-	if length > v.MaxDatabaseName {
-		return fmt.Errorf("database name exceeds maximum length of %d characters", v.MaxDatabaseName)
+	length := utf8.RuneCountInString(databaseType)
+	if length > v.MaxDatabaseType {
+		return fmt.Errorf("database type exceeds maximum length of %d characters", v.MaxDatabaseType)
 	}
 	return nil
 }

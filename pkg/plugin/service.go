@@ -767,7 +767,7 @@ func (s *AIPluginService) handleAIGenerate(ctx context.Context, req *server.Data
 	if err := s.inputValidator.ValidatePrompt(params.Prompt); err != nil {
 		return nil, apperrors.ToGRPCErrorf(apperrors.ErrInvalidRequest, err.Error())
 	}
-	if err := s.inputValidator.ValidateDatabaseName(params.DatabaseType); err != nil {
+	if err := s.inputValidator.ValidateDatabaseType(params.DatabaseType); err != nil {
 		return nil, apperrors.ToGRPCErrorf(apperrors.ErrInvalidRequest, err.Error())
 	}
 	if endpoint := generationOverrides.Endpoint; endpoint != "" {
@@ -795,7 +795,7 @@ func (s *AIPluginService) handleAIGenerate(ctx context.Context, req *server.Data
 
 	// Get database type from configuration, fallback to mysql if not configured
 	databaseType := s.resolveDatabaseType(params.DatabaseType, generationOverrides)
-	if err := s.inputValidator.ValidateDatabaseName(databaseType); err != nil {
+	if err := s.inputValidator.ValidateDatabaseType(databaseType); err != nil {
 		return nil, apperrors.ToGRPCErrorf(apperrors.ErrInvalidRequest, err.Error())
 	}
 	context["database_type"] = databaseType
@@ -1125,7 +1125,7 @@ func (s *AIPluginService) handleLegacyQuery(ctx context.Context, req *server.Dat
 
 	// Get database type from configuration, fallback to mysql if not configured
 	databaseType := s.defaultDatabaseType()
-	if err := s.inputValidator.ValidateDatabaseName(databaseType); err != nil {
+	if err := s.inputValidator.ValidateDatabaseType(databaseType); err != nil {
 		return nil, status.Errorf(codes.InvalidArgument, "%v", err)
 	}
 	contextMap["database_type"] = databaseType
