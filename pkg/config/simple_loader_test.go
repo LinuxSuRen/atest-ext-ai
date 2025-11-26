@@ -74,8 +74,10 @@ ai:
     openai:
       enabled: true
       provider: "openai"
+      endpoint: "https://api.openai.com/v1"
       api_key: "test-key"
       model: "gpt-4"
+      timeout: "30s"
       max_tokens: 8192
       priority: 1
 `
@@ -141,86 +143,6 @@ func TestLoadConfigWithEnvOverrides(t *testing.T) {
 	// Verify AI default service is still 'ollama' (default, since we didn't override it)
 	if cfg.AI.DefaultService != "ollama" {
 		t.Errorf("Expected default service 'ollama', got '%s'", cfg.AI.DefaultService)
-	}
-}
-
-func TestValidateConfigErrors(t *testing.T) {
-	tests := []struct {
-		name        string
-		modifyFunc  func(*Config)
-		shouldError bool
-	}{
-		{
-			name: "valid config",
-			modifyFunc: func(_ *Config) {
-				// No modifications, default config should be valid
-			},
-			shouldError: false,
-		},
-		{
-			name: "invalid port - too low",
-			modifyFunc: func(cfg *Config) {
-				cfg.Server.Port = 0
-			},
-			shouldError: true,
-		},
-		{
-			name: "invalid port - too high",
-			modifyFunc: func(cfg *Config) {
-				cfg.Server.Port = 70000
-			},
-			shouldError: true,
-		},
-		{
-			name: "empty host",
-			modifyFunc: func(cfg *Config) {
-				cfg.Server.Host = ""
-			},
-			shouldError: false,
-		},
-		{
-			name: "empty default service",
-			modifyFunc: func(cfg *Config) {
-				cfg.AI.DefaultService = ""
-			},
-			shouldError: false,
-		},
-		{
-			name: "default service not in services",
-			modifyFunc: func(cfg *Config) {
-				cfg.AI.DefaultService = "nonexistent"
-			},
-			shouldError: false,
-		},
-		{
-			name: "invalid log level",
-			modifyFunc: func(cfg *Config) {
-				cfg.Plugin.LogLevel = "invalid"
-			},
-			shouldError: false,
-		},
-		{
-			name: "invalid environment",
-			modifyFunc: func(cfg *Config) {
-				cfg.Plugin.Environment = "invalid"
-			},
-			shouldError: false,
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			cfg := defaultConfig()
-			tt.modifyFunc(cfg)
-
-			err := validateConfig(cfg)
-			if tt.shouldError && err == nil {
-				t.Errorf("Expected validation error but got nil")
-			}
-			if !tt.shouldError && err != nil {
-				t.Errorf("Expected no validation error but got: %v", err)
-			}
-		})
 	}
 }
 
@@ -308,29 +230,6 @@ server:
 	_, err = loadYAMLFile(nonexistentFile)
 	if err == nil {
 		t.Error("Expected error for nonexistent file, got nil")
-	}
-}
-
-func TestContainsFunction(t *testing.T) {
-	tests := []struct {
-		name     string
-		slice    []string
-		item     string
-		expected bool
-	}{
-		{"found in slice", []string{"a", "b", "c"}, "b", true},
-		{"not found in slice", []string{"a", "b", "c"}, "d", false},
-		{"case insensitive match", []string{"Debug", "Info"}, "debug", true},
-		{"empty slice", []string{}, "a", false},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			result := contains(tt.slice, tt.item)
-			if result != tt.expected {
-				t.Errorf("contains(%v, %s) = %v, expected %v", tt.slice, tt.item, result, tt.expected)
-			}
-		})
 	}
 }
 

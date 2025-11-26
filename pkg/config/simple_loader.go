@@ -393,84 +393,14 @@ func applyDefaults(cfg *Config) {
 // validateConfig validates the configuration with relaxed rules
 // Only critical configuration errors cause failure - the plugin can start with minimal config
 func validateConfig(cfg *Config) error {
-	var errors []string
+	result := cfg.Validate()
 
-	// Critical validations only - allow minimal configuration to work
-
-	// Validate server port is in valid range (but allow defaults to work)
-	if cfg.Server.Port < 1 || cfg.Server.Port > 65535 {
-		errors = append(errors, fmt.Sprintf("invalid server port: %d (must be 1-65535)", cfg.Server.Port))
+	for _, warning := range result.Warnings {
+		fmt.Fprintf(os.Stderr, "Configuration warning: %s\n", warning.Error())
 	}
 
-	// Note: Other server fields have defaults, no validation needed
-
-	// Plugin configuration has defaults, no validation needed
-
-	// AI configuration - only validate if services are configured
-	if len(cfg.AI.Services) > 0 {
-		validProviders := []string{"ollama", "openai", "claude", "deepseek", "local", "custom"}
-		for name, svc := range cfg.AI.Services {
-			if !svc.Enabled {
-				continue
-			}
-
-			// Validate provider is recognized (but allow unknown providers to pass through)
-			if svc.Provider != "" && !contains(validProviders, svc.Provider) {
-				// Warning only - don't fail
-				fmt.Fprintf(os.Stderr, "Warning: service '%s' has unknown provider '%s' (known: %s)\n",
-					name, svc.Provider, strings.Join(validProviders, ", "))
-			}
-
-			// API key validation is now a warning, not an error (graceful degradation)
-			if svc.Provider == "openai" || svc.Provider == "claude" || svc.Provider == "deepseek" {
-				if svc.APIKey == "" {
-					fmt.Fprintf(os.Stderr, "Warning: service '%s' (provider '%s') has no API key configured - it may not work\n",
-						name, svc.Provider)
-				}
-			}
-
-			// MaxTokens validation relaxed - only check if set to unreasonable values
-			if svc.MaxTokens < 0 || svc.MaxTokens > 1000000 {
-				fmt.Fprintf(os.Stderr, "Warning: service '%s' has unusual max_tokens value: %d\n", name, svc.MaxTokens)
-			}
-		}
-	}
-
-	// Retry configuration - relax validation
-	if cfg.AI.Retry.MaxAttempts > 100 {
-		fmt.Fprintf(os.Stderr, "Warning: AI retry max_attempts is very high: %d\n", cfg.AI.Retry.MaxAttempts)
-	}
-
-	// Database configuration - only validate if enabled
-	if cfg.Database.Enabled {
-		validDrivers := []string{"sqlite", "mysql", "postgresql"}
-		if cfg.Database.Driver != "" && !contains(validDrivers, cfg.Database.Driver) {
-			errors = append(errors, fmt.Sprintf("invalid database driver: %s (must be one of: %s)",
-				cfg.Database.Driver, strings.Join(validDrivers, ", ")))
-		}
-		if cfg.Database.DSN == "" {
-			errors = append(errors, "database DSN cannot be empty when database is enabled")
-		}
-	}
-
-	// Logging configuration validation - warnings only
-	validFormats := []string{"json", "text"}
-	if cfg.Logging.Format != "" && !contains(validFormats, cfg.Logging.Format) {
-		fmt.Fprintf(os.Stderr, "Warning: unknown logging format '%s' (known: %s), will use default\n",
-			cfg.Logging.Format, strings.Join(validFormats, ", "))
-		cfg.Logging.Format = "json" // Fix it instead of failing
-	}
-	validOutputs := []string{"stdout", "stderr", "file"}
-	if cfg.Logging.Output != "" && !contains(validOutputs, cfg.Logging.Output) {
-		fmt.Fprintf(os.Stderr, "Warning: unknown logging output '%s' (known: %s), will use default\n",
-			cfg.Logging.Output, strings.Join(validOutputs, ", "))
-		cfg.Logging.Output = "stdout" // Fix it instead of failing
-	}
-
-	// Only fail if there are critical errors
-	if len(errors) > 0 {
-		return fmt.Errorf("configuration validation failed (critical errors only):\n  - %s",
-			strings.Join(errors, "\n  - "))
+	if err := result.Error(); err != nil {
+		return err
 	}
 
 	return nil
@@ -547,14 +477,4 @@ func defaultConfig() *Config {
 			},
 		},
 	}
-}
-
-// contains checks if a string slice contains a specific string (case-insensitive)
-func contains(slice []string, item string) bool {
-	for _, s := range slice {
-		if strings.EqualFold(s, item) {
-			return true
-		}
-	}
-	return false
 }
