@@ -28,6 +28,7 @@ import (
 	"time"
 
 	"github.com/linuxsuren/atest-ext-ai/pkg/constants"
+	"github.com/linuxsuren/atest-ext-ai/pkg/logging"
 	"gopkg.in/yaml.v2"
 )
 
@@ -73,21 +74,17 @@ func loadConfigFile() (*Config, error) {
 		attemptedPaths = append(attemptedPaths, path)
 		cfg, err := loadYAMLFile(path)
 		if err == nil {
-			fmt.Fprintf(os.Stderr, "Configuration loaded from: %s\n", path)
+			logging.Logger.Info("Configuration file loaded", "path", path)
 			return cfg, nil
 		}
 		lastErr = err
 	}
 
-	// Log all attempted paths for troubleshooting
-	fmt.Fprintf(os.Stderr, "Warning: No configuration file found. Attempted paths:\n")
-	for i, path := range attemptedPaths {
-		fmt.Fprintf(os.Stderr, "  %d. %s\n", i+1, path)
-	}
-	fmt.Fprintf(os.Stderr, "Using default configuration. Last error: %v\n", lastErr)
-	fmt.Fprintf(os.Stderr, "To customize: Create config.yaml in current directory or ~/.config/atest/\n")
+	logging.Logger.Warn("No configuration file found; falling back to defaults",
+		"attempted_paths", strings.Join(attemptedPaths, ", "),
+		"last_error", lastErr)
 
-	return nil, fmt.Errorf("no config file found (tried %d paths): %w", len(attemptedPaths), lastErr)
+	return nil, fmt.Errorf("%w: tried %d paths: %w", ErrConfigNotFound, len(attemptedPaths), lastErr)
 }
 
 // loadYAMLFile loads configuration from a YAML file
